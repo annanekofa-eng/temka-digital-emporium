@@ -4507,13 +4507,20 @@ async function handleAdmCallback(
     let failed = 0;
     for (const tgId of recipients) {
       try {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: tgId, text: message, parse_mode: "HTML" }),
         });
-        sent++;
-      } catch {
+        const result = await res.json();
+        if (result?.ok) {
+          sent++;
+        } else {
+          console.error(`broadcast failed for ${tgId}:`, result?.description);
+          failed++;
+        }
+      } catch (e) {
+        console.error(`broadcast error for ${tgId}:`, (e as Error).message);
         failed++;
       }
     }
