@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { Flag } from 'lucide-react';
+import { APP_URL } from '@/config/app';
 
 const Footer = () => {
   const { shopName, basePath, botUsername } = useStorefront();
