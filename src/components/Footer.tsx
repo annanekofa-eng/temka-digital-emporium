@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { Flag } from 'lucide-react';
+import { APP_URL } from '@/config/app';
 
 const Footer = () => {
   const { shopName, basePath, botUsername } = useStorefront();
@@ -11,7 +12,7 @@ const Footer = () => {
 
   const shopIdentifier = botUsername
     ? `@${botUsername}`
-    : `${window.location.origin}${basePath}`;
+    : `${APP_URL}${basePath}`;
 
   const reportText = encodeURIComponent(
     `Здравствуйте. Магазин «${displayName}» (${shopIdentifier}) нарушает правила платформы.\nПрошу проверить.\nВ следующем сообщении опишу причину нарушения.`
