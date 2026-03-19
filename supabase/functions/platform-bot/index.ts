@@ -4479,7 +4479,7 @@ async function handleAdmCallback(
     return tg.edit(
       chatId,
       msgId,
-      `📢 Рассылка <b>${label}</b>\n\nВведите текст сообщения (поддерживается HTML):`,
+      `📢 Рассылка <b>${label}</b>\n\nОтправьте текст сообщения (поддерживается HTML).\n\n📷 Можно отправить фото с подписью — оно будет включено в рассылку.`,
       ikb([[btn("❌ Отмена", "adm:broadcast")]]),
     );
   }
