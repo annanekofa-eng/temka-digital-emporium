@@ -1354,6 +1354,8 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       ikb([[btn("🏪 Мои магазины", "p:myshops:0")], [btn("◀️ Меню", "p:home")]]),
     );
   }
+  const isFirstShop = (existingShops || 0) === 0;
+
   // ─── Bot token reuse check for free/trial users ───
   if (sData.bot_id) {
     const { data: existingShopWithBot } = await db()
@@ -1412,12 +1414,8 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     user.subscription_status === "active" &&
     user.subscription_expires_at &&
     new Date(user.subscription_expires_at) > new Date();
-  const willGetTrial =
-    !isAlreadyActive &&
-    ss.trial_enabled &&
-    ss.auto_trial_on_shop_create &&
-    (!ss.one_trial_per_user || !user.has_used_trial);
-  const shopStatus = (isAlreadyActive || willGetTrial) ? "active" : "paused";
+  const willGetTrial = !isAlreadyActive && isFirstShop && ss.trial_enabled && ss.auto_trial_on_shop_create;
+  const shopStatus = isAlreadyActive || willGetTrial ? "active" : "paused";
 
   const { data: shop, error } = await db()
     .from("shops")
@@ -1456,7 +1454,7 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
   } else if (sData.bot_token && sData.bot_valid && shopStatus === "paused") {
     botStatusMsg = `\n\n🤖 Бот @${botUsername} сохранён. Webhook будет активирован после оформления подписки.`;
   }
-  // ─── Activate trial if enabled and not used ───
+  // ─── Activate trial for the first created shop ───
   // Don't replace an already active/paid subscription with trial
   let trialMsg = "";
   if (isAlreadyActive) {
@@ -1471,7 +1469,7 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       })
       .eq("telegram_id", chatId);
     trialMsg = "";
-  } else if (ss.trial_enabled && ss.auto_trial_on_shop_create && (!ss.one_trial_per_user || !user.has_used_trial)) {
+  } else if (willGetTrial) {
     const trialExpiresAt = new Date(Date.now() + ss.trial_days * 24 * 60 * 60 * 1000).toISOString();
     await db()
       .from("platform_users")
@@ -1489,27 +1487,23 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       })
       .eq("telegram_id", chatId);
     trialMsg = `\n\n🆓 <b>Пробный период активирован!</b>\n⏳ ${ss.trial_days} дней бесплатного использования\n📅 До: ${new Date(trialExpiresAt).toLocaleDateString("ru")}\n\n<i>После окончания пробного периода потребуется подписка.</i>`;
-    // Send separate trial notification
     if (ss.trial_started_notify) {
       const trialNotification = `🎉 <b>Ваш пробный период начался!</b>\n\nВам доступен бесплатный пробный период <b>${ss.trial_days} дней</b> на платформе <b>${PLATFORM_NAME}</b>.\n\n📅 Дата окончания: ${new Date(trialExpiresAt).toLocaleDateString("ru")}\n\n✅ В течение пробного периода магазин работает полноценно:\n• Бот принимает заказы\n• Автовыдача активна\n• Все функции доступны\n\n⚠️ После окончания пробного периода для продолжения работы магазина потребуется оформить подписку.`;
       await tg.send(chatId, trialNotification);
     }
-  } else if (!ss.trial_enabled || (ss.one_trial_per_user && user.has_used_trial)) {
-    // Trial is disabled or user already used it — shop stays paused, user must pay
-    if (user.subscription_status !== "active") {
-      const priceInfo = await getSubscriptionPrice(chatId);
-      await db()
-        .from("platform_users")
-        .update({
-          subscription_status: "none",
-          accepted_terms: true,
-          pd_consent_accepted: true,
-          accepted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("telegram_id", chatId);
-      trialMsg = `\n\n⚠️ <b>Магазин создан, но приостановлен</b>\n\nДля запуска магазина необходима подписка.\n💰 Стоимость: $${priceInfo.price}/мес\n\nОформите подписку через меню «💳 Подписка» в профиле.\nПосле оплаты магазин и бот будут активированы автоматически.`;
-    }
+  } else {
+    const priceInfo = await getSubscriptionPrice(chatId);
+    await db()
+      .from("platform_users")
+      .update({
+        subscription_status: "none",
+        accepted_terms: true,
+        pd_consent_accepted: true,
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("telegram_id", chatId);
+    trialMsg = `\n\n⚠️ <b>Магазин создан, но приостановлен</b>\n\nДля запуска магазина необходима подписка.\n💰 Стоимость: $${priceInfo.price}/мес\n\nОформите подписку через меню «💳 Подписка» в профиле.\nПосле оплаты магазин и бот будут активированы автоматически.`;
   }
   // ─── Log legal acceptance ───
   await db().from("admin_logs").insert({
