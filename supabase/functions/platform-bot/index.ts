@@ -4489,6 +4489,7 @@ async function handleAdmCallback(
     const sData = session.data as Record<string, unknown>;
     const target = sData.target as string;
     const message = sData.message as string;
+    const photoFileId = sData.photo_file_id as string | undefined;
     const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
     // Get recipients
     let recipients: number[] = [];
@@ -4507,11 +4508,21 @@ async function handleAdmCallback(
     let failed = 0;
     for (const tgId of recipients) {
       try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: tgId, text: message, parse_mode: "HTML" }),
-        });
+        let res: Response;
+        if (photoFileId) {
+          // Send photo with caption
+          res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgId, photo: photoFileId, caption: message || "", parse_mode: "HTML" }),
+          });
+        } else {
+          res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgId, text: message, parse_mode: "HTML" }),
+          });
+        }
         const result = await res.json();
         if (result?.ok) {
           sent++;
