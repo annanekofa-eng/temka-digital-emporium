@@ -4479,7 +4479,7 @@ async function handleAdmCallback(
     return tg.edit(
       chatId,
       msgId,
-      `📢 Рассылка <b>${label}</b>\n\nВведите текст сообщения (поддерживается HTML):`,
+      `📢 Рассылка <b>${label}</b>\n\nОтправьте текст сообщения (поддерживается HTML).\n\n📷 Можно отправить фото с подписью — оно будет включено в рассылку.`,
       ikb([[btn("❌ Отмена", "adm:broadcast")]]),
     );
   }
@@ -4489,6 +4489,7 @@ async function handleAdmCallback(
     const sData = session.data as Record<string, unknown>;
     const target = sData.target as string;
     const message = sData.message as string;
+    const photoFileId = sData.photo_file_id as string | undefined;
     const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
     // Get recipients
     let recipients: number[] = [];
@@ -4507,11 +4508,21 @@ async function handleAdmCallback(
     let failed = 0;
     for (const tgId of recipients) {
       try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: tgId, text: message, parse_mode: "HTML" }),
-        });
+        let res: Response;
+        if (photoFileId) {
+          // Send photo with caption
+          res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgId, photo: photoFileId, caption: message || "", parse_mode: "HTML" }),
+          });
+        } else {
+          res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: tgId, text: message, parse_mode: "HTML" }),
+          });
+        }
         const result = await res.json();
         if (result?.ok) {
           sent++;
@@ -5923,6 +5934,29 @@ serve(async (req) => {
       const video = msg.video;
       if (photo || video) {
         const session = await getSession(chatId);
+
+        // Handle broadcast photo
+        if (session?.state === "adm_broadcast_text" && photo) {
+          const sData = session.data as Record<string, unknown>;
+          const target = sData.target as string;
+          const caption = msg.caption || "";
+          const photoFileId = photo[photo.length - 1].file_id;
+          // Preview
+          let label = target === "all" ? "всем пользователям" : "владельцам магазинов";
+          let count = 0;
+          if (target === "all") {
+            const { count: c } = await db().from("platform_users").select("id", { count: "exact", head: true });
+            count = c || 0;
+          } else if (target === "owners") {
+            const { data: shops } = await db().from("shops").select("owner_id");
+            count = new Set(shops?.map((s) => s.owner_id) || []).size;
+          }
+          await setSession(chatId, "adm_broadcast_preview", { target, message: caption, photo_file_id: photoFileId });
+          const previewText = `📢 <b>Превью рассылки</b>\n\n<b>Аудитория:</b> ${label}\n<b>Получателей:</b> ${count}\n📷 <b>Фото:</b> прикреплено\n\n<b>Подпись:</b>\n${caption || "<i>без подписи</i>"}\n\n⚠️ Подтвердите отправку:`;
+          await tg.send(chatId, previewText, ikb([[btn("✅ Отправить", "adm:bcastconfirm"), btn("❌ Отмена", "adm:bcastcancel")]]));
+          return new Response("ok");
+        }
+
         if (session?.state === "adm_welc_set_media") {
           const sData = session.data as Record<string, unknown>;
           const mediaType = sData.media_type as string;
