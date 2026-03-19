@@ -1414,7 +1414,7 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     user.subscription_status === "active" &&
     user.subscription_expires_at &&
     new Date(user.subscription_expires_at) > new Date();
-  const willGetTrial = !isAlreadyActive && isFirstShop && ss.trial_enabled && ss.auto_trial_on_shop_create;
+  const willGetTrial = !isAlreadyActive && isFirstShop && !user.has_used_trial && ss.trial_enabled && ss.auto_trial_on_shop_create;
   const shopStatus = isAlreadyActive || willGetTrial ? "active" : "paused";
 
   const { data: shop, error } = await db()
