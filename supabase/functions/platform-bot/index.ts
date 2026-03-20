@@ -746,7 +746,7 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
     photoUrl,
     text,
     ikb([
-      [urlBtn("📚 Подробная информация", "https://t.me/Tele_Store_Robot/landing")],
+      [urlBtn("📚 Подробная информация", "https://tele-store-chi.vercel.app/landing")],
       [btn("🏪 Создать магазин", "p:create")],
       [btn("◀️ Назад", "p:home")],
     ]),
