@@ -107,6 +107,7 @@ const App = () => (
                   <Route path="cart" element={<ShopCart />} />
                   <Route path="checkout" element={<ShopCheckout />} />
                   <Route path="order-success" element={<ShopOrderSuccess />} />
+                  <Route path="order-status" element={<ShopOrderStatus />} />
                   <Route path="account" element={<Account />} />
                   <Route path="faq" element={<FAQ />} />
                   <Route path="about" element={<About />} />
