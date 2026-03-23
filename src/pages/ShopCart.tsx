@@ -11,7 +11,7 @@ const ShopCart = () => {
     cart, updateQuantity, removeFromCart, clearCart, cartTotal, cartCount, products, shop,
     promoCode, setPromoCode, promoResult, promoError, promoLoading, applyPromo, discount, totalAfterDiscount,
   } = useShop();
-  const { user } = useTelegram();
+  const { user, initData } = useTelegram();
   const buildPath = useStorefrontPath();
   const shopId = shop?.id || '';
 
