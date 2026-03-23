@@ -112,6 +112,9 @@ const App = () => (
                   <Route path="faq" element={<FAQ />} />
                   <Route path="about" element={<About />} />
                   <Route path="terms" element={<Legal />} />
+                  <Route path="privacy" element={<Legal />} />
+                  <Route path="refund" element={<Legal />} />
+                  <Route path="disclaimer" element={<Legal />} />
                   <Route path="delivery" element={<Delivery />} />
                   <Route path="guarantees" element={<Guarantees />} />
                   <Route path="*" element={<NotFound />} />
