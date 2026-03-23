@@ -62,8 +62,14 @@ serve(async (req) => {
     }
 
     if (action === "check-promo-usage") {
-      const { telegramId, code, shopId: promoShopId } = body;
-      if (!telegramId || !code) return jsonRes({ count: 0 });
+      if (!initData) return jsonRes({ error: "Authentication required" }, 401);
+      const { code, shopId: promoShopId } = body;
+      if (!code) return jsonRes({ count: 0 });
+      const botToken = await resolveBotToken(supabase, promoShopId);
+      if (!botToken) return jsonRes({ error: "Bot not configured" }, 500);
+      const tgUser = verifyAndExtractUser(initData, botToken);
+      if (!tgUser) return jsonRes({ error: "Invalid authentication" }, 401);
+      const telegramId = tgUser.id;
       if (promoShopId) {
         // Shop-scoped promo usage check
         const { count } = await supabase.from("shop_orders").select("id", { count: "exact", head: true })
