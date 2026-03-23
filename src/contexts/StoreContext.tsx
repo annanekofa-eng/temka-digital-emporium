@@ -105,7 +105,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     : 0;
   const totalAfterDiscount = Math.max(0, cartTotal - discount);
 
-  const applyPromo = useCallback(async (code: string, telegramId?: number) => {
+  const applyPromo = useCallback(async (code: string, telegramId?: number, initData?: string) => {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
     setPromoLoading(true);
