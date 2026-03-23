@@ -19,6 +19,7 @@ const ProductDetails = React.lazy(() => import("./pages/ProductDetails"));
 const Cart = React.lazy(() => import("./pages/Cart"));
 const Checkout = React.lazy(() => import("./pages/Checkout"));
 const OrderSuccess = React.lazy(() => import("./pages/OrderSuccess"));
+const OrderStatus = React.lazy(() => import("./pages/OrderStatus"));
 const OrderFailed = React.lazy(() => import("./pages/OrderFailed"));
 const Account = React.lazy(() => import("./pages/Account"));
 const FAQ = React.lazy(() => import("./pages/FAQ"));
