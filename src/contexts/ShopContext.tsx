@@ -88,7 +88,7 @@ interface ShopContextType {
   promoResult: PromoResult | null;
   promoError: string;
   promoLoading: boolean;
-  applyPromo: (code: string, telegramId?: number) => Promise<void>;
+  applyPromo: (code: string, telegramId?: number, initData?: string) => Promise<void>;
   clearPromo: () => void;
   discount: number;
   totalAfterDiscount: number;
