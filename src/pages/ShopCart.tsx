@@ -103,7 +103,7 @@ const ShopCart = () => {
                   <input type="text" placeholder="Промокод" value={promoCode} onChange={e => { setPromoCode(e.target.value); }}
                     className="w-full h-9 pl-8 pr-3 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 </div>
-                <Button variant="outline" size="sm" onClick={() => applyPromo(promoCode, user?.id)} disabled={promoLoading}>
+                <Button variant="outline" size="sm" onClick={() => applyPromo(promoCode, user?.id, initData)} disabled={promoLoading}>
                   {promoLoading ? '...' : 'Применить'}
                 </Button>
               </div>

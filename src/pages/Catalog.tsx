@@ -28,6 +28,14 @@ const Catalog = () => {
   const [deliveryType, setDeliveryType] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  useEffect(() => {
+    setSearch(searchParam);
+  }, [searchParam]);
+
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+  }, [categoryParam]);
+
   const filtered = useMemo(() => {
     if (!products) return [];
     let result = [...products];

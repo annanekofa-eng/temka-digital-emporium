@@ -125,6 +125,7 @@ const App = () => (
                   <Route path="/cart" element={<Cart />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/order-success" element={<OrderSuccess />} />
+                  <Route path="/order-status" element={<OrderStatus />} />
                   <Route path="/order-failed" element={<OrderFailed />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/faq" element={<FAQ />} />

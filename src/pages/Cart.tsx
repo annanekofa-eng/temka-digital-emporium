@@ -17,7 +17,7 @@ const Cart = () => {
     promoCode, setPromoCode, promoResult, promoError, promoLoading,
     applyPromo, discount, totalAfterDiscount,
   } = useStore();
-  const { user } = useTelegram();
+  const { user, initData } = useTelegram();
   const { data: products } = useProducts();
 
   const recommended = products?.filter(p => !cart.some(c => c.product.id === p.id)).slice(0, 4) || [];
