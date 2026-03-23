@@ -88,10 +88,10 @@ const Checkout = () => {
 
         if (isInTelegram && data?.payUrl) {
           openTelegramLink(data.payUrl);
-          navigate(`${buildPath('/order-success')}?order=${data.orderNumber || orderNumber}`);
+          navigate(`${buildPath('/order-status')}?order=${data.orderNumber || orderNumber}`);
         } else if (data?.payUrl) {
           window.open(data.payUrl, '_blank');
-          navigate(`${buildPath('/order-success')}?order=${data.orderNumber || orderNumber}`);
+          navigate(`${buildPath('/order-status')}?order=${data.orderNumber || orderNumber}`);
         } else {
           throw new Error('Не удалось создать инвойс');
         }

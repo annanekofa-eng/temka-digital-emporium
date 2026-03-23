@@ -62,8 +62,14 @@ serve(async (req) => {
     }
 
     if (action === "check-promo-usage") {
-      const { telegramId, code, shopId: promoShopId } = body;
-      if (!telegramId || !code) return jsonRes({ count: 0 });
+      if (!initData) return jsonRes({ error: "Authentication required" }, 401);
+      const { code, shopId: promoShopId } = body;
+      if (!code) return jsonRes({ count: 0 });
+      const botToken = await resolveBotToken(supabase, promoShopId);
+      if (!botToken) return jsonRes({ error: "Bot not configured" }, 500);
+      const tgUser = verifyAndExtractUser(initData, botToken);
+      if (!tgUser) return jsonRes({ error: "Invalid authentication" }, 401);
+      const telegramId = tgUser.id;
       if (promoShopId) {
         // Shop-scoped promo usage check
         const { count } = await supabase.from("shop_orders").select("id", { count: "exact", head: true })
@@ -259,6 +265,27 @@ serve(async (req) => {
         const { data: orders } = await supabase.from("orders").select("total_amount, status").eq("telegram_id", telegramId);
         const paid = (orders || []).filter((o: any) => ["paid", "processing", "delivered", "completed"].includes(o.status));
         return jsonRes({ stats: { orderCount: (orders || []).length, totalSpent: paid.reduce((s: number, o: any) => s + Number(o.total_amount), 0) } });
+      }
+
+      case "my-review": {
+        if (isShop) {
+          const { data: review } = await supabase
+            .from("shop_reviews")
+            .select("id")
+            .eq("shop_id", shopId)
+            .eq("telegram_id", telegramId)
+            .limit(1)
+            .maybeSingle();
+          return jsonRes({ reviewId: review?.id || null });
+        }
+
+        const { data: review } = await supabase
+          .from("reviews")
+          .select("id")
+          .eq("telegram_id", telegramId)
+          .limit(1)
+          .maybeSingle();
+        return jsonRes({ reviewId: review?.id || null });
       }
 
       case "validate-sub-promo": {

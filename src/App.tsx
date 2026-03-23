@@ -19,6 +19,7 @@ const ProductDetails = React.lazy(() => import("./pages/ProductDetails"));
 const Cart = React.lazy(() => import("./pages/Cart"));
 const Checkout = React.lazy(() => import("./pages/Checkout"));
 const OrderSuccess = React.lazy(() => import("./pages/OrderSuccess"));
+const OrderStatus = React.lazy(() => import("./pages/OrderStatus"));
 const OrderFailed = React.lazy(() => import("./pages/OrderFailed"));
 const Account = React.lazy(() => import("./pages/Account"));
 const FAQ = React.lazy(() => import("./pages/FAQ"));
@@ -42,6 +43,7 @@ const ShopProductDetails = React.lazy(() => import("./pages/ShopProductDetails")
 const ShopCart = React.lazy(() => import("./pages/ShopCart"));
 const ShopCheckout = React.lazy(() => import("./pages/ShopCheckout"));
 const ShopOrderSuccess = React.lazy(() => import("./pages/ShopOrderSuccess"));
+const ShopOrderStatus = React.lazy(() => import("./pages/ShopOrderStatus"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -105,10 +107,14 @@ const App = () => (
                   <Route path="cart" element={<ShopCart />} />
                   <Route path="checkout" element={<ShopCheckout />} />
                   <Route path="order-success" element={<ShopOrderSuccess />} />
+                  <Route path="order-status" element={<ShopOrderStatus />} />
                   <Route path="account" element={<Account />} />
                   <Route path="faq" element={<FAQ />} />
                   <Route path="about" element={<About />} />
                   <Route path="terms" element={<Legal />} />
+                  <Route path="privacy" element={<Legal />} />
+                  <Route path="refund" element={<Legal />} />
+                  <Route path="disclaimer" element={<Legal />} />
                   <Route path="delivery" element={<Delivery />} />
                   <Route path="guarantees" element={<Guarantees />} />
                   <Route path="*" element={<NotFound />} />
@@ -122,6 +128,7 @@ const App = () => (
                   <Route path="/cart" element={<Cart />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/order-success" element={<OrderSuccess />} />
+                  <Route path="/order-status" element={<OrderStatus />} />
                   <Route path="/order-failed" element={<OrderFailed />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/faq" element={<FAQ />} />

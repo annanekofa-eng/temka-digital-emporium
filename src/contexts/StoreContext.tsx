@@ -30,7 +30,7 @@ interface StoreContextType {
   promoResult: PromoResult | null;
   promoError: string;
   promoLoading: boolean;
-  applyPromo: (code: string, telegramId?: number) => Promise<void>;
+  applyPromo: (code: string, telegramId?: number, initData?: string) => Promise<void>;
   clearPromo: () => void;
   discount: number;
   totalAfterDiscount: number;
@@ -105,7 +105,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     : 0;
   const totalAfterDiscount = Math.max(0, cartTotal - discount);
 
-  const applyPromo = useCallback(async (code: string, telegramId?: number) => {
+  const applyPromo = useCallback(async (code: string, telegramId?: number, initData?: string) => {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
     setPromoLoading(true);
@@ -122,7 +122,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Check per-user limit via secure edge function
       if (telegramId && (data as any).max_uses_per_user) {
         const { data: usageData } = await supabase.functions.invoke('get-my-data', {
-          body: { action: 'check-promo-usage', telegramId, code: trimmed },
+          body: { action: 'check-promo-usage', telegramId, code: trimmed, initData },
         });
         const count = usageData?.count || 0;
         if (count >= (data as any).max_uses_per_user) {

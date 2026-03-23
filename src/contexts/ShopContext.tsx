@@ -88,7 +88,7 @@ interface ShopContextType {
   promoResult: PromoResult | null;
   promoError: string;
   promoLoading: boolean;
-  applyPromo: (code: string, telegramId?: number) => Promise<void>;
+  applyPromo: (code: string, telegramId?: number, initData?: string) => Promise<void>;
   clearPromo: () => void;
   discount: number;
   totalAfterDiscount: number;
@@ -274,7 +274,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     : 0;
   const totalAfterDiscount = Math.max(0, cartTotal - discount);
 
-  const applyPromo = useCallback(async (code: string, telegramId?: number) => {
+  const applyPromo = useCallback(async (code: string, telegramId?: number, initData?: string) => {
     if (!shop?.id) return;
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
@@ -297,7 +297,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.max_uses_per_user !== null && telegramId) {
         try {
           const { data: usageRes } = await supabase.functions.invoke('get-my-data', {
-            body: { action: 'check-promo-usage', telegramId, code: trimmed, shopId: shop.id },
+            body: { action: 'check-promo-usage', telegramId, code: trimmed, shopId: shop.id, initData },
           });
           if ((usageRes?.count || 0) >= data.max_uses_per_user) {
             setPromoError('Вы уже использовали этот промокод');

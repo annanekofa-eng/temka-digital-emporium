@@ -73,14 +73,13 @@ const Index = () => {
   const { data: userReviewCheck } = useQuery({
     queryKey: ['user-review-check', user?.id],
     queryFn: async () => {
-      const { data } = await supabase.
-      from('reviews').
-      select('id').
-      eq('telegram_id', user!.id).
-      limit(1);
-      return data && data.length > 0 ? (data[0] as any).id : null;
+      const { data, error } = await supabase.functions.invoke('get-my-data', {
+        body: { initData, action: 'my-review' },
+      });
+      if (error) throw error;
+      return data?.reviewId || null;
     },
-    enabled: !!user?.id
+    enabled: !!user?.id && !!initData
   });
   const userHasReview = !!userReviewCheck;
   const userReviewId = userReviewCheck as string | null;

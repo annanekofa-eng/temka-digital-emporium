@@ -68,15 +68,13 @@ const ShopIndex = () => {
   const { data: userReviewCheck } = useQuery({
     queryKey: ['shop-user-review-check', shop.id, user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('shop_reviews' as any)
-        .select('id')
-        .eq('shop_id', shop.id)
-        .eq('telegram_id', user!.id)
-        .limit(1);
-      return data && data.length > 0 ? (data[0] as any).id : null;
+      const { data, error } = await supabase.functions.invoke('get-my-data', {
+        body: { initData, action: 'my-review', shopId: shop.id },
+      });
+      if (error) throw error;
+      return data?.reviewId || null;
     },
-    enabled: !!user?.id && !!shop.id,
+    enabled: !!user?.id && !!shop.id && !!initData,
   });
   const userHasReview = !!userReviewCheck;
   const userReviewId = userReviewCheck as string | null;
