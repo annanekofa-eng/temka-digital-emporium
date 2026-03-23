@@ -43,6 +43,7 @@ const ShopProductDetails = React.lazy(() => import("./pages/ShopProductDetails")
 const ShopCart = React.lazy(() => import("./pages/ShopCart"));
 const ShopCheckout = React.lazy(() => import("./pages/ShopCheckout"));
 const ShopOrderSuccess = React.lazy(() => import("./pages/ShopOrderSuccess"));
+const ShopOrderStatus = React.lazy(() => import("./pages/ShopOrderStatus"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
