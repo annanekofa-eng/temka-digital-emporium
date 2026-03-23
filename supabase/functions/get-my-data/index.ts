@@ -267,6 +267,27 @@ serve(async (req) => {
         return jsonRes({ stats: { orderCount: (orders || []).length, totalSpent: paid.reduce((s: number, o: any) => s + Number(o.total_amount), 0) } });
       }
 
+      case "my-review": {
+        if (isShop) {
+          const { data: review } = await supabase
+            .from("shop_reviews")
+            .select("id")
+            .eq("shop_id", shopId)
+            .eq("telegram_id", telegramId)
+            .limit(1)
+            .maybeSingle();
+          return jsonRes({ reviewId: review?.id || null });
+        }
+
+        const { data: review } = await supabase
+          .from("reviews")
+          .select("id")
+          .eq("telegram_id", telegramId)
+          .limit(1)
+          .maybeSingle();
+        return jsonRes({ reviewId: review?.id || null });
+      }
+
       case "validate-sub-promo": {
         const { promoCode: pc } = body;
         if (!pc) return jsonRes({ valid: false, error: "Введите промокод" });
