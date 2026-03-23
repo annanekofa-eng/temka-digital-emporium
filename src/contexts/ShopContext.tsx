@@ -297,7 +297,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.max_uses_per_user !== null && telegramId) {
         try {
           const { data: usageRes } = await supabase.functions.invoke('get-my-data', {
-            body: { action: 'check-promo-usage', telegramId, code: trimmed, shopId: shop.id },
+            body: { action: 'check-promo-usage', telegramId, code: trimmed, shopId: shop.id, initData },
           });
           if ((usageRes?.count || 0) >= data.max_uses_per_user) {
             setPromoError('Вы уже использовали этот промокод');

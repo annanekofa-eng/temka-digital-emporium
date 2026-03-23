@@ -122,7 +122,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Check per-user limit via secure edge function
       if (telegramId && (data as any).max_uses_per_user) {
         const { data: usageData } = await supabase.functions.invoke('get-my-data', {
-          body: { action: 'check-promo-usage', telegramId, code: trimmed },
+          body: { action: 'check-promo-usage', telegramId, code: trimmed, initData },
         });
         const count = usageData?.count || 0;
         if (count >= (data as any).max_uses_per_user) {
