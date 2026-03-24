@@ -167,7 +167,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         query = query.eq('slug', shopId);
       }
 
-      const { data, error: err } = await query.maybeSingle();
+      const { data, error: err } = await query.maybeSingle() as { data: any; error: any };
       if (err) { setError('Ошибка загрузки магазина'); setLoading(false); return; }
       if (!data) { setError('Магазин не найден или удалён'); setLoading(false); return; }
 

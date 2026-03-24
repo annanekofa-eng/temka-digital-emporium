@@ -46,21 +46,6 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Public actions (no auth required)
-    if (action === "shop-stats") {
-      const [usersRes, ordersRes, productsRes, reviewsRes] = await Promise.all([
-        supabase.from("user_profiles").select("id", { count: "exact", head: true }),
-        supabase.from("orders").select("id, status"),
-        supabase.from("products").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("reviews").select("id", { count: "exact", head: true }).eq("verified", true),
-      ]);
-      const orders = ordersRes.data || [];
-      const completedOrders = orders.filter(o => ["paid", "completed", "delivered", "processing"].includes(o.status)).length;
-      return jsonRes({
-        stats: { users: usersRes.count || 0, completedOrders, totalOrders: orders.length, activeProducts: productsRes.count || 0, approvedReviews: reviewsRes.count || 0 },
-      });
-    }
-
     if (action === "check-promo-usage") {
       if (!initData) return jsonRes({ error: "Authentication required" }, 401);
       const { code, shopId: promoShopId } = body;

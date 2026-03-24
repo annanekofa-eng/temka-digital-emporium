@@ -3,6 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
+    const jobSecret = Deno.env.get("RETENTION_JOB_SECRET");
+    const headerSecret = req.headers.get("x-retention-secret");
+    if (!jobSecret || headerSecret !== jobSecret) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
+    }
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, serviceKey);
