@@ -1770,6 +1770,7 @@ export type Database = {
         Args: { p_code: string; p_shop_id: string }
         Returns: undefined
       }
+      is_shop_active: { Args: { p_shop_id: string }; Returns: boolean }
       platform_credit_balance: {
         Args: { p_amount: number; p_telegram_id: number }
         Returns: number
