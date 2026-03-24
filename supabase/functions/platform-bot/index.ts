@@ -429,7 +429,8 @@ async function validateBotToken(
 async function setupSellerWebhook(botToken: string, shopId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/seller-bot-webhook?shop_id=${shopId}`;
-    const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+    const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+    if (!secret) return { ok: false, error: "TELEGRAM_WEBHOOK_SECRET not configured" };
     const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

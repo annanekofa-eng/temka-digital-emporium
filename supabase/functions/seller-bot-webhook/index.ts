@@ -1501,10 +1501,10 @@ serve(async (req) => {
 
       const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
 
-      // Full welcome message replacement: use owner's text as-is (HTML supported)
+      // Sanitize welcome message — strip raw HTML to prevent injection
       let greeting: string;
       if (shop.welcome_message) {
-        greeting = shop.welcome_message.replace(/{name}/gi, firstName);
+        greeting = escHtmlWelcome(shop.welcome_message, firstName);
       } else {
         greeting = `👋 Привет, <b>${esc(firstName)}</b>!\n\nДобро пожаловать в <b>${esc(shop.name)}</b>! 🛍`;
       }
