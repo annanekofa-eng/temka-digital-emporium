@@ -23,7 +23,14 @@ function verifyTelegramInitData(initData: string, botToken: string): boolean {
     .update(dataCheckString)
     .digest("hex");
 
-  return hmac === hash;
+  if (hmac !== hash) return false;
+
+  const authDate = params.get("auth_date");
+  if (!authDate) return false;
+  const now = Math.floor(Date.now() / 1000);
+  if (now - Number(authDate) > 600) return false;
+
+  return true;
 }
 
 serve(async (req) => {
