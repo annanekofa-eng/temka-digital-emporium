@@ -27,8 +27,8 @@ function verifyAndExtractUser(initData: string, botToken: string): { id: number 
   const secretKey = createHmac("sha256", "WebAppData").update(botToken).digest();
   if (createHmac("sha256", secretKey).update(dcs).digest("hex") !== hash) return null;
   const authDate = params.get("auth_date");
-  // Extended TTL to 3600s (1 hour) to accommodate long polling sessions for payment confirmation
-  if (authDate && Math.floor(Date.now() / 1000) - Number(authDate) > 3600) return null;
+  // Keep TTL tighter to reduce replay window while still allowing status polling.
+  if (authDate && Math.floor(Date.now() / 1000) - Number(authDate) > 600) return null;
   try { return JSON.parse(params.get("user") || ""); } catch { return null; }
 }
 

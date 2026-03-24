@@ -62,14 +62,9 @@ async function fetchAvatar(botToken: string, telegramId: number, profilePhotoUrl
       body: JSON.stringify({ user_id: telegramId, limit: 1 }),
     }).then(r => r.json());
     if (photosRes.ok && photosRes.result?.total_count > 0) {
-      const fileId = photosRes.result.photos[0][0].file_id;
-      const fileData = await fetch(`https://api.telegram.org/bot${botToken}/getFile`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_id: fileId }),
-      }).then(r => r.json());
-      if (fileData.ok) {
-        return `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-      }
+      // Don't return bot file URLs — they leak the bot token.
+      // Instead, just return empty; avatars are optional.
+      return "";
     }
   } catch (e) { console.error("Avatar fetch error:", e); }
   return "";
