@@ -1218,32 +1218,13 @@ serve(async (req) => {
       const sendResultText = await sendResult.text();
       console.log("Send result:", sendResult.status, sendResultText.substring(0, 300));
 
-      // Upsert profile + fetch avatar
+      // Upsert profile (no avatar — storing Telegram file URLs leaks the bot token)
       if (tgId) {
-        let photoUrl: string | null = null;
-        try {
-          const photosRes = await fetch(`https://api.telegram.org/bot${botToken}/getUserProfilePhotos`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_id: tgId, limit: 1 }),
-          }).then(r => r.json());
-          if (photosRes.ok && photosRes.result?.total_count > 0) {
-            const fileId = photosRes.result.photos[0][0].file_id;
-            const fileData = await fetch(`https://api.telegram.org/bot${botToken}/getFile`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ file_id: fileId }),
-            }).then(r => r.json());
-            if (fileData.ok) {
-              photoUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-            }
-          }
-        } catch (e) { console.error("Photo fetch error:", e); }
-
         await db().from("user_profiles").upsert({
           telegram_id: tgId, first_name: message.from.first_name || "",
           last_name: message.from.last_name || null, username: message.from.username || null,
           is_premium: message.from.is_premium || false, language_code: message.from.language_code || null,
           accepted_terms: true,
-          ...(photoUrl ? { photo_url: photoUrl } : {}),
           updated_at: new Date().toISOString(),
         }, { onConflict: "telegram_id" });
       }

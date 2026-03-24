@@ -46,6 +46,13 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Sanitize a welcome_message from shop owner: escape HTML to prevent injection, then replace {name} */
+function escHtmlWelcome(raw: string, name: string): string {
+  // Escape ALL HTML first, then replace the {name} placeholder with an escaped name
+  const escaped = esc(raw);
+  return escaped.replace(/\{name\}/gi, esc(name));
+}
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
@@ -1400,7 +1407,7 @@ serve(async (req) => {
               // Subscribed — show normal start
               const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
               const welcomeText = shop.welcome_message
-                ? shop.welcome_message.replace(/{name}/gi, cb.from?.first_name || "друг")
+                ? escHtmlWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
               const supportUrl = shop.support_link ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`) : null;
               await tg.edit(chatId, msgId, welcomeText, {
@@ -1501,10 +1508,10 @@ serve(async (req) => {
 
       const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
 
-      // Full welcome message replacement: use owner's text as-is (HTML supported)
+      // Sanitize welcome message — strip raw HTML to prevent injection
       let greeting: string;
       if (shop.welcome_message) {
-        greeting = shop.welcome_message.replace(/{name}/gi, firstName);
+        greeting = escHtmlWelcome(shop.welcome_message, firstName);
       } else {
         greeting = `👋 Привет, <b>${esc(firstName)}</b>!\n\nДобро пожаловать в <b>${esc(shop.name)}</b>! 🛍`;
       }
