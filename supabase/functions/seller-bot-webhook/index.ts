@@ -1317,7 +1317,18 @@ serve(async (req) => {
 
     // Parse body once upfront
     const body = await req.json();
-    console.log("seller-bot-webhook: body parsed, message text:", body.message?.text, "callback:", body.callback_query?.data);
+    const updateId = body?.update_id;
+    if (updateId !== undefined && updateId !== null) {
+      const dedupIdentifier = `seller_webhook:${shopId}:${String(updateId)}`;
+      const { count } = await supabase()
+        .from("rate_limits")
+        .select("id", { count: "exact", head: true })
+        .eq("identifier", dedupIdentifier)
+        .eq("action", "webhook_update")
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      if ((count || 0) > 0) return new Response("ok");
+      await supabase().from("rate_limits").insert({ identifier: dedupIdentifier, action: "webhook_update" });
+    }
 
     // Load shop and decrypt bot token
     const { data: shop, error: shopErr } = await supabase().from("shops").select("id, name, slug, bot_token_encrypted, welcome_message, support_link, status, owner_id, is_subscription_required, required_channel_id, required_channel_link").eq("id", shopId).single();
