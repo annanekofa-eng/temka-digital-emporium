@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 const ShopProductDetails = () => {
   const { productId } = useParams();
   const { products, addToCart, productsLoading, shop } = useShop();
+  const { supportLink } = useStorefront();
   const product = products.find(p => p.id === productId);
   const buildPath = useStorefrontPath();
   const shopId = shop?.id || '';
