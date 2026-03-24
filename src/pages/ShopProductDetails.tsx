@@ -3,6 +3,7 @@ import { ArrowLeft, ShoppingCart, Zap, CheckCircle2, ChevronRight, Shield, Messa
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShop } from '@/contexts/ShopContext';
+import { useStorefront } from '@/contexts/StorefrontContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import ShopProductCard from '@/components/ShopProductCard';
 import { toast } from 'sonner';
