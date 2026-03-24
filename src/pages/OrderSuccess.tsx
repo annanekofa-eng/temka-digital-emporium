@@ -13,6 +13,7 @@ const OrderSuccess = () => {
   const orderNumber = searchParams.get('order');
   const { data: orders } = useOrders();
   const { data: supportUsername } = useSupportUsername();
+  const { supportLink } = useStorefront();
 
   const order = orders?.find(o => o.order_number === orderNumber);
   const isPaid = order?.payment_status === 'paid';
