@@ -1297,7 +1297,7 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const shopId = url.searchParams.get("shop_id");
-    console.log("seller-bot-webhook: incoming request, shop_id:", shopId, "method:", req.method);
+    
 
     if (!shopId) {
       console.error("seller-bot-webhook: no shop_id");
