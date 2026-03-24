@@ -81,6 +81,9 @@ const OrderStatus = () => {
     };
   }, [order?.id, order?.payment_status, expired, checkPayment, navigate, buildPath, orderNumber]);
 
+  const normalizedSupportUsername = (supportUsername || '').replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  const resolvedSupportLink = supportLink || (normalizedSupportUsername ? `https://t.me/${normalizedSupportUsername}` : undefined);
+
   return (
     <div className="container-main mx-auto px-4 py-12 sm:py-16 text-center max-w-md">
       <div className="animate-fade-in">
