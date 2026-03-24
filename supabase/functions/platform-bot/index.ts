@@ -11,7 +11,8 @@ async function setupWebhook(): Promise<Response> {
   const token = Deno.env.get("PLATFORM_BOT_TOKEN");
   if (!token) return new Response(JSON.stringify({ error: "PLATFORM_BOT_TOKEN not set" }), { status: 500 });
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/platform-bot`;
-  const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "";
+  const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+  if (!secret) return new Response(JSON.stringify({ error: "TELEGRAM_WEBHOOK_SECRET not set" }), { status: 500 });
 
   const setRes = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
     method: "POST",
