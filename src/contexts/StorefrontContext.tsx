@@ -10,6 +10,20 @@ interface StorefrontContextType {
 
 const StorefrontContext = createContext<StorefrontContextType>({ basePath: '', cartCount: 0 });
 
+const sanitizeSupportLink = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+  const candidate = raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'https:') return undefined;
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 't.me' || hostname === 'telegram.me') return parsed.toString();
+    return undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const StorefrontProvider: React.FC<{
   basePath: string;
   cartCount: number;
@@ -18,12 +32,7 @@ export const StorefrontProvider: React.FC<{
   botUsername?: string | null;
   children: React.ReactNode;
 }> = ({ basePath, cartCount, shopName, supportLink, botUsername, children }) => {
-  // Normalize support link: ensure it's an absolute URL
-  const normalizedSupportLink = supportLink
-    ? supportLink.startsWith('http://') || supportLink.startsWith('https://')
-      ? supportLink
-      : `https://${supportLink}`
-    : undefined;
+  const normalizedSupportLink = sanitizeSupportLink(supportLink);
 
   return (
     <StorefrontContext.Provider value={{ basePath, cartCount, shopName, supportLink: normalizedSupportLink, botUsername }}>

@@ -1306,12 +1306,13 @@ serve(async (req) => {
 
     // Verify webhook secret
     const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
-    if (secret) {
-      const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-      if (headerSecret !== secret) {
-        console.error("seller-bot-webhook: invalid secret");
-        return new Response("Forbidden", { status: 403 });
-      }
+    if (!secret) {
+      return new Response("Webhook secret is not configured", { status: 500 });
+    }
+    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+    if (headerSecret !== secret) {
+      console.error("seller-bot-webhook: invalid secret");
+      return new Response("Forbidden", { status: 403 });
     }
 
     // Parse body once upfront
