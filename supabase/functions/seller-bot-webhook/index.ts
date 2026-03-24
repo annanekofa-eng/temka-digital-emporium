@@ -46,6 +46,13 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Sanitize a welcome_message from shop owner: escape HTML to prevent injection, then replace {name} */
+function escHtmlWelcome(raw: string, name: string): string {
+  // Escape ALL HTML first, then replace the {name} placeholder with an escaped name
+  const escaped = esc(raw);
+  return escaped.replace(/\{name\}/gi, esc(name));
+}
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
 
 function paginate<T>(items: T[], page: number, perPage = 6) {

@@ -355,6 +355,15 @@ serve(async (req) => {
     const tgUser = verifyAndExtractUser(initData, tokens.botToken);
     if (!tgUser) return jsonRes({ error: "Invalid authentication" }, 401);
 
+    // Block payments for blocked users
+    if (isShop) {
+      const { data: customer } = await supabase.from("shop_customers").select("is_blocked").eq("shop_id", shopId).eq("telegram_id", tgUser.id).maybeSingle();
+      if (customer?.is_blocked) return jsonRes({ error: "Account is blocked" }, 403);
+    } else if (!isPlatform) {
+      const { data: profile } = await supabase.from("user_profiles").select("is_blocked").eq("telegram_id", tgUser.id).maybeSingle();
+      if (profile?.is_blocked) return jsonRes({ error: "Account is blocked" }, 403);
+    }
+
     if (!orderId && !invoiceId) return jsonRes({ error: "Missing orderId or invoiceId" }, 400);
 
     // Subscription payment check
