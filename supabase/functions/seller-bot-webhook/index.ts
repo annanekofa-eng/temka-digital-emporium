@@ -1400,7 +1400,7 @@ serve(async (req) => {
               // Subscribed — show normal start
               const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
               const welcomeText = shop.welcome_message
-                ? shop.welcome_message.replace(/{name}/gi, cb.from?.first_name || "друг")
+                ? escHtmlWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
               const supportUrl = shop.support_link ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`) : null;
               await tg.edit(chatId, msgId, welcomeText, {
