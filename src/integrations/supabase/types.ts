@@ -849,6 +849,13 @@ export type Database = {
             foreignKeyName: "shop_admin_logs_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_admin_logs_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
             referencedRelation: "shops"
             referencedColumns: ["id"]
           },
@@ -893,6 +900,13 @@ export type Database = {
             foreignKeyName: "shop_balance_history_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_balance_history_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
             referencedRelation: "shops"
             referencedColumns: ["id"]
           },
@@ -927,6 +941,13 @@ export type Database = {
           sort_order?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_categories_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_categories_shop_id_fkey"
             columns: ["shop_id"]
@@ -989,6 +1010,13 @@ export type Database = {
           username?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_customers_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_customers_shop_id_fkey"
             columns: ["shop_id"]
@@ -1138,6 +1166,13 @@ export type Database = {
             foreignKeyName: "shop_orders_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_orders_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
             referencedRelation: "shops"
             referencedColumns: ["id"]
           },
@@ -1200,6 +1235,13 @@ export type Database = {
             foreignKeyName: "shop_products_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_products_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
             referencedRelation: "shops"
             referencedColumns: ["id"]
           },
@@ -1249,6 +1291,13 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_promocodes_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_promocodes_shop_id_fkey"
             columns: ["shop_id"]
@@ -1304,6 +1353,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "shop_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_reviews_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
             referencedColumns: ["id"]
           },
           {
@@ -1609,10 +1665,62 @@ export type Database = {
             foreignKeyName: "shop_reviews_shop_id_fkey"
             columns: ["shop_id"]
             isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_reviews_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
             referencedRelation: "shops"
             referencedColumns: ["id"]
           },
         ]
+      }
+      public_shop_storefront: {
+        Row: {
+          bot_username: string | null
+          color: string | null
+          created_at: string | null
+          hero_description: string | null
+          hero_title: string | null
+          id: string | null
+          name: string | null
+          slug: string | null
+          status: string | null
+          support_link: string | null
+          updated_at: string | null
+          welcome_message: string | null
+        }
+        Insert: {
+          bot_username?: string | null
+          color?: string | null
+          created_at?: string | null
+          hero_description?: string | null
+          hero_title?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          status?: string | null
+          support_link?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Update: {
+          bot_username?: string | null
+          color?: string | null
+          created_at?: string | null
+          hero_description?: string | null
+          hero_title?: string | null
+          id?: string | null
+          name?: string | null
+          slug?: string | null
+          status?: string | null
+          support_link?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
