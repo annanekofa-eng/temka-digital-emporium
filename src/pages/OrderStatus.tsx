@@ -146,9 +146,11 @@ const OrderStatus = () => {
           ) : (
             <Link to={buildPath('/account')}><Button variant="outline" size="sm" className="w-full"><Package className="w-4 h-4 mr-1" /> Мои заказы</Button></Link>
           )}
-          <a href={`https://t.me/${supportUsername}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button>
-          </a>
+          {resolvedSupportLink && (
+            <a href={resolvedSupportLink} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button>
+            </a>
+          )}
           {!expired && (
             <Link to={buildPath('/catalog')}><Button variant="hero" size="sm" className="w-full"><ShoppingCart className="w-4 h-4 mr-1" /> Продолжить покупки</Button></Link>
           )}
