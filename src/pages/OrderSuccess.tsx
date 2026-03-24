@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useStorefrontPath } from '@/contexts/StorefrontContext';
+import { useStorefrontPath, useStorefront } from '@/contexts/StorefrontContext';
 import { CheckCircle2, Package, MessageCircle, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
@@ -13,10 +13,14 @@ const OrderSuccess = () => {
   const orderNumber = searchParams.get('order');
   const { data: orders } = useOrders();
   const { data: supportUsername } = useSupportUsername();
+  const { supportLink } = useStorefront();
 
   const order = orders?.find(o => o.order_number === orderNumber);
   const isPaid = order?.payment_status === 'paid';
   const isDelivered = order?.status === 'delivered' || order?.status === 'completed';
+
+  const normalizedSupportUsername = (supportUsername || '').replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  const resolvedSupportLink = supportLink || (normalizedSupportUsername ? `https://t.me/${normalizedSupportUsername}` : undefined);
 
   useEffect(() => {
     if (order && !isPaid) {
@@ -87,7 +91,7 @@ const OrderSuccess = () => {
 
         <div className="flex flex-col gap-2 mt-5">
           <Link to={buildPath('/account')}><Button variant="outline" size="sm" className="w-full"><Package className="w-4 h-4 mr-1" /> Мои заказы</Button></Link>
-          <a href={`https://t.me/${supportUsername}`} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button></a>
+          {resolvedSupportLink && <a href={resolvedSupportLink} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button></a>}
           <Link to={buildPath('/catalog')}><Button variant="hero" size="sm" className="w-full"><ShoppingCart className="w-4 h-4 mr-1" /> Продолжить покупки</Button></Link>
         </div>
       </div>

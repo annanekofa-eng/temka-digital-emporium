@@ -1133,7 +1133,10 @@ serve(async (req) => {
     } catch (_e) {
       return json({ error: "Invalid JSON" }, 400);
     }
-    console.log("Update type:", body.message ? "message" : body.callback_query ? "callback" : "other");
+    const updateId = body?.update_id;
+    if (!updateId || updateId === null) {
+      return json({ ok: true });
+    }
     const tg = TG(botToken);
 
     // Callback queries

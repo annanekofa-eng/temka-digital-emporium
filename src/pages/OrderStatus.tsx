@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useStorefrontPath } from '@/contexts/StorefrontContext';
+import { useStorefrontPath, useStorefront } from '@/contexts/StorefrontContext';
 import { Package, MessageCircle, ShoppingCart, Clock, Loader2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
@@ -17,6 +17,7 @@ const OrderStatus = () => {
   const { data: orders } = useOrders();
   const queryClient = useQueryClient();
   const { data: supportUsername } = useSupportUsername();
+  const { supportLink } = useStorefront();
   const { initData } = useTelegram();
   const [polling, setPolling] = useState(true);
   const [expired, setExpired] = useState(false);
@@ -80,6 +81,9 @@ const OrderStatus = () => {
     };
   }, [order?.id, order?.payment_status, expired, checkPayment, navigate, buildPath, orderNumber]);
 
+  const normalizedSupportUsername = (supportUsername || '').replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  const resolvedSupportLink = supportLink || (normalizedSupportUsername ? `https://t.me/${normalizedSupportUsername}` : undefined);
+
   return (
     <div className="container-main mx-auto px-4 py-12 sm:py-16 text-center max-w-md">
       <div className="animate-fade-in">
@@ -142,9 +146,11 @@ const OrderStatus = () => {
           ) : (
             <Link to={buildPath('/account')}><Button variant="outline" size="sm" className="w-full"><Package className="w-4 h-4 mr-1" /> Мои заказы</Button></Link>
           )}
-          <a href={`https://t.me/${supportUsername}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button>
-          </a>
+          {resolvedSupportLink && (
+            <a href={resolvedSupportLink} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="w-full"><MessageCircle className="w-4 h-4 mr-1" /> Поддержка в Telegram</Button>
+            </a>
+          )}
           {!expired && (
             <Link to={buildPath('/catalog')}><Button variant="hero" size="sm" className="w-full"><ShoppingCart className="w-4 h-4 mr-1" /> Продолжить покупки</Button></Link>
           )}
