@@ -91,10 +91,8 @@ serve(async (req) => {
       : await resolveBotToken(supabase, shopId);
     if (!botToken) return jsonRes({ error: "Bot not configured" }, 500);
 
-    console.log(`[auth] action=${action} isPlatform=${isPlatformAction} initDataLen=${initData?.length} botTokenLen=${botToken?.length} shopId=${shopId || 'none'}`);
     const tgUser = verifyAndExtractUser(initData, botToken);
     if (!tgUser) {
-      console.log(`[auth] HMAC verification FAILED for action=${action}`);
       return jsonRes({ error: "Invalid authentication" }, 401);
     }
     const telegramId = tgUser.id;

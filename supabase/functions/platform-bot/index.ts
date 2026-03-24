@@ -5762,19 +5762,27 @@ serve(async (req) => {
   // Reset singleton db client for each request
   _db = null;
 
-  if (req.method === "GET") return setupWebhook();
+  if (req.method === "GET") {
+    const setupSecret = Deno.env.get("PLATFORM_WEBHOOK_SETUP_SECRET");
+    const headerSecret = req.headers.get("x-platform-setup-secret");
+    if (!setupSecret || headerSecret !== setupSecret) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    return setupWebhook();
+  }
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" } });
   }
 
   // ─── Webhook secret verification ────────
   const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
-  if (webhookSecret) {
-    const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (headerSecret !== webhookSecret) {
-      console.warn("Webhook secret mismatch — rejecting request");
-      return new Response("Unauthorized", { status: 401 });
-    }
+  if (!webhookSecret) {
+    return new Response("Webhook secret is not configured", { status: 500 });
+  }
+  const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+  if (headerSecret !== webhookSecret) {
+    console.warn("Webhook secret mismatch — rejecting request");
+    return new Response("Unauthorized", { status: 401 });
   }
 
   try {

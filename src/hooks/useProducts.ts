@@ -88,18 +88,22 @@ export const useShopStats = () => {
   return useQuery({
     queryKey: ['shop-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-my-data', {
-        body: { action: 'shop-stats' },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-      return data.stats as {
-        users: number;
-        completedOrders: number;
-        totalOrders: number;
-        activeProducts: number;
-        approvedReviews: number;
+      const [productsRes, reviewsRes] = await Promise.all([
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('public_reviews' as any).select('id', { count: 'exact', head: true }).eq('verified', true),
+      ]);
+
+      if (productsRes.error) throw productsRes.error;
+      if (reviewsRes.error) throw reviewsRes.error;
+
+      return {
+        users: 0,
+        completedOrders: 0,
+        totalOrders: 0,
+        activeProducts: productsRes.count ?? 0,
+        approvedReviews: reviewsRes.count ?? 0,
       };
     },
+    staleTime: 5 * 60 * 1000,
   });
 };

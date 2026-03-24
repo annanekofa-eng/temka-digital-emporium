@@ -157,7 +157,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchShop = async () => {
       let query = supabase
-        .from('shops')
+        .from('public_shop_storefront' as any)
         .select('id, name, slug, color, hero_title, hero_description, welcome_message, support_link, status, bot_username');
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shopId);

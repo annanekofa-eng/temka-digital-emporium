@@ -1112,11 +1112,12 @@ serve(async (req) => {
 
     // ─── Webhook secret token verification ───────
     const secretToken = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
-    if (secretToken) {
-      const headerToken = req.headers.get("x-telegram-bot-api-secret-token");
-      if (headerToken !== secretToken) {
-        return json({ error: "Forbidden" }, 403);
-      }
+    if (!secretToken) {
+      return json({ error: "Webhook secret is not configured" }, 500);
+    }
+    const headerToken = req.headers.get("x-telegram-bot-api-secret-token");
+    if (headerToken !== secretToken) {
+      return json({ error: "Forbidden" }, 403);
     }
 
     // Setup endpoint removed for security — use CLI or manual API call to set webhook

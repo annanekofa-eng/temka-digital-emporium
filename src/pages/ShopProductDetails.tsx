@@ -158,7 +158,7 @@ const ShopProductDetails = () => {
       )}
 
       {/* Support */}
-      {shop?.support_link && (
+      {supportLink && (
         <div className="mt-8 sm:mt-12 p-4 sm:p-6 bg-card border border-border/50 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-center sm:text-left">
             <MessageCircle className="w-8 h-8 text-primary shrink-0 hidden sm:block" />
@@ -167,7 +167,7 @@ const ShopProductDetails = () => {
               <p className="text-xs sm:text-sm text-muted-foreground">Наша поддержка поможет вам 24/7</p>
             </div>
           </div>
-          <a href={shop.support_link} target="_blank" rel="noopener noreferrer">
+          <a href={supportLink} target="_blank" rel="noopener noreferrer">
             <Button variant="outline">Связаться с поддержкой</Button>
           </a>
         </div>
