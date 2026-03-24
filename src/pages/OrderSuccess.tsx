@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useStorefrontPath } from '@/contexts/StorefrontContext';
+import { useStorefrontPath, useStorefront } from '@/contexts/StorefrontContext';
 import { CheckCircle2, Package, MessageCircle, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
