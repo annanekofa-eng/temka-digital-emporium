@@ -19,6 +19,9 @@ const OrderSuccess = () => {
   const isPaid = order?.payment_status === 'paid';
   const isDelivered = order?.status === 'delivered' || order?.status === 'completed';
 
+  const normalizedSupportUsername = (supportUsername || '').replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  const resolvedSupportLink = supportLink || (normalizedSupportUsername ? `https://t.me/${normalizedSupportUsername}` : undefined);
+
   useEffect(() => {
     if (order && !isPaid) {
       navigate(`${buildPath('/order-status')}?order=${orderNumber}`, { replace: true });
