@@ -748,7 +748,7 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
     photoUrl,
     text,
     ikb([
-      [urlBtn("📚 Подробная информация", "https://tele-store-chi.vercel.app/landing")],
+      [urlBtn("📚 Подробная информация", "https://telestore-two.vercel.app/landing")],
       [btn("🏪 Создать магазин", "p:create")],
       [btn("◀️ Назад", "p:home")],
     ]),
@@ -761,7 +761,7 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
       chatId,
       text,
       ikb([
-        [urlBtn("📚 Подробная информация", "https://tele-store-chi.vercel.app/landing")],
+        [urlBtn("📚 Подробная информация", "https://telestore-two.vercel.app/landing")],
         [btn("🏪 Создать магазин", "p:create")],
         [btn("◀️ Назад", "p:home")],
       ]),
