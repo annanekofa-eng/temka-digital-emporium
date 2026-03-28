@@ -651,7 +651,8 @@ async function upsertUser(from: {
 // ─── Bottom panel (keyboard) ──────────────────
 const bottomPanel = (hasShop: boolean) => ({
   keyboard: [
-    [{ text: "👤 Профиль" }, { text: "🆘 Поддержка" }],
+    [{ text: "👤 Профиль" }],
+    [{ text: "⭐ Отзывы" }, { text: "🆘 Поддержка" }],
     [{ text: hasShop ? "🏪 Мой магазин" : "🏪 Создать магазин" }],
   ],
   resize_keyboard: true,
@@ -697,13 +698,15 @@ async function welcomeButtons(chatId: number): Promise<Btn[][]> {
       .eq("owner_id", pu?.id || "")
       .maybeSingle();
     return [
-      [btn("🏪 Мой магазин", `p:shop:${shop?.id || ""}`), btn("📖 Как это работает", "p:howitworks")],
       [btn("👤 Мой профиль", "p:profile")],
+      [btn("🏪 Мой магазин", `p:shop:${shop?.id || ""}`), btn("📖 Как это работает", "p:howitworks")],
+      [urlBtn("⭐ Отзывы", "https://t.me/otzivitelestore")],
     ];
   }
   return [
-    [btn("🏪 Создать магазин", "p:create"), btn("📖 Как это работает", "p:howitworks")],
     [btn("👤 Мой профиль", "p:profile")],
+    [btn("🏪 Создать магазин", "p:create"), btn("📖 Как это работает", "p:howitworks")],
+    [urlBtn("⭐ Отзывы", "https://t.me/otzivitelestore")],
   ];
 }
 
@@ -5886,6 +5889,14 @@ serve(async (req) => {
           chatId,
           `💬 <b>Мы всегда на связи!</b>\n\nЕсли что-то пошло не так, есть вопрос или просто нужен совет — напишите нам.\nМы отвечаем быстро и помогаем разобраться 🤝\n\n⚡ Среднее время ответа: 5–30 минут`,
           ikb([[urlBtn("✉️ Написать нам", supportLink)]]),
+        );
+        return new Response("ok");
+      }
+      if (text === "⭐ Отзывы") {
+        await tg.send(
+          chatId,
+          `⭐ <b>Отзывы наших пользователей</b>\n\nПосмотрите, что говорят о TeleStore:`,
+          ikb([[urlBtn("⭐ Читать отзывы", "https://t.me/otzivitelestore")]]),
         );
         return new Response("ok");
       }
