@@ -1007,7 +1007,45 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       return tg.edit(cid, mid, "✅ Категория удалена.", ikb([[btn("◀️ К категориям", "s:cl:0")]]));
     }
 
-    // Orders
+    // Category picker for product
+    if (cmd === "pc") {
+      const pid = parts[2];
+      const { data: cats } = await supabase().from("shop_categories").select("id, name, icon").eq("shop_id", shopId).eq("is_active", true).order("sort_order");
+      if (!cats?.length) return tg.edit(cid, mid, "📁 Нет категорий. Сначала создайте категорию.", ikb([[btn("📁 Создать категорию", "s:ca")], [btn("◀️ К товару", `s:pv:${pid}`)]]));
+      const rows: Btn[][] = cats.map(c => [btn(`${c.icon} ${c.name}`, `s:pcs:${pid}:${c.id}`)]);
+      rows.push([btn("🚫 Без категории", `s:pcr:${pid}`)]);
+      rows.push([btn("◀️ К товару", `s:pv:${pid}`)]);
+      return tg.edit(cid, mid, "📁 <b>Выберите категорию:</b>", ikb(rows));
+    }
+    if (cmd === "pcs") {
+      const pid = parts[2]; const catId = parts[3];
+      await supabase().from("shop_products").update({ category_id: catId, updated_at: new Date().toISOString() }).eq("id", pid);
+      await logAction(shopId, adminId, "set_category", "product", pid, { category_id: catId });
+      return productView(tg, cid, mid, shopId, pid);
+    }
+    if (cmd === "pcr") {
+      const pid = parts[2];
+      await supabase().from("shop_products").update({ category_id: null, updated_at: new Date().toISOString() }).eq("id", pid);
+      await logAction(shopId, adminId, "remove_category", "product", pid);
+      return productView(tg, cid, mid, shopId, pid);
+    }
+
+    // Products in category
+    if (cmd === "cprod") {
+      const catId = parts[2]; const page = parseInt(parts[3]) || 0;
+      const { data: cat } = await supabase().from("shop_categories").select("name, icon").eq("id", catId).single();
+      const { data: products } = await supabase().from("shop_products").select("id, name, price, stock, is_active").eq("shop_id", shopId).eq("category_id", catId).order("sort_order");
+      if (!products?.length) return tg.edit(cid, mid, `📁 <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "Категория"}</b>\n\nТоваров нет.`, ikb([[btn("◀️ К категории", `s:cv:${catId}`)]]));
+      const pg = paginate(products, page, 8);
+      let t = `📁 <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "Категория"}</b> — товары (${products.length})\n\n`;
+      pg.items.forEach(p => { t += `${p.is_active ? "✅" : "❌"} <b>${esc(p.name)}</b> — $${Number(p.price).toFixed(2)}\n`; });
+      const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${p.name.slice(0, 28)}`, `s:pv:${p.id}`)]);
+      if (pg.total > 1) rows.push(pgRow(`s:cprod:${catId}`, pg.page, pg.total));
+      rows.push([btn("◀️ К категории", `s:cv:${catId}`)]);
+      return tg.edit(cid, mid, t, ikb(rows));
+    }
+
+
     if (cmd === "ol") return ordersList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
     if (cmd === "ov") return orderView(tg, cid, mid, shopId, parts[2]);
     if (cmd === "os") return orderSetStatus(tg, cid, mid, shopId, parts[2], parts[3], adminId);
