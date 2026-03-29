@@ -1180,6 +1180,7 @@ export type Database = {
       }
       shop_products: {
         Row: {
+          category_id: string | null
           created_at: string
           description: string
           features: string[]
@@ -1197,6 +1198,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           description?: string
           features?: string[]
@@ -1214,6 +1216,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           description?: string
           features?: string[]
@@ -1231,6 +1234,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "shop_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_products_shop_id_fkey"
             columns: ["shop_id"]
