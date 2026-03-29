@@ -215,13 +215,17 @@ async function categoriesList(tg: ReturnType<typeof TG>, cid: number, mid: numbe
 }
 
 async function categoryView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, catId: string) {
-  const { data: c } = await supabase().from("shop_categories").select("*").eq("id", catId).single();
+  const [{ data: c }, { count: prodCount }] = await Promise.all([
+    supabase().from("shop_categories").select("*").eq("id", catId).single(),
+    supabase().from("shop_products").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("category_id", catId),
+  ]);
   if (!c) return tg.edit(cid, mid, "Не найдена", ikb([[btn("◀️ Назад", "s:cl:0")]]));
-  let t = `📁 <b>${c.icon} ${esc(c.name)}</b>\n\n📊 Сортировка: ${c.sort_order}\n${c.is_active ? "✅ Активна" : "❌ Скрыта"}\n`;
+  let t = `📁 <b>${c.icon} ${esc(c.name)}</b>\n\n📊 Сортировка: ${c.sort_order}\n📦 Товаров: ${prodCount || 0}\n${c.is_active ? "✅ Активна" : "❌ Скрыта"}\n`;
   return tg.edit(cid, mid, t, ikb([
     [btn("✏️ Название", `s:ce:${catId}:n`), btn("✏️ Иконка", `s:ce:${catId}:i`)],
     [btn("✏️ Сортировка", `s:ce:${catId}:s`)],
     [btn(c.is_active ? "❌ Скрыть" : "✅ Показать", `s:ct:${catId}`)],
+    [btn("📦 Товары категории", `s:cprod:${catId}:0`)],
     [btn("🗑 Удалить", `s:cd:${catId}`)],
     [btn("◀️ К категориям", "s:cl:0")],
   ]));
