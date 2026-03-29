@@ -20,6 +20,7 @@ export interface ShopData {
 export interface ShopProduct {
   id: string;
   shop_id: string;
+  category_id: string | null;
   name: string;
   subtitle: string;
   description: string;
