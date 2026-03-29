@@ -42,6 +42,9 @@ const ShopCatalog = () => {
         p.description.toLowerCase().includes(lower)
       );
     }
+    if (selectedCategory) {
+      result = result.filter(p => p.category_id === selectedCategory);
+    }
     result = result.filter(p => Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1]);
 
     switch (sortBy) {
@@ -51,14 +54,18 @@ const ShopCatalog = () => {
       default: result.sort((a, b) => a.sort_order - b.sort_order);
     }
     return result;
-  }, [products, q, sortBy, priceRange]);
+  }, [products, q, sortBy, priceRange, selectedCategory]);
 
   const clearFilters = () => {
     setLocalSearch('');
     setSearchQuery('');
+    setSelectedCategory('');
     setSortBy('default');
     setPriceRange([0, 500]);
+    setSearchParams({});
   };
+
+  const activeCat = categories?.find(c => c.id === selectedCategory);
 
   return (
     <div className="container-main mx-auto px-4 py-6 sm:py-8">
