@@ -174,12 +174,17 @@ async function productsList(tg: ReturnType<typeof TG>, cid: number, mid: number,
 async function productView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, pid: string) {
   const { data: p } = await supabase().from("shop_products").select("*").eq("id", pid).single();
   if (!p) return tg.edit(cid, mid, "❌ Товар не найден", ikb([[btn("◀️ Назад", "s:pl:0")]]));
-  const { count: invCount } = await supabase().from("shop_inventory").select("id", { count: "exact", head: true }).eq("product_id", pid).eq("status", "available");
+  const [{ count: invCount }, catData] = await Promise.all([
+    supabase().from("shop_inventory").select("id", { count: "exact", head: true }).eq("product_id", pid).eq("status", "available"),
+    p.category_id ? supabase().from("shop_categories").select("name, icon").eq("id", p.category_id).single() : Promise.resolve({ data: null }),
+  ]);
+  const cat = catData?.data;
   let t = `📦 <b>${esc(p.name)}</b>\n\n`;
   t += `📝 ${esc(p.subtitle || "—")}\n`;
   t += `💰 <b>$${Number(p.price).toFixed(2)}</b>`;
   if (p.old_price) t += ` <s>$${Number(p.old_price).toFixed(2)}</s>`;
   t += `\n📦 Остаток: <b>${p.stock}</b> | Единиц: <b>${invCount || 0}</b>\n`;
+  t += `📁 Категория: <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "— не задана"}</b>\n`;
   t += `📝 Описание: ${p.description ? esc(p.description.slice(0, 100)) : "—"}\n`;
   t += `🔧 Тип: ${p.type}\n`;
   t += `${p.is_active ? "✅ Активен" : "❌ Скрыт"}\n`;
@@ -190,7 +195,7 @@ async function productView(tg: ReturnType<typeof TG>, cid: number, mid: number, 
     [btn("✏️ Остаток", `s:pe:${pid}:s`), btn("✏️ Описание", `s:pe:${pid}:d`)],
     [btn("✏️ Стар.цена", `s:pe:${pid}:o`), btn("✏️ Подзаголовок", `s:pe:${pid}:sub`)],
     [btn("🖼 Фото", `s:pe:${pid}:img`), btn("🏷 Особенности", `s:pe:${pid}:f`)],
-    [btn(p.is_active ? "❌ Скрыть" : "✅ Показать", `s:pt:${pid}`)],
+    [btn("📁 Категория", `s:pc:${pid}`), btn(p.is_active ? "❌ Скрыть" : "✅ Показать", `s:pt:${pid}`)],
     [btn("🗃 Склад", `s:iv:${pid}:0`), btn("🗑 Удалить", `s:pd:${pid}`)],
     [btn("◀️ К товарам", "s:pl:0")],
   ]));
