@@ -1029,7 +1029,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       return productView(tg, cid, mid, shopId, pid);
     }
     if (cmd === "pcr") {
-      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).single();
+      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).eq("shop_id", shopId).single();
       const pid = sess?.state?.split(":")?.[1];
       if (!pid) return;
       await supabase().from("shop_products").update({ category_id: null, updated_at: new Date().toISOString() }).eq("id", pid);
