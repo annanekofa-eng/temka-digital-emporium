@@ -1,0 +1,1 @@
+ALTER TABLE public.shop_products ADD COLUMN category_id uuid REFERENCES public.shop_categories(id) ON DELETE SET NULL DEFAULT NULL;

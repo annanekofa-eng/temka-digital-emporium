@@ -174,12 +174,17 @@ async function productsList(tg: ReturnType<typeof TG>, cid: number, mid: number,
 async function productView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, pid: string) {
   const { data: p } = await supabase().from("shop_products").select("*").eq("id", pid).single();
   if (!p) return tg.edit(cid, mid, "❌ Товар не найден", ikb([[btn("◀️ Назад", "s:pl:0")]]));
-  const { count: invCount } = await supabase().from("shop_inventory").select("id", { count: "exact", head: true }).eq("product_id", pid).eq("status", "available");
+  const [{ count: invCount }, catData] = await Promise.all([
+    supabase().from("shop_inventory").select("id", { count: "exact", head: true }).eq("product_id", pid).eq("status", "available"),
+    p.category_id ? supabase().from("shop_categories").select("name, icon").eq("id", p.category_id).single() : Promise.resolve({ data: null }),
+  ]);
+  const cat = catData?.data;
   let t = `📦 <b>${esc(p.name)}</b>\n\n`;
   t += `📝 ${esc(p.subtitle || "—")}\n`;
   t += `💰 <b>$${Number(p.price).toFixed(2)}</b>`;
   if (p.old_price) t += ` <s>$${Number(p.old_price).toFixed(2)}</s>`;
   t += `\n📦 Остаток: <b>${p.stock}</b> | Единиц: <b>${invCount || 0}</b>\n`;
+  t += `📁 Категория: <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "— не задана"}</b>\n`;
   t += `📝 Описание: ${p.description ? esc(p.description.slice(0, 100)) : "—"}\n`;
   t += `🔧 Тип: ${p.type}\n`;
   t += `${p.is_active ? "✅ Активен" : "❌ Скрыт"}\n`;
@@ -190,7 +195,7 @@ async function productView(tg: ReturnType<typeof TG>, cid: number, mid: number, 
     [btn("✏️ Остаток", `s:pe:${pid}:s`), btn("✏️ Описание", `s:pe:${pid}:d`)],
     [btn("✏️ Стар.цена", `s:pe:${pid}:o`), btn("✏️ Подзаголовок", `s:pe:${pid}:sub`)],
     [btn("🖼 Фото", `s:pe:${pid}:img`), btn("🏷 Особенности", `s:pe:${pid}:f`)],
-    [btn(p.is_active ? "❌ Скрыть" : "✅ Показать", `s:pt:${pid}`)],
+    [btn("📁 Категория", `s:pc:${pid}`), btn(p.is_active ? "❌ Скрыть" : "✅ Показать", `s:pt:${pid}`)],
     [btn("🗃 Склад", `s:iv:${pid}:0`), btn("🗑 Удалить", `s:pd:${pid}`)],
     [btn("◀️ К товарам", "s:pl:0")],
   ]));
@@ -210,13 +215,17 @@ async function categoriesList(tg: ReturnType<typeof TG>, cid: number, mid: numbe
 }
 
 async function categoryView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, catId: string) {
-  const { data: c } = await supabase().from("shop_categories").select("*").eq("id", catId).single();
+  const [{ data: c }, { count: prodCount }] = await Promise.all([
+    supabase().from("shop_categories").select("*").eq("id", catId).single(),
+    supabase().from("shop_products").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("category_id", catId),
+  ]);
   if (!c) return tg.edit(cid, mid, "Не найдена", ikb([[btn("◀️ Назад", "s:cl:0")]]));
-  let t = `📁 <b>${c.icon} ${esc(c.name)}</b>\n\n📊 Сортировка: ${c.sort_order}\n${c.is_active ? "✅ Активна" : "❌ Скрыта"}\n`;
+  let t = `📁 <b>${c.icon} ${esc(c.name)}</b>\n\n📊 Сортировка: ${c.sort_order}\n📦 Товаров: ${prodCount || 0}\n${c.is_active ? "✅ Активна" : "❌ Скрыта"}\n`;
   return tg.edit(cid, mid, t, ikb([
     [btn("✏️ Название", `s:ce:${catId}:n`), btn("✏️ Иконка", `s:ce:${catId}:i`)],
     [btn("✏️ Сортировка", `s:ce:${catId}:s`)],
     [btn(c.is_active ? "❌ Скрыть" : "✅ Показать", `s:ct:${catId}`)],
+    [btn("📦 Товары категории", `s:cprod:${catId}:0`)],
     [btn("🗑 Удалить", `s:cd:${catId}`)],
     [btn("◀️ К категориям", "s:cl:0")],
   ]));
@@ -998,7 +1007,45 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       return tg.edit(cid, mid, "✅ Категория удалена.", ikb([[btn("◀️ К категориям", "s:cl:0")]]));
     }
 
-    // Orders
+    // Category picker for product
+    if (cmd === "pc") {
+      const pid = parts[2];
+      const { data: cats } = await supabase().from("shop_categories").select("id, name, icon").eq("shop_id", shopId).eq("is_active", true).order("sort_order");
+      if (!cats?.length) return tg.edit(cid, mid, "📁 Нет категорий. Сначала создайте категорию.", ikb([[btn("📁 Создать категорию", "s:ca")], [btn("◀️ К товару", `s:pv:${pid}`)]]));
+      const rows: Btn[][] = cats.map(c => [btn(`${c.icon} ${c.name}`, `s:pcs:${pid}:${c.id}`)]);
+      rows.push([btn("🚫 Без категории", `s:pcr:${pid}`)]);
+      rows.push([btn("◀️ К товару", `s:pv:${pid}`)]);
+      return tg.edit(cid, mid, "📁 <b>Выберите категорию:</b>", ikb(rows));
+    }
+    if (cmd === "pcs") {
+      const pid = parts[2]; const catId = parts[3];
+      await supabase().from("shop_products").update({ category_id: catId, updated_at: new Date().toISOString() }).eq("id", pid);
+      await logAction(shopId, adminId, "set_category", "product", pid, { category_id: catId });
+      return productView(tg, cid, mid, shopId, pid);
+    }
+    if (cmd === "pcr") {
+      const pid = parts[2];
+      await supabase().from("shop_products").update({ category_id: null, updated_at: new Date().toISOString() }).eq("id", pid);
+      await logAction(shopId, adminId, "remove_category", "product", pid);
+      return productView(tg, cid, mid, shopId, pid);
+    }
+
+    // Products in category
+    if (cmd === "cprod") {
+      const catId = parts[2]; const page = parseInt(parts[3]) || 0;
+      const { data: cat } = await supabase().from("shop_categories").select("name, icon").eq("id", catId).single();
+      const { data: products } = await supabase().from("shop_products").select("id, name, price, stock, is_active").eq("shop_id", shopId).eq("category_id", catId).order("sort_order");
+      if (!products?.length) return tg.edit(cid, mid, `📁 <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "Категория"}</b>\n\nТоваров нет.`, ikb([[btn("◀️ К категории", `s:cv:${catId}`)]]));
+      const pg = paginate(products, page, 8);
+      let t = `📁 <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "Категория"}</b> — товары (${products.length})\n\n`;
+      pg.items.forEach(p => { t += `${p.is_active ? "✅" : "❌"} <b>${esc(p.name)}</b> — $${Number(p.price).toFixed(2)}\n`; });
+      const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${p.name.slice(0, 28)}`, `s:pv:${p.id}`)]);
+      if (pg.total > 1) rows.push(pgRow(`s:cprod:${catId}`, pg.page, pg.total));
+      rows.push([btn("◀️ К категории", `s:cv:${catId}`)]);
+      return tg.edit(cid, mid, t, ikb(rows));
+    }
+
+
     if (cmd === "ol") return ordersList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
     if (cmd === "ov") return orderView(tg, cid, mid, shopId, parts[2]);
     if (cmd === "os") return orderSetStatus(tg, cid, mid, shopId, parts[2], parts[3], adminId);
