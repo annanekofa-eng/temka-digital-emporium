@@ -1011,7 +1011,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "pc") {
       const pid = parts[2];
       // Store product id in session so category buttons don't need two UUIDs
-      await supabase().from("seller_sessions").upsert({ telegram_id: adminId, shop_id: shopId, state: `pc_pick:${pid}` }, { onConflict: "telegram_id" });
+      await supabase().from("seller_sessions").upsert({ telegram_id: adminId, shop_id: shopId, state: `pc_pick:${pid}` }, { onConflict: "telegram_id,shop_id" });
       const { data: cats } = await supabase().from("shop_categories").select("id, name, icon").eq("shop_id", shopId).eq("is_active", true).order("sort_order");
       if (!cats?.length) return tg.edit(cid, mid, "📁 Нет категорий. Сначала создайте категорию.", ikb([[btn("📁 Создать категорию", "s:ca")], [btn("◀️ К товару", `s:pv:${pid}`)]]));
       const rows: Btn[][] = cats.map(c => [btn(`${c.icon} ${c.name}`, `s:pcs:${c.id}`)]);
@@ -1021,7 +1021,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     }
     if (cmd === "pcs") {
       const catId = parts[2];
-      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).single();
+      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).eq("shop_id", shopId).single();
       const pid = sess?.state?.split(":")?.[1];
       if (!pid) return;
       await supabase().from("shop_products").update({ category_id: catId, updated_at: new Date().toISOString() }).eq("id", pid);
@@ -1029,7 +1029,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       return productView(tg, cid, mid, shopId, pid);
     }
     if (cmd === "pcr") {
-      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).single();
+      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).eq("shop_id", shopId).single();
       const pid = sess?.state?.split(":")?.[1];
       if (!pid) return;
       await supabase().from("shop_products").update({ category_id: null, updated_at: new Date().toISOString() }).eq("id", pid);
