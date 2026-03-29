@@ -1010,21 +1010,28 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     // Category picker for product
     if (cmd === "pc") {
       const pid = parts[2];
+      // Store product id in session so category buttons don't need two UUIDs
+      await supabase().from("seller_sessions").upsert({ telegram_id: adminId, shop_id: shopId, state: `pc_pick:${pid}` }, { onConflict: "telegram_id" });
       const { data: cats } = await supabase().from("shop_categories").select("id, name, icon").eq("shop_id", shopId).eq("is_active", true).order("sort_order");
       if (!cats?.length) return tg.edit(cid, mid, "📁 Нет категорий. Сначала создайте категорию.", ikb([[btn("📁 Создать категорию", "s:ca")], [btn("◀️ К товару", `s:pv:${pid}`)]]));
-      const rows: Btn[][] = cats.map(c => [btn(`${c.icon} ${c.name}`, `s:pcs:${pid}:${c.id}`)]);
-      rows.push([btn("🚫 Без категории", `s:pcr:${pid}`)]);
+      const rows: Btn[][] = cats.map(c => [btn(`${c.icon} ${c.name}`, `s:pcs:${c.id}`)]);
+      rows.push([btn("🚫 Без категории", `s:pcr`)]);
       rows.push([btn("◀️ К товару", `s:pv:${pid}`)]);
       return tg.edit(cid, mid, "📁 <b>Выберите категорию:</b>", ikb(rows));
     }
     if (cmd === "pcs") {
-      const pid = parts[2]; const catId = parts[3];
+      const catId = parts[2];
+      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).single();
+      const pid = sess?.state?.split(":")?.[1];
+      if (!pid) return;
       await supabase().from("shop_products").update({ category_id: catId, updated_at: new Date().toISOString() }).eq("id", pid);
       await logAction(shopId, adminId, "set_category", "product", pid, { category_id: catId });
       return productView(tg, cid, mid, shopId, pid);
     }
     if (cmd === "pcr") {
-      const pid = parts[2];
+      const { data: sess } = await supabase().from("seller_sessions").select("state").eq("telegram_id", adminId).single();
+      const pid = sess?.state?.split(":")?.[1];
+      if (!pid) return;
       await supabase().from("shop_products").update({ category_id: null, updated_at: new Date().toISOString() }).eq("id", pid);
       await logAction(shopId, adminId, "remove_category", "product", pid);
       return productView(tg, cid, mid, shopId, pid);
