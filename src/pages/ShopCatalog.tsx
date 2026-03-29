@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,13 +15,20 @@ const sortOptions = [
 ];
 
 const ShopCatalog = () => {
-  const { products, productsLoading, searchQuery, setSearchQuery, shop } = useShop();
+  const { products, productsLoading, searchQuery, setSearchQuery, shop, categories } = useShop();
   const shopId = shop?.id || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category') || '';
   
   const [localSearch, setLocalSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
   const [sortBy, setSortBy] = useState('default');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+  }, [categoryParam]);
 
   const q = localSearch || searchQuery;
 
