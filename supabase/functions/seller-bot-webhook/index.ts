@@ -926,8 +926,8 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
   const parts = data.split(":");
   const cmd = parts[1];
 
-  // Don't clear session for broadcast actions
-  if (!["bcsend", "bcedit", "bccancel"].includes(cmd)) {
+  // Don't clear session for flows that need persisted callback context
+  if (!["bcsend", "bcedit", "bccancel", "pcs", "pcr"].includes(cmd)) {
     await clearSession(cid);
   }
 
