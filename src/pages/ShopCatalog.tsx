@@ -70,9 +70,11 @@ const ShopCatalog = () => {
   return (
     <div className="container-main mx-auto px-4 py-6 sm:py-8">
       <div className="mb-6 sm:mb-8">
-        <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold">Все товары</h1>
+        <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold">
+          {activeCat ? activeCat.name : 'Все товары'}
+        </h1>
         <p className="text-muted-foreground text-xs sm:text-sm mt-2">
-          {productsLoading ? 'Загрузка...' : `${products.length} товаров доступно`}
+          {productsLoading ? 'Загрузка...' : `${filtered.length} товаров доступно`}
         </p>
       </div>
 
@@ -100,7 +102,24 @@ const ShopCatalog = () => {
             <h3 className="font-display font-bold text-lg">Фильтры</h3>
             <Button variant="ghost" size="icon" onClick={() => setFiltersOpen(false)}><X className="w-5 h-5" /></Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 lg:p-0">
+           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 lg:p-0">
+            {categories && categories.length > 0 && (
+              <div>
+                <h4 className="font-display font-semibold text-sm mb-3">Категория</h4>
+                <div className="space-y-1">
+                  <button onClick={() => { setSelectedCategory(''); setSearchParams({}); }}
+                    className={`block w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    Все категории
+                  </button>
+                  {categories.map(cat => (
+                    <button key={cat.id} onClick={() => { setSelectedCategory(cat.id); setSearchParams({ category: cat.id }); }}
+                      className={`block w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedCategory === cat.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                      {cat.icon} {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <h4 className="font-display font-semibold text-sm mb-3">Цена</h4>
               <div className="flex items-center gap-2">
