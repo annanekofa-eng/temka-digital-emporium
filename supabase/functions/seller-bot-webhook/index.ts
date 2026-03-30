@@ -46,6 +46,11 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Unicode-safe truncation: never breaks surrogate pairs / multi-byte chars */
+const safeSlice = (s: string, max: number) => {
+  const chars = [...s];
+  return chars.length <= max ? s : chars.slice(0, max).join("");
+};
 
 /** Sanitize a welcome_message from shop owner: escape HTML to prevent injection, then replace {name} */
 function escHtmlWelcome(raw: string, name: string): string {
@@ -165,7 +170,7 @@ async function productsList(tg: ReturnType<typeof TG>, cid: number, mid: number,
     const s = p.is_active ? "✅" : "❌";
     t += `${s} <b>${esc(p.name)}</b>\n💰 $${Number(p.price).toFixed(2)} | 📦 ${p.stock}\n\n`;
   });
-  const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${p.name.slice(0, 28)}`, `s:pv:${p.id}`)]);
+  const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${safeSlice(p.name, 28)}`, `s:pv:${p.id}`)]);
   if (pg.total > 1) rows.push(pgRow("s:pl", pg.page, pg.total));
   rows.push([btn("➕ Добавить", "s:pa"), btn("◀️ Меню", "s:m")]);
   return tg.edit(cid, mid, t, ikb(rows));
@@ -298,7 +303,7 @@ async function usersList(tg: ReturnType<typeof TG>, cid: number, mid: number, sh
     t += ` | ${u.telegram_id}\n`;
   });
   const pfx = filter ? `s:ulf:${filter}` : "s:ul";
-  const rows: Btn[][] = pg.items.map(u => [btn(`${u.is_blocked ? "🚫 " : ""}${u.first_name} ${u.last_name || ""}`.trim().slice(0, 28), `s:uv:${u.id}`)]);
+  const rows: Btn[][] = pg.items.map(u => [btn(safeSlice(`${u.is_blocked ? "🚫 " : ""}${u.first_name} ${u.last_name || ""}`.trim(), 28), `s:uv:${u.id}`)]);
   if (pg.total > 1) rows.push(pgRow(pfx, pg.page, pg.total));
   rows.push([btn("🔍 Поиск", "s:usq"), btn("📊 Фильтр", "s:usf")]);
   rows.push([btn("◀️ Меню", "s:m")]);
@@ -574,7 +579,7 @@ async function reviewsList(tg: ReturnType<typeof TG>, cid: number, mid: number, 
     const st = r.moderation_status === "approved" ? "✅" : r.moderation_status === "rejected" ? "❌" : "⏳";
     t += `${st} ${"⭐".repeat(r.rating)} — ${esc(r.author)}\n${esc(r.text.slice(0, 40))}\n\n`;
   });
-  const rows: Btn[][] = pg.items.map(r => [btn(`${r.moderation_status === "approved" ? "✅" : "⏳"} ${r.author.slice(0, 20)}`, `s:rvv:${r.id}`)]);
+  const rows: Btn[][] = pg.items.map(r => [btn(`${r.moderation_status === "approved" ? "✅" : "⏳"} ${safeSlice(r.author, 20)}`, `s:rvv:${r.id}`)]);
   if (pg.total > 1) rows.push(pgRow(filter ? `s:rvf:${filter}` : "s:rvl", pg.page, pg.total));
   rows.push([btn("⏳ Ожидающие", "s:rvf:pending:0"), btn("✅ Одобренные", "s:rvf:approved:0")]);
   rows.push([btn("◀️ Меню", "s:m")]);
@@ -836,7 +841,7 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
     if (!customers?.length) { await tg.send(cid, "❌ Ничего не найдено.", ikb([[btn("◀️ К пользователям", "s:ul:0")]])); return true; }
     let t = `🔍 <b>Результаты</b> (${customers.length})\n\n`;
     customers.forEach(u => { t += `👤 <b>${esc(u.first_name)}</b> ${u.username ? `@${esc(u.username)}` : ""} | ${u.telegram_id}\n`; });
-    const rows: Btn[][] = customers.map(u => [btn(`${u.first_name} ${u.last_name || ""}`.trim().slice(0, 28), `s:uv:${u.id}`)]);
+    const rows: Btn[][] = customers.map(u => [btn(safeSlice(`${u.first_name} ${u.last_name || ""}`.trim(), 28), `s:uv:${u.id}`)]);
     rows.push([btn("◀️ К пользователям", "s:ul:0")]);
     await tg.send(cid, t, ikb(rows));
     return true;
@@ -1046,7 +1051,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       const pg = paginate(products, page, 8);
       let t = `📁 <b>${cat ? `${cat.icon} ${esc(cat.name)}` : "Категория"}</b> — товары (${products.length})\n\n`;
       pg.items.forEach(p => { t += `${p.is_active ? "✅" : "❌"} <b>${esc(p.name)}</b> — $${Number(p.price).toFixed(2)}\n`; });
-      const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${p.name.slice(0, 28)}`, `s:pv:${p.id}`)]);
+      const rows: Btn[][] = pg.items.map(p => [btn(`${p.is_active ? "✅" : "❌"} ${safeSlice(p.name, 28)}`, `s:pv:${p.id}`)]);
       if (pg.total > 1) rows.push(pgRow(`s:cprod:${catId}`, pg.page, pg.total));
       rows.push([btn("◀️ К категории", `s:cv:${catId}`)]);
       return tg.edit(cid, mid, t, ikb(rows));
