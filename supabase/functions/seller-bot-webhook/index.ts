@@ -46,6 +46,11 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Unicode-safe truncation: never breaks surrogate pairs / multi-byte chars */
+const safeSlice = (s: string, max: number) => {
+  const chars = [...s];
+  return chars.length <= max ? s : chars.slice(0, max).join("");
+};
 
 /** Sanitize a welcome_message from shop owner: escape HTML to prevent injection, then replace {name} */
 function escHtmlWelcome(raw: string, name: string): string {
