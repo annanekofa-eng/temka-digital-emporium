@@ -71,7 +71,7 @@ const ShopCatalog = () => {
     <div className="container-main mx-auto px-4 py-6 sm:py-8">
       <div className="mb-6 sm:mb-8">
         <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold">
-          {activeCat ? activeCat.name : 'Все товары'}
+          {activeCat ? `${activeCat.icon || ''} ${activeCat.name}` : 'Все товары'}
         </h1>
         <p className="text-muted-foreground text-xs sm:text-sm mt-2">
           {productsLoading ? 'Загрузка...' : `${filtered.length} товаров доступно`}
