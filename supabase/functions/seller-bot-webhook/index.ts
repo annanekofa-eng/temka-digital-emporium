@@ -1579,9 +1579,16 @@ serve(async (req) => {
         ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`)
         : null;
 
+      // Shop-specific custom buttons
+      const customRows: Btn[][] = [];
+      if (shopId === "d83f8cdb-850c-4b70-af24-0a205620089b") {
+        customRows.push([{ text: "❗Важно", url: "https://telegra.ph/VIETO-STORE-03-30" }]);
+      }
+
       await tg.send(chatId, greeting, {
         inline_keyboard: [
           [{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }],
+          ...customRows,
           ...(supportUrl ? [[{ text: "🆘 Поддержка", url: supportUrl }]] : []),
         ],
       });
