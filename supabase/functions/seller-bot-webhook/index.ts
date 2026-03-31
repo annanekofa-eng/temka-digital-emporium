@@ -1528,15 +1528,22 @@ serve(async (req) => {
               // Subscribed — show normal start
               const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
               const welcomeText = shop.welcome_message
-                ? escHtmlWelcome(shop.welcome_message, cb.from?.first_name || "друг")
+                ? renderWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
               const supportUrl = shop.support_link ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`) : null;
-              await tg.edit(chatId, msgId, welcomeText, {
+              const opKb = {
                 inline_keyboard: [
                   [{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }],
                   ...(supportUrl ? [[{ text: "🆘 Поддержка", url: supportUrl }]] : []),
                 ],
-              });
+              };
+              // Delete the OP gate message and send fresh (photo can't be edited into text message)
+              await tg.deleteMessage(chatId, msgId).catch(() => {});
+              if (shop.welcome_photo_id) {
+                await tg.sendPhoto(chatId, shop.welcome_photo_id, welcomeText, opKb);
+              } else {
+                await tg.send(chatId, welcomeText, opKb);
+              }
             } else {
               await tg.answer(cb.id, "❌ Вы ещё не подписаны на канал!");
             }
