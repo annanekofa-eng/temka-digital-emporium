@@ -728,9 +728,56 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
   // ─── Edit shop field ──────────────────────
   if (state === "s_edit_field") {
     const field = sData.field as string;
+
+    // Special handling for welcome message: support photo + text, validate HTML
+    if (field === "welcome") {
+      const newText = val || "";
+      const photoId = photo?.length ? photo[photo.length - 1].file_id : null;
+
+      // If no text and no photo, reject
+      if (!newText && !photoId) {
+        await tg.send(cid, "❌ Отправьте текст или текст + фото.");
+        return true;
+      }
+
+      // Validate HTML via test sendMessage (then delete)
+      if (newText) {
+        const testText = renderWelcome(newText, "Тест");
+        const testRes = await tg.send(cid, testText);
+        if (!testRes.ok) {
+          await tg.send(cid, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+          return true;
+        }
+        // Delete test message
+        if (testRes.result?.message_id) {
+          await tg.deleteMessage(cid, testRes.result.message_id).catch(() => {});
+        }
+      }
+
+      // Update shop: text + photo (clear photo if not provided)
+      const updateData: Record<string, unknown> = {
+        welcome_message: newText,
+        welcome_photo_id: photoId, // null clears the photo
+        updated_at: new Date().toISOString(),
+      };
+      await supabase().from("shops").update(updateData).eq("id", shopId);
+      await logAction(shopId, adminId, photoId ? "update_welcome_with_photo" : "update_welcome_text", "shop", shopId, {
+        has_photo: !!photoId,
+        text_length: newText.length,
+      });
+      await clearSession(cid);
+      const confirmText = photoId
+        ? "✅ Приветствие обновлено (текст + фото)!"
+        : "✅ Приветствие обновлено (фото очищено).";
+      const resp = await tg.send(cid, confirmText);
+      const mid = resp?.result?.message_id;
+      if (mid) return settingsView(tg, cid, mid, shopId), true;
+      return true;
+    }
+
     const fieldMap: Record<string, string> = {
       name: "name", color: "color", hero_title: "hero_title",
-      hero_desc: "hero_description", welcome: "welcome_message", support: "support_link",
+      hero_desc: "hero_description", support: "support_link",
     };
     const dbField = fieldMap[field];
     if (!dbField) { await clearSession(cid); return true; }
@@ -738,7 +785,6 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
       await tg.send(cid, "❌ Введи HEX цвет, например: #FF5500");
       return true;
     }
-    // For welcome message, store raw text as-is (full replacement, HTML supported)
     const updateVal = field === "color" ? (val.startsWith("#") ? val : `#${val}`) : val;
     await supabase().from("shops").update({ [dbField]: updateVal, updated_at: new Date().toISOString() }).eq("id", shopId);
     await clearSession(cid);
