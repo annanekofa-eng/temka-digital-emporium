@@ -1629,10 +1629,10 @@ serve(async (req) => {
 
       const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
 
-      // Sanitize welcome message — strip raw HTML to prevent injection
+      // Render welcome message — HTML is validated at save time, use as-is
       let greeting: string;
       if (shop.welcome_message) {
-        greeting = escHtmlWelcome(shop.welcome_message, firstName);
+        greeting = renderWelcome(shop.welcome_message, firstName);
       } else {
         greeting = `👋 Привет, <b>${esc(firstName)}</b>!\n\nДобро пожаловать в <b>${esc(shop.name)}</b>! 🛍`;
       }
@@ -1647,13 +1647,20 @@ serve(async (req) => {
         customRows.push([{ text: "❗Важно", url: "https://telegra.ph/VIETO-STORE--FAQ-03-30" }]);
       }
 
-      await tg.send(chatId, greeting, {
+      const startKb = {
         inline_keyboard: [
           [{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }],
           ...customRows,
           ...(supportUrl ? [[{ text: "🆘 Поддержка", url: supportUrl }]] : []),
         ],
-      });
+      };
+
+      // Send photo + caption or plain text
+      if (shop.welcome_photo_id) {
+        await tg.sendPhoto(chatId, shop.welcome_photo_id, greeting, startKb);
+      } else {
+        await tg.send(chatId, greeting, startKb);
+      }
       return new Response("ok");
     }
 
