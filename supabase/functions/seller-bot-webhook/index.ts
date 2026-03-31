@@ -105,13 +105,17 @@ async function clearSession(tgId: number, shopId?: string) {
   }
 }
 
-// ─── Check if user is shop owner ─────────────
+// ─── Check if user is shop owner or admin ─────────────
 async function isShopOwner(shopId: string, telegramId: number): Promise<boolean> {
+  // Check if user is the shop owner
   const { data: shop } = await supabase().from("shops").select("owner_id").eq("id", shopId).single();
-  if (!shop) return false;
-  const { data: user } = await supabase().from("platform_users").select("id").eq("telegram_id", telegramId).maybeSingle();
-  if (!user) return false;
-  return shop.owner_id === user.id;
+  if (shop) {
+    const { data: user } = await supabase().from("platform_users").select("id").eq("telegram_id", telegramId).maybeSingle();
+    if (user && shop.owner_id === user.id) return true;
+  }
+  // Check if user is a shop admin (role = 'admin' in shop_customers)
+  const { data: admin } = await supabase().from("shop_customers").select("id").eq("shop_id", shopId).eq("telegram_id", telegramId).eq("role", "admin").maybeSingle();
+  return !!admin;
 }
 
 // ─── Ensure shop customer exists (tenant-scoped) ──────────
