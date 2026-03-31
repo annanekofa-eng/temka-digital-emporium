@@ -6055,6 +6055,56 @@ serve(async (req) => {
           );
           return new Response("ok");
         }
+
+        // Handle photo for shop welcome edit (edit_field + welcome)
+        if (session?.state === "edit_field" && photo) {
+          const sData = session.data as Record<string, unknown>;
+          if (sData.field === "welcome") {
+            const shopId = sData.shop_id as string;
+            const caption = msg.caption || "";
+            const photoFileId = photo[photo.length - 1].file_id;
+
+            if (!caption) {
+              await tg.send(chatId, "❌ Отправьте фото с подписью (текст приветствия).");
+              return new Response("ok");
+            }
+
+            // Validate HTML via test sendMessage
+            const testText = caption.replace(/\{name\}/g, esc("Тест"));
+            const testRes = await tg.send(chatId, testText);
+            if (!testRes.ok) {
+              await tg.send(chatId, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+              return new Response("ok");
+            }
+            if (testRes.result?.message_id) {
+              await tg.deleteMessage(chatId, testRes.result.message_id).catch(() => {});
+            }
+
+            await db()
+              .from("shops")
+              .update({ welcome_message: caption, welcome_photo_id: photoFileId, updated_at: new Date().toISOString() })
+              .eq("id", shopId);
+
+            await db().from("shop_admin_logs").insert({
+              shop_id: shopId,
+              admin_telegram_id: chatId,
+              action: "update_welcome_with_photo",
+              entity_type: "shop",
+              entity_id: shopId,
+              details: { has_photo: true, text_length: caption.length },
+            });
+
+            await clearSession(chatId);
+            const resp = await tg.send(chatId, "✅ Приветствие обновлено (текст + фото)!");
+            const mid = resp?.result?.message_id;
+            if (mid) {
+              const { shopSettings: ss } = await import("data:text/javascript,");
+              // Can't import shopSettings, just show inline back button
+            }
+            await tg.send(chatId, "◀️ Вернуться в настройки:", ikb([[btn("⚙️ Настройки", `p:settings:${shopId}`)]]));
+            return new Response("ok");
+          }
+        }
       }
 
       // ─── FSM handler ──────────────────────
