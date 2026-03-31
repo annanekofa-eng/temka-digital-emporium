@@ -1955,10 +1955,23 @@ async function handleCallback(
       support: "🔗 ссылку на поддержку",
     };
     await setSession(chatId, "edit_field", { shop_id: shopId, field });
+    let extra = "";
+    if (field === "welcome") {
+      extra = "\n\n💡 <b>Подсказка по форматированию:</b>\n" +
+        "• <code>&lt;b&gt;жирный&lt;/b&gt;</code> → <b>жирный</b>\n" +
+        "• <code>&lt;i&gt;курсив&lt;/i&gt;</code> → <i>курсив</i>\n" +
+        "• <code>&lt;u&gt;подчёркнутый&lt;/u&gt;</code> → <u>подчёркнутый</u>\n" +
+        "• <code>&lt;code&gt;код&lt;/code&gt;</code> → <code>код</code>\n" +
+        "• <code>&lt;a href=\"URL\"&gt;текст&lt;/a&gt;</code> → ссылка\n" +
+        "• <code>{name}</code> → имя пользователя\n\n" +
+        "📸 <b>Можно приложить фото</b> — оно будет показано при /start.\n" +
+        "Отправка текста без фото очистит текущее фото.\n\n" +
+        "Сообщение заменяет стартовый текст полностью.";
+    }
     return tg.edit(
       chatId,
       msgId,
-      `✏️ Введи новое ${labels[field] || field}:`,
+      `✏️ Введи новое ${labels[field] || field}:${extra}`,
       ikb([[btn("❌ Отмена", `p:settings:${shopId}`)]]),
     );
   }
