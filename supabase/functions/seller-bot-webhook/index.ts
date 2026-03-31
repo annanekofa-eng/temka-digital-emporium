@@ -1459,7 +1459,7 @@ serve(async (req) => {
     }
 
     // Load shop and decrypt bot token
-    const { data: shop, error: shopErr } = await supabase().from("shops").select("id, name, slug, bot_token_encrypted, welcome_message, support_link, status, owner_id, is_subscription_required, required_channel_id, required_channel_link").eq("id", shopId).single();
+    const { data: shop, error: shopErr } = await supabase().from("shops").select("id, name, slug, bot_token_encrypted, welcome_message, welcome_photo_id, support_link, status, owner_id, is_subscription_required, required_channel_id, required_channel_link").eq("id", shopId).single();
     console.log("seller-bot-webhook: shop loaded, status:", shop?.status, "error:", !!shopErr);
     if (!shop) {
       console.error("seller-bot-webhook: shop not found", shopId);
