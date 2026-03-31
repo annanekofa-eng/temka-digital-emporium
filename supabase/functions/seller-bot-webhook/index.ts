@@ -58,6 +58,10 @@ function escHtmlWelcome(raw: string, name: string): string {
   const escaped = esc(raw);
   return escaped.replace(/\{name\}/gi, esc(name));
 }
+/** Render validated welcome message: HTML is already validated by Telegram, just replace {name} */
+function renderWelcome(raw: string, name: string): string {
+  return raw.replace(/\{name\}/gi, esc(name));
+}
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
