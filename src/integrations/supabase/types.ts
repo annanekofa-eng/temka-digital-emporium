@@ -1422,6 +1422,7 @@ export type Database = {
           updated_at: string
           webhook_status: string
           welcome_message: string
+          welcome_photo_id: string | null
         }
         Insert: {
           bot_id?: number | null
@@ -1445,6 +1446,7 @@ export type Database = {
           updated_at?: string
           webhook_status?: string
           welcome_message?: string
+          welcome_photo_id?: string | null
         }
         Update: {
           bot_id?: number | null
@@ -1468,6 +1470,7 @@ export type Database = {
           updated_at?: string
           webhook_status?: string
           welcome_message?: string
+          welcome_photo_id?: string | null
         }
         Relationships: [
           {

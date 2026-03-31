@@ -1,0 +1,1 @@
+ALTER TABLE public.shops ADD COLUMN welcome_photo_id text DEFAULT NULL;

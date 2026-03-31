@@ -58,6 +58,10 @@ function escHtmlWelcome(raw: string, name: string): string {
   const escaped = esc(raw);
   return escaped.replace(/\{name\}/gi, esc(name));
 }
+/** Render validated welcome message: HTML is already validated by Telegram, just replace {name} */
+function renderWelcome(raw: string, name: string): string {
+  return raw.replace(/\{name\}/gi, esc(name));
+}
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
@@ -485,7 +489,7 @@ async function settingsView(tg: ReturnType<typeof TG>, cid: number, mid: number,
     `🎨 Цвет: ${shop.color}\n` +
     `📌 Заголовок: ${shop.hero_title || "—"}\n` +
     `📝 Описание: ${shop.hero_description ? esc(shop.hero_description.slice(0, 60)) + "…" : "—"}\n` +
-    `👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}\n` +
+    `👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}${shop.welcome_photo_id ? " 🖼" : ""}\n` +
     `🔗 Поддержка: ${shop.support_link || "—"}\n` +
     `🤖 Бот: ${botStatus}\n` +
     `💰 CryptoBot: ${shop.cryptobot_token_encrypted ? "✅ подключён" : "❌ не подключён"}\n` +
@@ -724,9 +728,56 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
   // ─── Edit shop field ──────────────────────
   if (state === "s_edit_field") {
     const field = sData.field as string;
+
+    // Special handling for welcome message: support photo + text, validate HTML
+    if (field === "welcome") {
+      const newText = val || "";
+      const photoId = photo?.length ? photo[photo.length - 1].file_id : null;
+
+      // If no text and no photo, reject
+      if (!newText && !photoId) {
+        await tg.send(cid, "❌ Отправьте текст или текст + фото.");
+        return true;
+      }
+
+      // Validate HTML via test sendMessage (then delete)
+      if (newText) {
+        const testText = renderWelcome(newText, "Тест");
+        const testRes = await tg.send(cid, testText);
+        if (!testRes.ok) {
+          await tg.send(cid, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+          return true;
+        }
+        // Delete test message
+        if (testRes.result?.message_id) {
+          await tg.deleteMessage(cid, testRes.result.message_id).catch(() => {});
+        }
+      }
+
+      // Update shop: text + photo (clear photo if not provided)
+      const updateData: Record<string, unknown> = {
+        welcome_message: newText,
+        welcome_photo_id: photoId, // null clears the photo
+        updated_at: new Date().toISOString(),
+      };
+      await supabase().from("shops").update(updateData).eq("id", shopId);
+      await logAction(shopId, adminId, photoId ? "update_welcome_with_photo" : "update_welcome_text", "shop", shopId, {
+        has_photo: !!photoId,
+        text_length: newText.length,
+      });
+      await clearSession(cid);
+      const confirmText = photoId
+        ? "✅ Приветствие обновлено (текст + фото)!"
+        : "✅ Приветствие обновлено (фото очищено).";
+      const resp = await tg.send(cid, confirmText);
+      const mid = resp?.result?.message_id;
+      if (mid) return settingsView(tg, cid, mid, shopId), true;
+      return true;
+    }
+
     const fieldMap: Record<string, string> = {
       name: "name", color: "color", hero_title: "hero_title",
-      hero_desc: "hero_description", welcome: "welcome_message", support: "support_link",
+      hero_desc: "hero_description", support: "support_link",
     };
     const dbField = fieldMap[field];
     if (!dbField) { await clearSession(cid); return true; }
@@ -734,7 +785,6 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
       await tg.send(cid, "❌ Введи HEX цвет, например: #FF5500");
       return true;
     }
-    // For welcome message, store raw text as-is (full replacement, HTML supported)
     const updateVal = field === "color" ? (val.startsWith("#") ? val : `#${val}`) : val;
     await supabase().from("shops").update({ [dbField]: updateVal, updated_at: new Date().toISOString() }).eq("id", shopId);
     await clearSession(cid);
@@ -1245,10 +1295,22 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       const labels: Record<string, string> = {
         name: "📛 название магазина", color: "🎨 HEX цвет (например #FF5500)",
         hero_title: "📌 заголовок витрины", hero_desc: "📝 описание витрины",
-        welcome: "👋 приветственное сообщение (HTML: &lt;b&gt;, &lt;i&gt;, &lt;a&gt;, {name} для имени)", support: "🔗 ссылку на поддержку",
+        welcome: "👋 приветственное сообщение", support: "🔗 ссылку на поддержку",
       };
       await setSession(cid, "s_edit_field", shopId, { field });
-      const extra = field === "welcome" ? "\n\n💡 Сообщение заменяет стартовый текст полностью.\nПоддерживается HTML: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;a href=\"\"&gt;\nИспользуйте <code>{name}</code> для имени пользователя." : "";
+      let extra = "";
+      if (field === "welcome") {
+        extra = "\n\n💡 <b>Подсказка по форматированию:</b>\n" +
+          "• <code>&lt;b&gt;жирный&lt;/b&gt;</code> → <b>жирный</b>\n" +
+          "• <code>&lt;i&gt;курсив&lt;/i&gt;</code> → <i>курсив</i>\n" +
+          "• <code>&lt;u&gt;подчёркнутый&lt;/u&gt;</code> → <u>подчёркнутый</u>\n" +
+          "• <code>&lt;code&gt;код&lt;/code&gt;</code> → <code>код</code>\n" +
+          "• <code>&lt;a href=\"URL\"&gt;текст&lt;/a&gt;</code> → ссылка\n" +
+          "• <code>{name}</code> → имя пользователя\n\n" +
+          "📸 <b>Можно приложить фото</b> — оно будет показано при /start.\n" +
+          "Отправка текста без фото очистит текущее фото.\n\n" +
+          "Сообщение заменяет стартовый текст полностью.";
+      }
       return tg.edit(cid, mid, `✏️ Введи новое ${labels[field] || field}:${extra}`, ikb([[btn("❌ Отмена", "s:se")]]));
     }
 
@@ -1397,7 +1459,7 @@ serve(async (req) => {
     }
 
     // Load shop and decrypt bot token
-    const { data: shop, error: shopErr } = await supabase().from("shops").select("id, name, slug, bot_token_encrypted, welcome_message, support_link, status, owner_id, is_subscription_required, required_channel_id, required_channel_link").eq("id", shopId).single();
+    const { data: shop, error: shopErr } = await supabase().from("shops").select("id, name, slug, bot_token_encrypted, welcome_message, welcome_photo_id, support_link, status, owner_id, is_subscription_required, required_channel_id, required_channel_link").eq("id", shopId).single();
     console.log("seller-bot-webhook: shop loaded, status:", shop?.status, "error:", !!shopErr);
     if (!shop) {
       console.error("seller-bot-webhook: shop not found", shopId);
@@ -1466,15 +1528,22 @@ serve(async (req) => {
               // Subscribed — show normal start
               const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
               const welcomeText = shop.welcome_message
-                ? escHtmlWelcome(shop.welcome_message, cb.from?.first_name || "друг")
+                ? renderWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
               const supportUrl = shop.support_link ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`) : null;
-              await tg.edit(chatId, msgId, welcomeText, {
+              const opKb = {
                 inline_keyboard: [
                   [{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }],
                   ...(supportUrl ? [[{ text: "🆘 Поддержка", url: supportUrl }]] : []),
                 ],
-              });
+              };
+              // Delete the OP gate message and send fresh (photo can't be edited into text message)
+              await tg.deleteMessage(chatId, msgId).catch(() => {});
+              if (shop.welcome_photo_id) {
+                await tg.sendPhoto(chatId, shop.welcome_photo_id, welcomeText, opKb);
+              } else {
+                await tg.send(chatId, welcomeText, opKb);
+              }
             } else {
               await tg.answer(cb.id, "❌ Вы ещё не подписаны на канал!");
             }
@@ -1567,10 +1636,10 @@ serve(async (req) => {
 
       const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
 
-      // Sanitize welcome message — strip raw HTML to prevent injection
+      // Render welcome message — HTML is validated at save time, use as-is
       let greeting: string;
       if (shop.welcome_message) {
-        greeting = escHtmlWelcome(shop.welcome_message, firstName);
+        greeting = renderWelcome(shop.welcome_message, firstName);
       } else {
         greeting = `👋 Привет, <b>${esc(firstName)}</b>!\n\nДобро пожаловать в <b>${esc(shop.name)}</b>! 🛍`;
       }
@@ -1585,13 +1654,20 @@ serve(async (req) => {
         customRows.push([{ text: "❗Важно", url: "https://telegra.ph/VIETO-STORE--FAQ-03-30" }]);
       }
 
-      await tg.send(chatId, greeting, {
+      const startKb = {
         inline_keyboard: [
           [{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }],
           ...customRows,
           ...(supportUrl ? [[{ text: "🆘 Поддержка", url: supportUrl }]] : []),
         ],
-      });
+      };
+
+      // Send photo + caption or plain text
+      if (shop.welcome_photo_id) {
+        await tg.sendPhoto(chatId, shop.welcome_photo_id, greeting, startKb);
+      } else {
+        await tg.send(chatId, greeting, startKb);
+      }
       return new Response("ok");
     }
 
