@@ -1295,10 +1295,22 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       const labels: Record<string, string> = {
         name: "📛 название магазина", color: "🎨 HEX цвет (например #FF5500)",
         hero_title: "📌 заголовок витрины", hero_desc: "📝 описание витрины",
-        welcome: "👋 приветственное сообщение (HTML: &lt;b&gt;, &lt;i&gt;, &lt;a&gt;, {name} для имени)", support: "🔗 ссылку на поддержку",
+        welcome: "👋 приветственное сообщение", support: "🔗 ссылку на поддержку",
       };
       await setSession(cid, "s_edit_field", shopId, { field });
-      const extra = field === "welcome" ? "\n\n💡 Сообщение заменяет стартовый текст полностью.\nПоддерживается HTML: &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;a href=\"\"&gt;\nИспользуйте <code>{name}</code> для имени пользователя." : "";
+      let extra = "";
+      if (field === "welcome") {
+        extra = "\n\n💡 <b>Подсказка по форматированию:</b>\n" +
+          "• <code>&lt;b&gt;жирный&lt;/b&gt;</code> → <b>жирный</b>\n" +
+          "• <code>&lt;i&gt;курсив&lt;/i&gt;</code> → <i>курсив</i>\n" +
+          "• <code>&lt;u&gt;подчёркнутый&lt;/u&gt;</code> → <u>подчёркнутый</u>\n" +
+          "• <code>&lt;code&gt;код&lt;/code&gt;</code> → <code>код</code>\n" +
+          "• <code>&lt;a href=\"URL\"&gt;текст&lt;/a&gt;</code> → ссылка\n" +
+          "• <code>{name}</code> → имя пользователя\n\n" +
+          "📸 <b>Можно приложить фото</b> — оно будет показано при /start.\n" +
+          "Отправка текста без фото очистит текущее фото.\n\n" +
+          "Сообщение заменяет стартовый текст полностью.";
+      }
       return tg.edit(cid, mid, `✏️ Введи новое ${labels[field] || field}:${extra}`, ikb([[btn("❌ Отмена", "s:se")]]));
     }
 
