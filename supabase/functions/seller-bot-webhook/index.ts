@@ -489,7 +489,7 @@ async function settingsView(tg: ReturnType<typeof TG>, cid: number, mid: number,
     `🎨 Цвет: ${shop.color}\n` +
     `📌 Заголовок: ${shop.hero_title || "—"}\n` +
     `📝 Описание: ${shop.hero_description ? esc(shop.hero_description.slice(0, 60)) + "…" : "—"}\n` +
-    `👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}\n` +
+    `👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}${shop.welcome_photo_id ? " 🖼" : ""}\n` +
     `🔗 Поддержка: ${shop.support_link || "—"}\n` +
     `🤖 Бот: ${botStatus}\n` +
     `💰 CryptoBot: ${shop.cryptobot_token_encrypted ? "✅ подключён" : "❌ не подключён"}\n` +
