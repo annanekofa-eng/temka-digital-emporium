@@ -6095,13 +6095,7 @@ serve(async (req) => {
             });
 
             await clearSession(chatId);
-            const resp = await tg.send(chatId, "✅ Приветствие обновлено (текст + фото)!");
-            const mid = resp?.result?.message_id;
-            if (mid) {
-              const { shopSettings: ss } = await import("data:text/javascript,");
-              // Can't import shopSettings, just show inline back button
-            }
-            await tg.send(chatId, "◀️ Вернуться в настройки:", ikb([[btn("⚙️ Настройки", `p:settings:${shopId}`)]]));
+            await tg.send(chatId, "✅ Приветствие обновлено (текст + фото)!", ikb([[btn("⚙️ Настройки", `p:settings:${shopId}`)]]));
             return new Response("ok");
           }
         }
