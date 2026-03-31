@@ -1727,10 +1727,46 @@ async function handleText(
   if (state === "edit_field") {
     const shopId = sData.shop_id as string;
     const field = sData.field as string;
+
+    // Special handling for welcome: validate HTML, clear photo on text-only
+    if (field === "welcome") {
+      const newText = val || "";
+      if (!newText) {
+        return tg.send(chatId, "❌ Отправьте текст или текст + фото.");
+      }
+      // Validate HTML via test sendMessage (then delete)
+      const testText = newText.replace(/\{name\}/g, esc("Тест"));
+      const testRes = await tg.send(chatId, testText);
+      if (!testRes.ok) {
+        return tg.send(chatId, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+      }
+      if (testRes.result?.message_id) {
+        await tg.deleteMessage(chatId, testRes.result.message_id).catch(() => {});
+      }
+      // Text-only: update text and clear photo
+      await db()
+        .from("shops")
+        .update({ welcome_message: newText, welcome_photo_id: null, updated_at: new Date().toISOString() })
+        .eq("id", shopId);
+      // Admin log
+      await db().from("shop_admin_logs").insert({
+        shop_id: shopId,
+        admin_telegram_id: chatId,
+        action: "update_welcome_text",
+        entity_type: "shop",
+        entity_id: shopId,
+        details: { has_photo: false, text_length: newText.length },
+      });
+      await clearSession(chatId);
+      const resp = await tg.send(chatId, "✅ Приветствие обновлено (фото очищено).");
+      const mid = resp?.result?.message_id;
+      if (mid) return shopSettings(tg, chatId, mid, shopId);
+      return;
+    }
+
     const fieldMap: Record<string, string> = {
       name: "name",
       slug: "slug",
-      welcome: "welcome_message",
       support: "support_link",
       color: "color",
       hero_title: "hero_title",
