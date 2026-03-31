@@ -889,7 +889,9 @@ async function shopSettings(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       ? `✅ включена (${shop.required_channel_link || shop.required_channel_id})`
       : "⚠️ включена, канал не указан";
   }
-  const text = `⚙️ <b>Настройки: ${esc(shop.name)}</b>\n\n📛 Название: ${esc(shop.name)}\n🎨 Цвет: ${shop.color}\n📌 Заголовок: ${shop.hero_title || "—"}\n📝 Описание: ${shop.hero_description ? esc(shop.hero_description.slice(0, 60)) + "…" : "—"}\n👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}\n🔗 Поддержка: ${shop.support_link || "—"}\n🤖 Бот: ${botStatus}\n💰 CryptoBot: ${shop.cryptobot_token_encrypted ? "✅ подключён" : "❌ не подключён"}\n📢 ОП: ${opStatus}\n\n⚠️ <i>Полное управление магазином (товары, заказы, клиенты) осуществляется через</i> /admin <i>в подключённом вами боте.</i>\n\n📘 <b>Центр помощи</b>\nhttps://telegra.ph/Centr-pomoshchi-TeleStore-03-17`;
+  const welcomePreview = shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—";
+  const welcomePhotoIcon = shop.welcome_photo_id ? " 🖼" : "";
+  const text = `⚙️ <b>Настройки: ${esc(shop.name)}</b>\n\n📛 Название: ${esc(shop.name)}\n🎨 Цвет: ${shop.color}\n📌 Заголовок: ${shop.hero_title || "—"}\n📝 Описание: ${shop.hero_description ? esc(shop.hero_description.slice(0, 60)) + "…" : "—"}\n👋 Приветствие: ${welcomePreview}${welcomePhotoIcon}\n🔗 Поддержка: ${shop.support_link || "—"}\n🤖 Бот: ${botStatus}\n💰 CryptoBot: ${shop.cryptobot_token_encrypted ? "✅ подключён" : "❌ не подключён"}\n📢 ОП: ${opStatus}\n\n⚠️ <i>Полное управление магазином (товары, заказы, клиенты) осуществляется через</i> /admin <i>в подключённом вами боте.</i>\n\n📘 <b>Центр помощи</b>\nhttps://telegra.ph/Centr-pomoshchi-TeleStore-03-17`;
   return tg.edit(
     chatId,
     msgId,
@@ -1725,10 +1727,46 @@ async function handleText(
   if (state === "edit_field") {
     const shopId = sData.shop_id as string;
     const field = sData.field as string;
+
+    // Special handling for welcome: validate HTML, clear photo on text-only
+    if (field === "welcome") {
+      const newText = val || "";
+      if (!newText) {
+        return tg.send(chatId, "❌ Отправьте текст или текст + фото.");
+      }
+      // Validate HTML via test sendMessage (then delete)
+      const testText = newText.replace(/\{name\}/g, esc("Тест"));
+      const testRes = await tg.send(chatId, testText);
+      if (!testRes.ok) {
+        return tg.send(chatId, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+      }
+      if (testRes.result?.message_id) {
+        await tg.deleteMessage(chatId, testRes.result.message_id).catch(() => {});
+      }
+      // Text-only: update text and clear photo
+      await db()
+        .from("shops")
+        .update({ welcome_message: newText, welcome_photo_id: null, updated_at: new Date().toISOString() })
+        .eq("id", shopId);
+      // Admin log
+      await db().from("shop_admin_logs").insert({
+        shop_id: shopId,
+        admin_telegram_id: chatId,
+        action: "update_welcome_text",
+        entity_type: "shop",
+        entity_id: shopId,
+        details: { has_photo: false, text_length: newText.length },
+      });
+      await clearSession(chatId);
+      const resp = await tg.send(chatId, "✅ Приветствие обновлено (фото очищено).");
+      const mid = resp?.result?.message_id;
+      if (mid) return shopSettings(tg, chatId, mid, shopId);
+      return;
+    }
+
     const fieldMap: Record<string, string> = {
       name: "name",
       slug: "slug",
-      welcome: "welcome_message",
       support: "support_link",
       color: "color",
       hero_title: "hero_title",
@@ -1953,10 +1991,23 @@ async function handleCallback(
       support: "🔗 ссылку на поддержку",
     };
     await setSession(chatId, "edit_field", { shop_id: shopId, field });
+    let extra = "";
+    if (field === "welcome") {
+      extra = "\n\n💡 <b>Подсказка по форматированию:</b>\n" +
+        "• <code>&lt;b&gt;жирный&lt;/b&gt;</code> → <b>жирный</b>\n" +
+        "• <code>&lt;i&gt;курсив&lt;/i&gt;</code> → <i>курсив</i>\n" +
+        "• <code>&lt;u&gt;подчёркнутый&lt;/u&gt;</code> → <u>подчёркнутый</u>\n" +
+        "• <code>&lt;code&gt;код&lt;/code&gt;</code> → <code>код</code>\n" +
+        "• <code>&lt;a href=\"URL\"&gt;текст&lt;/a&gt;</code> → ссылка\n" +
+        "• <code>{name}</code> → имя пользователя\n\n" +
+        "📸 <b>Можно приложить фото</b> — оно будет показано при /start.\n" +
+        "Отправка текста без фото очистит текущее фото.\n\n" +
+        "Сообщение заменяет стартовый текст полностью.";
+    }
     return tg.edit(
       chatId,
       msgId,
-      `✏️ Введи новое ${labels[field] || field}:`,
+      `✏️ Введи новое ${labels[field] || field}:${extra}`,
       ikb([[btn("❌ Отмена", `p:settings:${shopId}`)]]),
     );
   }
@@ -6003,6 +6054,50 @@ serve(async (req) => {
             ikb([[btn("👁 Предпросмотр", "adm:welc_preview")], [btn("◀️ Назад", "adm:welcmgr")]]),
           );
           return new Response("ok");
+        }
+
+        // Handle photo for shop welcome edit (edit_field + welcome)
+        if (session?.state === "edit_field" && photo) {
+          const sData = session.data as Record<string, unknown>;
+          if (sData.field === "welcome") {
+            const shopId = sData.shop_id as string;
+            const caption = msg.caption || "";
+            const photoFileId = photo[photo.length - 1].file_id;
+
+            if (!caption) {
+              await tg.send(chatId, "❌ Отправьте фото с подписью (текст приветствия).");
+              return new Response("ok");
+            }
+
+            // Validate HTML via test sendMessage
+            const testText = caption.replace(/\{name\}/g, esc("Тест"));
+            const testRes = await tg.send(chatId, testText);
+            if (!testRes.ok) {
+              await tg.send(chatId, `❌ <b>Ошибка HTML-разметки:</b>\n\n${esc(testRes.description || "Неверный формат HTML")}\n\nИсправьте и отправьте снова.`);
+              return new Response("ok");
+            }
+            if (testRes.result?.message_id) {
+              await tg.deleteMessage(chatId, testRes.result.message_id).catch(() => {});
+            }
+
+            await db()
+              .from("shops")
+              .update({ welcome_message: caption, welcome_photo_id: photoFileId, updated_at: new Date().toISOString() })
+              .eq("id", shopId);
+
+            await db().from("shop_admin_logs").insert({
+              shop_id: shopId,
+              admin_telegram_id: chatId,
+              action: "update_welcome_with_photo",
+              entity_type: "shop",
+              entity_id: shopId,
+              details: { has_photo: true, text_length: caption.length },
+            });
+
+            await clearSession(chatId);
+            await tg.send(chatId, "✅ Приветствие обновлено (текст + фото)!", ikb([[btn("⚙️ Настройки", `p:settings:${shopId}`)]]));
+            return new Response("ok");
+          }
         }
       }
 
