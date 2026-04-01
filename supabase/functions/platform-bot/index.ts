@@ -5954,7 +5954,7 @@ serve(async (req) => {
         await tg.send(
           chatId,
           `⭐ <b>Отзывы наших пользователей</b>\n\nПосмотрите, что говорят о TeleStore:`,
-          ikb([[urlBtn("⭐ Читать отзывы", "https://t.me/otzivitelestore")]]),
+          ikb([[urlBtn("⭐ Читать отзывы", "https://t.me/TeleStoreOtzivi")]]),
         );
         return new Response("ok");
       }
