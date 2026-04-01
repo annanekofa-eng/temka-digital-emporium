@@ -720,7 +720,14 @@ async function sendWelcome(tg: ReturnType<typeof TG>, chatId: number, firstName:
   const hasShop = await userHasShop(chatId);
   const config = await getWelcomeConfig();
   const defaultText = `👋 Привет, <b>${esc(firstName)}</b>!\nДобро пожаловать в <b>${PLATFORM_NAME}</b>\n\nСоздай свой Telegram магазин\nс автовыдачей за 5 минут.\n\n— Никакого кода и хостинга\n— Автовыдача товаров 24/7\n— Приём крипты через CryptoBot\n— Полная настройка под себя`;
-  const welcomeText = config.text ? config.text.replace(/\{name\}/g, esc(firstName)) : defaultText;
+  // Dynamic stats for {shops_count} placeholder
+  let shopsCount = "0";
+  const rawText = config.text || defaultText;
+  if (rawText.includes("{shops_count}")) {
+    const { count } = await db().from("shops").select("id", { count: "exact", head: true });
+    shopsCount = String(count || 0);
+  }
+  const welcomeText = (config.text ? config.text.replace(/\{name\}/g, esc(firstName)) : defaultText).replace(/\{shops_count\}/g, shopsCount);
   const kb = { ...ikb(await welcomeButtons(chatId)) };
 
   if (config.media_type === "photo" && config.media_url) {
