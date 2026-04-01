@@ -700,7 +700,7 @@ async function welcomeButtons(chatId: number): Promise<Btn[][]> {
     return [
       [btn("👤 Мой профиль", "p:profile")],
       [btn("🏪 Мой магазин", `p:shop:${shop?.id || ""}`), btn("📖 Как это работает", "p:howitworks")],
-      [urlBtn("⭐ Отзывы", "https://t.me/otzivitelestore")],
+      [urlBtn("⭐ Отзывы", "https://t.me/TeleStoreOtzivi")],
     ];
   }
   return [
