@@ -700,13 +700,13 @@ async function welcomeButtons(chatId: number): Promise<Btn[][]> {
     return [
       [btn("👤 Мой профиль", "p:profile")],
       [btn("🏪 Мой магазин", `p:shop:${shop?.id || ""}`), btn("📖 Как это работает", "p:howitworks")],
-      [urlBtn("⭐ Отзывы", "https://t.me/otzivitelestore")],
+      [urlBtn("⭐ Отзывы", "https://t.me/TeleStoreOtzivi")],
     ];
   }
   return [
     [btn("👤 Мой профиль", "p:profile")],
     [btn("🏪 Создать магазин", "p:create"), btn("📖 Как это работает", "p:howitworks")],
-    [urlBtn("⭐ Отзывы", "https://t.me/otzivitelestore")],
+    [urlBtn("⭐ Отзывы", "https://t.me/TeleStoreOtzivi")],
   ];
 }
 
@@ -5954,7 +5954,7 @@ serve(async (req) => {
         await tg.send(
           chatId,
           `⭐ <b>Отзывы наших пользователей</b>\n\nПосмотрите, что говорят о TeleStore:`,
-          ikb([[urlBtn("⭐ Читать отзывы", "https://t.me/otzivitelestore")]]),
+          ikb([[urlBtn("⭐ Читать отзывы", "https://t.me/TeleStoreOtzivi")]]),
         );
         return new Response("ok");
       }
