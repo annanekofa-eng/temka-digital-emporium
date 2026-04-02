@@ -77,6 +77,34 @@ function pgRow(prefix: string, page: number, total: number): Btn[] {
   return r;
 }
 
+async function fetchUsdtRubRate(cryptobotToken: string): Promise<number> {
+  for (const base of ["https://pay.crypt.bot/api", "https://testnet-pay.crypt.bot/api"]) {
+    try {
+      const res = await fetch(`${base}/getExchangeRates`, {
+        headers: { "Crypto-Pay-API-Token": cryptobotToken },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const row = data?.result?.find((r: any) => r.source === "USDT" && r.target === "RUB" && r.is_valid);
+      if (row?.rate) return Number(row.rate);
+    } catch {
+      // try next endpoint
+    }
+  }
+  throw new Error("Не удалось получить курс USDT/RUB из CryptoBot");
+}
+
+function parsePriceInput(raw: string): { value: number; currency: "usd" | "rub" } | null {
+  const v = raw.trim().replace(",", ".");
+  const m = v.match(/^([0-9]+(?:\.[0-9]{1,2})?)\s*(USD|RUB)?$/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const cur = (m[2] || "USD").toLowerCase() as "usd" | "rub";
+  return { value: n, currency: cur };
+}
+
 // ─── Admin log helper ──────────────────────
 async function logAction(shopId: string, adminTgId: number, action: string, entityType?: string, entityId?: string, details?: Record<string, unknown>) {
   await supabase().from("shop_admin_logs").insert({
@@ -154,6 +182,7 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
   const kb = ikb([
     [btn("📦 Товары", "s:pl:0"), btn("📁 Категории", "s:cl:0")],
     [btn("🛒 Заказы", "s:ol:0"), btn("👥 Пользователи", "s:ul:0")],
+    [btn("🧾 Заявки", "s:rql:0")],
     [btn("📊 Статистика", "s:st"), btn("🎟 Промокоды", "s:prl:0")],
     [btn("🗃 Склад", "s:sk:0"), btn("📋 Логи", "s:lg:0")],
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
@@ -496,7 +525,7 @@ async function settingsView(tg: ReturnType<typeof TG>, cid: number, mid: number,
     `👋 Приветствие: ${shop.welcome_message ? esc(shop.welcome_message.slice(0, 50)) + "…" : "—"}${shop.welcome_photo_id ? " 🖼" : ""}\n` +
     `🔗 Поддержка: ${shop.support_link || "—"}\n` +
     `🤖 Бот: ${botStatus}\n` +
-    `💰 CryptoBot: ${shop.cryptobot_token_encrypted ? "✅ подключён" : "❌ не подключён"}\n` +
+    `💳 Способы оплаты: ${shop.cryptobot_token_encrypted ? "CryptoBot ✅" : "CryptoBot ❌"}\n` +
     `📢 Подписка на канал: ${subStatus}`;
 
   return tg.edit(cid, mid, text, ikb([
@@ -504,10 +533,193 @@ async function settingsView(tg: ReturnType<typeof TG>, cid: number, mid: number,
     [btn("📌 Заголовок витрины", "s:edit:hero_title")],
     [btn("📝 Описание витрины", "s:edit:hero_desc")],
     [btn("👋 Приветствие", "s:edit:welcome"), btn("🔗 Поддержка", "s:edit:support")],
-    [btn("💰 CryptoBot", "s:setcb")],
+    [btn("💳 Способы оплаты", "s:paym")],
     [btn(`📢 ОП ${shop.is_subscription_required ? "✅" : "❌"}`, "s:opsettings")],
     [btn("◀️ Меню", "s:m")],
   ]));
+}
+
+async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string) {
+  const { data: shop } = await supabase().from("shops").select("cryptobot_token_encrypted").eq("id", shopId).single();
+  const { data: methods } = await supabase()
+    .from("shop_payment_methods")
+    .select("method, enabled, config_masked")
+    .eq("shop_id", shopId);
+  const byMethod = new Map((methods || []).map((m: any) => [m.method, m]));
+  const cbEnabled = byMethod.get("cryptobot")?.enabled ?? Boolean(shop?.cryptobot_token_encrypted);
+  const sbp = byMethod.get("sbp_card");
+  const sbpEnabled = Boolean(sbp?.enabled);
+  const sbpCfg = (sbp?.config_masked || {}) as Record<string, string>;
+
+  let t = `💳 <b>Способы оплаты</b>\n\n`;
+  t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
+  t += `• Карта/СБП: <b>${sbpEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
+  if (sbpCfg.cardNumber || sbpCfg.phone) {
+    t += `\n<b>Реквизиты СБП:</b>\n`;
+    t += `Банк: ${esc(sbpCfg.bankName || "—")}\n`;
+    t += `Карта: ${esc(sbpCfg.cardNumber || "—")}\n`;
+    t += `Получатель: ${esc(sbpCfg.recipientName || "—")}\n`;
+    t += `Телефон: ${esc(sbpCfg.phone || "—")}\n`;
+  }
+
+  return tg.edit(cid, mid, t, ikb([
+    [btn(cbEnabled ? "🟢 CryptoBot ON" : "⚪️ CryptoBot OFF", "s:paytoggle:cryptobot")],
+    [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
+    [btn("✏️ Реквизиты СБП", "s:setsbp")],
+    [btn("🔑 Токен CryptoBot", "s:setcb")],
+    [btn("◀️ К настройкам", "s:se")],
+  ]));
+}
+
+async function paymentRequestsList(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, page: number) {
+  const { data: rows } = await supabase()
+    .from("shop_payment_requests")
+    .select("id, order_id, buyer_telegram_id, amount_usd, status, created_at")
+    .eq("shop_id", shopId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!rows?.length) return tg.edit(cid, mid, "🧾 <b>Заявки</b>\n\nПока нет заявок.", ikb([[btn("◀️ Меню", "s:m")]]));
+  const pg = paginate(rows, page, 8);
+  let t = `🧾 <b>Заявки на проверку</b> (${rows.length})\n\n`;
+  pg.items.forEach((r: any) => {
+    const ic = r.status === "pending" ? "🟡" : r.status === "approved" ? "✅" : r.status === "rejected" ? "❌" : "▫️";
+    t += `${ic} <code>${r.id.slice(0, 8)}</code> | TG ${r.buyer_telegram_id}\n`;
+    t += `💰 $${Number(r.amount_usd).toFixed(2)} | ${new Date(r.created_at).toLocaleString("ru-RU")}\n\n`;
+  });
+  const kb: Btn[][] = pg.items.map((r: any) => {
+    const mark = r.status === "approved" ? "✅" : r.status === "rejected" ? "❌" : "🟡";
+    return [btn(`${mark} ${r.id.slice(0, 8)} · $${Number(r.amount_usd).toFixed(2)}`, `s:rqv:${r.id}`)];
+  });
+  if (pg.total > 1) kb.push(pgRow("s:rql", pg.page, pg.total));
+  kb.push([btn("◀️ Меню", "s:m")]);
+  return tg.edit(cid, mid, t, ikb(kb));
+}
+
+async function paymentRequestView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, requestId: string, botToken?: string) {
+  const { data: req } = await supabase()
+    .from("shop_payment_requests")
+    .select("*")
+    .eq("shop_id", shopId)
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!req) return tg.edit(cid, mid, "❌ Заявка не найдена", ikb([[btn("◀️ К заявкам", "s:rql:0")]]));
+  const { data: order } = await supabase().from("shop_orders").select("*").eq("id", req.order_id).maybeSingle();
+  const { data: items } = await supabase().from("shop_order_items").select("product_name, quantity, product_price").eq("order_id", req.order_id);
+  let t = `🧾 <b>Заявка ${req.id}</b>\n\n`;
+  t += `📌 Статус: <b>${req.status}</b>\n`;
+  t += `👤 TG: <code>${req.buyer_telegram_id}</code>\n`;
+  t += `🛒 Заказ: <code>${order?.order_number || req.order_id}</code>\n`;
+  t += `💰 Сумма: <b>$${Number(req.amount_usd).toFixed(2)}</b>${req.amount_rub ? ` (~${Number(req.amount_rub).toFixed(0)} ₽)` : ""}\n`;
+  t += `🕒 Создано: ${new Date(req.created_at).toLocaleString("ru-RU")}\n`;
+  if (req.rejection_reason) t += `❌ Причина: ${esc(req.rejection_reason)}\n`;
+  t += `\n<b>Состав заказа:</b>\n`;
+  (items || []).forEach((i: any) => {
+    t += `• ${esc(i.product_name)} ×${i.quantity} — $${(Number(i.product_price) * Number(i.quantity)).toFixed(2)}\n`;
+  });
+  const rows: Btn[][] = [];
+  if (req.status === "pending") {
+    rows.push([btn("✅ Принять", `s:rqa:${req.id}`), btn("❌ Отклонить", `s:rqr:${req.id}`)]);
+  }
+  rows.push([btn("◀️ К заявкам", "s:rql:0")]);
+  await tg.edit(cid, mid, t, ikb(rows));
+
+  // Send receipt as a separate photo message only for pending requests
+  if (req.receipt_path && botToken && req.status === "pending") {
+    try {
+      await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: cid, photo: req.receipt_path, caption: "📎 Чек к заявке" }),
+      });
+    } catch (e) {
+      console.error("Failed to send receipt photo", e);
+    }
+  }
+}
+
+async function approvePaymentRequest(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, requestId: string, adminId: number, botToken: string) {
+  const { data: req } = await supabase().from("shop_payment_requests").select("*").eq("shop_id", shopId).eq("id", requestId).maybeSingle();
+  if (!req) return tg.edit(cid, mid, "❌ Заявка не найдена", ikb([[btn("◀️ К заявкам", "s:rql:0")]]));
+  if (req.status !== "pending") return paymentRequestView(tg, cid, mid, shopId, requestId, botToken);
+
+  const { data: order } = await supabase().from("shop_orders").select("*").eq("id", req.order_id).maybeSingle();
+  if (!order) return tg.edit(cid, mid, "❌ Заказ не найден", ikb([[btn("◀️ К заявкам", "s:rql:0")]]));
+
+  // Idempotent approve: only update if still pending
+  const { data: updatedReqs } = await supabase().from("shop_payment_requests").update({
+    status: "approved",
+    reviewed_by_telegram_id: adminId,
+    reviewed_at: new Date().toISOString(),
+  }).eq("id", requestId).eq("status", "pending").select("id");
+
+  // If no rows updated, another admin already processed it
+  if (!updatedReqs?.length) {
+    return paymentRequestView(tg, cid, mid, shopId, requestId, botToken);
+  }
+
+  if (order.promo_code) {
+    await supabase().rpc("increment_shop_promo_usage", { p_shop_id: shopId, p_code: order.promo_code });
+  }
+
+  const balanceUsed = Number(order.balance_used || 0);
+  if (balanceUsed > 0) {
+    const { data: nb, error: be } = await supabase().rpc("shop_deduct_balance", {
+      p_shop_id: shopId, p_telegram_id: order.buyer_telegram_id, p_amount: balanceUsed,
+    });
+    if (!be) {
+      const promoInfo = order.promo_code ? ` (промо ${order.promo_code}, скидка $${Number(order.discount_amount || 0).toFixed(2)})` : "";
+      await supabase().from("shop_balance_history").insert({
+        shop_id: shopId,
+        telegram_id: order.buyer_telegram_id,
+        amount: -balanceUsed,
+        balance_after: nb,
+        type: "purchase",
+        comment: `Заказ ${order.order_number}${promoInfo}`,
+        admin_telegram_id: order.buyer_telegram_id,
+      });
+    }
+  }
+
+  const { data: orderItems } = await supabase().from("shop_order_items").select("product_id, quantity, product_name").eq("order_id", order.id);
+  const deliveredContent: string[] = [];
+  let allDelivered = true;
+  for (const item of orderItems || []) {
+    const { data: reserved } = await supabase().rpc("reserve_shop_inventory", {
+      p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: order.id,
+    });
+    if (reserved?.length) {
+      deliveredContent.push(`📦 <b>${item.product_name}</b> (×${reserved.length}):\n${reserved.map((i: any) => `<code>${i.content}</code>`).join("\n")}`);
+      const { count: remaining } = await supabase().from("shop_inventory").select("id", { count: "exact", head: true })
+        .eq("product_id", item.product_id).eq("status", "available");
+      await supabase().from("shop_products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
+      if (reserved.length < item.quantity) allDelivered = false;
+    } else {
+      allDelivered = false;
+    }
+  }
+
+  const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
+  await supabase().from("shop_orders").update({
+    payment_status: "paid",
+    status: finalStatus,
+    updated_at: new Date().toISOString(),
+  }).eq("id", order.id);
+
+  await logAction(shopId, adminId, "approve_payment_request", "payment_request", requestId, { order_id: order.id });
+
+  let userMsg = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(req.amount_usd).toFixed(2)}\n`;
+  if (deliveredContent.length > 0) {
+    userMsg += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;
+  } else {
+    userMsg += `\nВаш товар будет доставлен в ближайшее время.`;
+  }
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: order.buyer_telegram_id, text: userMsg, parse_mode: "HTML" }),
+  });
+
+  return paymentRequestView(tg, cid, mid, shopId, requestId, botToken);
 }
 
 // ═══════════════════════════════════════════════
@@ -624,20 +836,46 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
   // ─── Add product ──────────────────────────
   if (state === "ap:t") {
     await setSession(cid, "ap:p", shopId, { ...sData, title: val });
-    await tg.send(cid, `Название: <b>${esc(val)}</b>\n\nВведите цену (USD):`);
+    await tg.send(cid, `Название: <b>${esc(val)}</b>\n\nВведите цену в формате:\n<code>10 USD</code> или <code>990 RUB</code>\n(валюту можно не указывать — по умолчанию USD).`);
     return true;
   }
   if (state === "ap:p") {
-    const price = parseFloat(val);
-    if (isNaN(price) || price <= 0) { await tg.send(cid, "❌ Введите число > 0."); return true; }
-    await setSession(cid, "ap:d", shopId, { ...sData, price });
-    await tg.send(cid, "Введите описание (или <b>/skip</b>):");
+    const parsed = parsePriceInput(val);
+    if (!parsed) { await tg.send(cid, "❌ Неверный формат цены. Пример: 10 USD или 990 RUB."); return true; }
+    let usdPrice = parsed.value;
+    let rate: number | null = null;
+    if (parsed.currency === "rub") {
+      const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+      const { data: shop } = await supabase().from("shops").select("cryptobot_token_encrypted").eq("id", shopId).maybeSingle();
+      if (!encKey || !shop?.cryptobot_token_encrypted) {
+        await tg.send(cid, "❌ Для конвертации RUB нужен подключённый CryptoBot.");
+        return true;
+      }
+      const { data: token } = await supabase().rpc("decrypt_token", { p_encrypted: shop.cryptobot_token_encrypted, p_key: encKey });
+      rate = await fetchUsdtRubRate(String(token));
+      usdPrice = Number((parsed.value / rate).toFixed(2));
+    }
+    await setSession(cid, "ap:d", shopId, {
+      ...sData,
+      price: usdPrice,
+      price_input_currency: parsed.currency,
+      price_input_value: parsed.value,
+      price_input_rate: rate,
+      price_converted_at: new Date().toISOString(),
+    });
+    await tg.send(cid, `Итоговая цена: <b>$${usdPrice.toFixed(2)}</b>\n\nВведите описание (или <b>/skip</b>):`);
     return true;
   }
   if (state === "ap:d") {
     const desc = val === "/skip" ? "" : val;
     const { data: product, error } = await supabase().from("shop_products").insert({
-      name: sData.title as string, price: sData.price as number, description: desc,
+      name: sData.title as string,
+      price: sData.price as number,
+      price_input_currency: (sData.price_input_currency as string) || "usd",
+      price_input_value: (sData.price_input_value as number) || (sData.price as number),
+      price_input_rate: (sData.price_input_rate as number) || null,
+      price_converted_at: (sData.price_converted_at as string) || new Date().toISOString(),
+      description: desc,
       shop_id: shopId, is_active: true,
     }).select().single();
     await clearSession(cid);
@@ -684,7 +922,44 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
     const dbField = fieldMap[field];
     if (!dbField) { await clearSession(cid); return true; }
     let updateVal: unknown = val;
-    if (field === "p" || field === "o") { const n = parseFloat(val); if (isNaN(n)) { await tg.send(cid, "❌ Введите число."); return true; } updateVal = n; }
+    if (field === "p" || field === "o") {
+      const parsed = parsePriceInput(val);
+      if (!parsed) { await tg.send(cid, "❌ Формат: 10 USD или 990 RUB"); return true; }
+      let usdPrice = parsed.value;
+      let rate: number | null = null;
+      if (parsed.currency === "rub") {
+        const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+        const { data: shop } = await supabase().from("shops").select("cryptobot_token_encrypted").eq("id", shopId).maybeSingle();
+        if (!encKey || !shop?.cryptobot_token_encrypted) {
+          await tg.send(cid, "❌ Для RUB нужен подключённый CryptoBot.");
+          return true;
+        }
+        const { data: token } = await supabase().rpc("decrypt_token", { p_encrypted: shop.cryptobot_token_encrypted, p_key: encKey });
+        rate = await fetchUsdtRubRate(String(token));
+        usdPrice = Number((parsed.value / rate).toFixed(2));
+      }
+      updateVal = usdPrice;
+      const extra: Record<string, unknown> = field === "p"
+        ? {
+          price_input_currency: parsed.currency,
+          price_input_value: parsed.value,
+          price_input_rate: rate,
+          price_converted_at: new Date().toISOString(),
+        }
+        : {
+          old_price_input_currency: parsed.currency,
+          old_price_input_value: parsed.value,
+          old_price_input_rate: rate,
+          old_price_converted_at: new Date().toISOString(),
+        };
+      await supabase().from("shop_products").update({ [dbField]: updateVal, ...extra, updated_at: new Date().toISOString() }).eq("id", pid);
+      await logAction(shopId, adminId, "edit_product", "product", pid, { field: dbField, currency: parsed.currency });
+      await clearSession(cid);
+      const resp = await tg.send(cid, `✅ Обновлено: <b>$${Number(usdPrice).toFixed(2)}</b>`);
+      const mid = resp?.result?.message_id;
+      if (mid) return productView(tg, cid, mid, shopId, pid), true;
+      return true;
+    }
     if (field === "s") { const n = parseInt(val); if (isNaN(n)) { await tg.send(cid, "❌ Введите число."); return true; } updateVal = n; }
     if (field === "f") updateVal = val.split(",").map(s => s.trim()).filter(Boolean);
     await supabase().from("shop_products").update({ [dbField]: updateVal, updated_at: new Date().toISOString() }).eq("id", pid);
@@ -837,6 +1112,86 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
     await supabase().from("shops").update({ cryptobot_token_encrypted: enc, updated_at: new Date().toISOString() }).eq("id", shopId);
     await clearSession(cid);
     await tg.send(cid, "✅ CryptoBot-токен сохранён!", ikb([[btn("◀️ К настройкам", "s:se")]]));
+    return true;
+  }
+
+  if (state === "s_set_sbp_bank") {
+    await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
+    await tg.send(cid, "💳 Введите номер карты:");
+    return true;
+  }
+  if (state === "s_set_sbp_card") {
+    const card = val.replace(/\s+/g, "");
+    if (!/^\d{16,19}$/.test(card)) { await tg.send(cid, "❌ Неверный номер карты."); return true; }
+    await setSession(cid, "s_set_sbp_name", shopId, { ...sData, cardNumber: card.replace(/(\d{4})(?=\d)/g, "$1 ").trim() });
+    await tg.send(cid, "👤 Введите ФИО получателя:");
+    return true;
+  }
+  if (state === "s_set_sbp_name") {
+    await setSession(cid, "s_set_sbp_phone", shopId, { ...sData, recipientName: val.trim() });
+    await tg.send(cid, "📱 Введите номер телефона получателя:");
+    return true;
+  }
+  if (state === "s_set_sbp_phone") {
+    const phone = val.trim();
+    if (!/^\+?[0-9\-\s()]{8,20}$/.test(phone)) { await tg.send(cid, "❌ Неверный формат телефона."); return true; }
+    await setSession(cid, "s_set_sbp_comment", shopId, { ...sData, phone });
+    await tg.send(cid, "📝 Введите комментарий (или /skip):");
+    return true;
+  }
+  if (state === "s_set_sbp_comment") {
+    const payload = {
+      bankName: String(sData.bankName || ""),
+      cardNumber: String(sData.cardNumber || ""),
+      recipientName: String(sData.recipientName || ""),
+      phone: String(sData.phone || ""),
+      comment: val === "/skip" ? "" : val.trim(),
+    };
+    const masked = {
+      bankName: payload.bankName,
+      cardNumber: payload.cardNumber,
+      recipientName: payload.recipientName,
+      phone: payload.phone,
+      comment: payload.comment,
+    };
+    const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+    if (!encKey) { await tg.send(cid, "❌ Ошибка конфигурации."); return true; }
+    const { data: enc } = await supabase().rpc("encrypt_token", { p_token: JSON.stringify(payload), p_key: encKey });
+    await supabase().from("shop_payment_methods").upsert({
+      shop_id: shopId,
+      method: "sbp_card",
+      enabled: true,
+      config_encrypted: enc,
+      config_masked: masked,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "shop_id,method" });
+    await clearSession(cid);
+    await tg.send(cid, "✅ Реквизиты СБП сохранены.", ikb([[btn("◀️ К оплатам", "s:paym")]]));
+    return true;
+  }
+
+  if (state.startsWith("s_reject_req:")) {
+    const reqId = state.slice("s_reject_req:".length);
+    const reason = val.trim();
+    if (!reason) { await tg.send(cid, "❌ Укажите причину отклонения."); return true; }
+    const { data: req } = await supabase().from("shop_payment_requests").select("*").eq("shop_id", shopId).eq("id", reqId).maybeSingle();
+    if (!req) { await clearSession(cid); await tg.send(cid, "❌ Заявка не найдена."); return true; }
+    const { data: updatedReqs } = await supabase().from("shop_payment_requests").update({
+      status: "rejected",
+      rejection_reason: reason,
+      reviewed_by_telegram_id: adminId,
+      reviewed_at: new Date().toISOString(),
+    }).eq("id", reqId).eq("status", "pending").select("id");
+    if (!updatedReqs?.length) { await clearSession(cid); await tg.send(cid, "⚠️ Заявка уже обработана."); return true; }
+    await supabase().from("shop_orders").update({
+      status: "cancelled",
+      payment_status: "failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", req.order_id);
+    await logAction(shopId, adminId, "reject_payment_request", "payment_request", reqId, { reason });
+    await tg.send(Number(req.buyer_telegram_id), `❌ Заявка на оплату отклонена.\nПричина: ${esc(reason)}`).catch(() => {});
+    await clearSession(cid);
+    await tg.send(cid, "✅ Заявка отклонена.", ikb([[btn("◀️ К заявкам", "s:rql:0")]]));
     return true;
   }
 
@@ -1216,6 +1571,31 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     // Stats, Settings, Logs, Stock, OP
     if (cmd === "st") return statsView(tg, cid, mid, shopId);
     if (cmd === "se") return settingsView(tg, cid, mid, shopId);
+    if (cmd === "paym") return paymentMethodsView(tg, cid, mid, shopId);
+    if (cmd === "paytoggle") {
+      const method = parts[2];
+      const { data: row } = await supabase().from("shop_payment_methods").select("enabled").eq("shop_id", shopId).eq("method", method).maybeSingle();
+      const enabled = !(row?.enabled);
+      await supabase().from("shop_payment_methods").upsert({
+        shop_id: shopId,
+        method,
+        enabled,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "shop_id,method" });
+      await logAction(shopId, adminId, enabled ? `enable_${method}` : `disable_${method}`, "shop", shopId);
+      return paymentMethodsView(tg, cid, mid, shopId);
+    }
+    if (cmd === "setsbp") {
+      await setSession(cid, "s_set_sbp_bank", shopId, {});
+      return tg.send(cid, "🏦 Введите название банка для СБП:");
+    }
+    if (cmd === "rql") return paymentRequestsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
+    if (cmd === "rqv") return paymentRequestView(tg, cid, mid, shopId, parts[2], botToken);
+    if (cmd === "rqa") return approvePaymentRequest(tg, cid, mid, shopId, parts[2], adminId, botToken);
+    if (cmd === "rqr") {
+      await setSession(cid, `s_reject_req:${parts[2]}`, shopId, {});
+      return tg.send(cid, "❌ Укажите причину отклонения заявки:");
+    }
 
     // OP subscription settings
     if (cmd === "opsettings") {
