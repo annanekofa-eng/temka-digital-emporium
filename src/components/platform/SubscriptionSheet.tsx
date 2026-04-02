@@ -215,7 +215,7 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
           <div>
             <p className="text-xs text-muted-foreground font-medium mb-2">Включено в подписку:</p>
             <div className="space-y-1.5">
-              {['1 магазин с собственным ботом', 'Приём платежей через CryptoBot', 'Авто-доставка цифровых товаров', 'Бесплатный пробный период'].map((item, i) => (
+              {['1 магазин', 'Полный функционал магазина', 'Помощь с запуском магазина от @TeleStoreHelp', 'Бесплатный креатив для оформления товаров', 'Личная настройка под вашу нишу'].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Sparkles className="w-3 h-3 text-blue-400 shrink-0" />
                   {item}
