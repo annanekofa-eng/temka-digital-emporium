@@ -988,7 +988,9 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     statusBlock = `\n\n⏰ <b>Льготный период</b>\nСкоро магазины будут приостановлены. Продлите подписку.`;
   }
 
-  const text = `💳 <b>Подписка</b>\n\n📊 Статус: <b>${status}</b>${daysLeftText}${statusBlock}\n\n💰 Ваша цена: <b>$${priceInfo.price}/мес</b> ${tierLabel}\n🏷 Тариф: ${tierLabel}\n\n<b>Включает:</b>\n• ${ss.max_shops_per_user} магазин\n• Приём платежей через CryptoBot\n• Собственный Telegram-бот\n• Авто-доставка цифровых товаров\n• ${ss.trial_enabled ? `${ss.trial_days} дней пробного периода` : "Пробный период недоступен"}`;
+  const supportLink = await getSupportLink();
+  const supportUsername = supportLink.replace("https://t.me/", "@");
+  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${daysLeftText}${statusBlock}\n\n──────────────────\n\n💰 Ваша цена: <b>$${priceInfo.price}/мес</b> ${priceInfo.tier === "early_3" ? "🎉" : ""}\n\n<b>Включает:</b>\n• ${ss.max_shops_per_user} магазин\n• Полный функционал магазина\n• Помощь с запуском магазина от ${supportUsername}\n• Бесплатный креатив для оформления товаров\n• Личная настройка под вашу нишу\n\n──────────────────\n\nПодписка открывает твой магазин для покупателей — приём оплаты, автовыдача товаров и полная автоматизация продаж без ручной работы.`;
 
   const rows: Btn[][] = [];
   const isBlocked = user.subscription_status === "blocked";
