@@ -13,7 +13,7 @@ const ShopOrderStatus = () => {
   const buildPath = useStorefrontPath();
   const navigate = useNavigate();
   const { supportLink } = useStorefront();
-  const { shop } = useShop();
+  const { shop, clearCart } = useShop();
   const shopId = shop?.id;
   const [searchParams] = useSearchParams();
   const orderNumber = searchParams.get('order');
@@ -29,6 +29,7 @@ const ShopOrderStatus = () => {
     if (!order?.id) return;
     if (order.payment_status === 'paid') {
       setPolling(false);
+      clearCart();
       navigate(`${buildPath('/order-success')}?order=${orderNumber}`, { replace: true });
       return;
     }
@@ -39,6 +40,7 @@ const ShopOrderStatus = () => {
       if (error) return;
       if (data?.paymentStatus === 'paid') {
         setPolling(false);
+        clearCart();
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         queryClient.invalidateQueries({ queryKey: ['user-profile'] });
         queryClient.invalidateQueries({ queryKey: ['balance-history'] });
@@ -50,11 +52,12 @@ const ShopOrderStatus = () => {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
       }
     } catch {}
-  }, [order?.id, order?.payment_status, queryClient, initData, shopId, navigate, buildPath, orderNumber]);
+  }, [order?.id, order?.payment_status, queryClient, initData, shopId, clearCart, navigate, buildPath, orderNumber]);
 
   useEffect(() => {
     if (!order?.id || expired) return;
     if (order.payment_status === 'paid') {
+      clearCart();
       navigate(`${buildPath('/order-success')}?order=${orderNumber}`, { replace: true });
       return;
     }
@@ -62,7 +65,7 @@ const ShopOrderStatus = () => {
     const timeout = setTimeout(() => { setPolling(false); clearInterval(interval); }, 5 * 60 * 1000);
     checkPayment();
     return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, [order?.id, order?.payment_status, expired, checkPayment, navigate, buildPath, orderNumber]);
+  }, [order?.id, order?.payment_status, expired, checkPayment, clearCart, navigate, buildPath, orderNumber]);
 
   return (
     <div className="container-main mx-auto px-4 py-12 sm:py-16 text-center max-w-md">
@@ -81,7 +84,7 @@ const ShopOrderStatus = () => {
               {polling ? <Loader2 className="w-7 h-7 animate-spin" /> : <Clock className="w-7 h-7" />}
             </div>
             <h1 className="font-display text-xl sm:text-2xl font-bold">Ожидание оплаты</h1>
-            <p className="text-muted-foreground text-sm mt-2">{polling ? 'Проверяем статус оплаты...' : 'Оплатите инвойс в CryptoBot. После подтверждения мы автоматически обновим статус заказа.'}</p>
+            <p className="text-muted-foreground text-sm mt-2">{polling ? 'Проверяем статус оплаты...' : 'Оплатите заказ через CryptoBot или СБП. После подтверждения мы автоматически обновим статус.'}</p>
           </>
         )}
 

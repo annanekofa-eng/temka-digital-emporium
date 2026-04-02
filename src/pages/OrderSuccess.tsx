@@ -5,6 +5,7 @@ import { CheckCircle2, Package, MessageCircle, ShoppingCart } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
 import { useSupportUsername } from '@/hooks/useSupportUsername';
+import { useStore } from '@/contexts/StoreContext';
 
 const OrderSuccess = () => {
   const buildPath = useStorefrontPath();
@@ -14,6 +15,7 @@ const OrderSuccess = () => {
   const { data: orders } = useOrders();
   const { data: supportUsername } = useSupportUsername();
   const { supportLink } = useStorefront();
+  const { clearCart } = useStore();
 
   const order = orders?.find(o => o.order_number === orderNumber);
   const isPaid = order?.payment_status === 'paid';
@@ -21,6 +23,10 @@ const OrderSuccess = () => {
 
   const normalizedSupportUsername = (supportUsername || '').replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
   const resolvedSupportLink = supportLink || (normalizedSupportUsername ? `https://t.me/${normalizedSupportUsername}` : undefined);
+
+  useEffect(() => {
+    if (isPaid) clearCart();
+  }, [isPaid, clearCart]);
 
   useEffect(() => {
     if (order && !isPaid) {
