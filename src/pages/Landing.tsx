@@ -326,7 +326,7 @@ export default function Landing() {
               {[
                 { icon: Rocket, label: "Запуск за минуты", desc: "Онбординг из 7 шагов" },
                 { icon: Zap, label: "Автовыдача 24/7", desc: "Мгновенная доставка" },
-                { icon: CreditCard, label: "Приём крипты", desc: "Через CryptoBot" },
+                { icon: CreditCard, label: "Приём оплат", desc: "CryptoBot + СБП" },
                 { icon: Lock, label: "Надёжная система", desc: "Telegram-first" },
               ].map((item, i) => (
                 <AnimatedSection key={i} className="text-center">
