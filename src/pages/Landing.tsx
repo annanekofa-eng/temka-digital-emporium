@@ -245,7 +245,7 @@ export default function Landing() {
                   <Clock className="w-4 h-4 text-[#2563eb]" /> Автовыдача 24/7
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-[#2563eb]" /> Оплата через CryptoBot
+                  <CreditCard className="w-4 h-4 text-[#2563eb]" /> CryptoBot + СБП
                 </span>
               </motion.div>
             </AnimatedSection>
