@@ -204,7 +204,7 @@ export default function Landing() {
                 custom={2}
                 className="text-sm sm:text-xl text-[#64748b] max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed"
               >
-                Собственный бот с Mini-App, приём оплаты через CryptoBot и автоматическая выдача товаров 24/7 — без
+                Собственный бот с Mini-App, приём оплаты через CryptoBot и СБП, автоматическая выдача товаров 24/7 — без
                 кода, хостинга и ручной работы.
               </motion.p>
 
@@ -245,7 +245,7 @@ export default function Landing() {
                   <Clock className="w-4 h-4 text-[#2563eb]" /> Автовыдача 24/7
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-[#2563eb]" /> Оплата через CryptoBot
+                  <CreditCard className="w-4 h-4 text-[#2563eb]" /> CryptoBot + СБП
                 </span>
               </motion.div>
             </AnimatedSection>
@@ -326,7 +326,7 @@ export default function Landing() {
               {[
                 { icon: Rocket, label: "Запуск за минуты", desc: "Онбординг из 7 шагов" },
                 { icon: Zap, label: "Автовыдача 24/7", desc: "Мгновенная доставка" },
-                { icon: CreditCard, label: "Приём крипты", desc: "Через CryptoBot" },
+                { icon: CreditCard, label: "Приём оплат", desc: "CryptoBot + СБП" },
                 { icon: Lock, label: "Надёжная система", desc: "Telegram-first" },
               ].map((item, i) => (
                 <AnimatedSection key={i} className="text-center">
@@ -377,7 +377,7 @@ export default function Landing() {
                   step: "4",
                   icon: CreditCard,
                   title: "Подключите оплату",
-                  desc: "Настройте CryptoBot для приёма платежей",
+                  desc: "Настройте CryptoBot и/или СБП",
                 },
                 { step: "5", icon: Package, title: "Продавайте", desc: "Товары выдаются автоматически 24/7" },
               ].map((item, i) => (
@@ -428,7 +428,7 @@ export default function Landing() {
               {[
                 { icon: Bot, title: "Telegram-бот", desc: "Ваш бот — ваш бренд. Полная кастомизация." },
                 { icon: Globe, title: "Mini App витрина", desc: "Полноценное приложение внутри Telegram." },
-                { icon: CreditCard, title: "Крипто-платежи", desc: "CryptoBot — клиенты оплачивают мгновенно." },
+                { icon: CreditCard, title: "Оплата крипто + СБП", desc: "CryptoBot и перевод по карте — на выбор." },
                 { icon: Zap, title: "Автовыдача", desc: "Товары доставляются автоматически 24/7." },
                 { icon: LayoutDashboard, title: "Админка в боте", desc: "Товары, заказы, промокоды и рассылки." },
                 { icon: Palette, title: "Свой стиль", desc: "Цвет, название, описание — ваш магазин." },
@@ -560,7 +560,7 @@ export default function Landing() {
                   </div>
                   <ul className="space-y-2.5 sm:space-y-3.5">
                     {[
-                      "Оплата через CryptoBot — автоматически",
+                      "Оплата через CryptoBot или СБП — автоматически",
                       "Товар выдаётся сразу после оплаты",
                       "Все заказы в одном месте с историей",
                       "Магазин работает 24/7 без вашего участия",
@@ -685,7 +685,7 @@ export default function Landing() {
                     "1 Telegram-магазин",
                     "Собственный бот",
                     "Свое Mini-App",
-                    "Приём оплат через CryptoBot",
+                    "Приём оплат: CryptoBot + СБП",
                     "Автовыдача 24/7",
                     "Управление через /admin",
                     "Промокоды и рассылки",
@@ -745,7 +745,7 @@ export default function Landing() {
 
               <FAQItem
                 q="Как работает оплата?"
-                a="Покупатели оплачивают через CryptoBot — это надёжный платёжный сервис в Telegram. Вам нужно создать аккаунт в @CryptoBot и подключить API-токен."
+                a="Покупатели могут оплатить через CryptoBot (крипта) или по СБП (перевод на карту). CryptoBot — автоматическая обработка, СБП — ручное подтверждение продавцом. Вы выбираете удобные способы в настройках."
               />
 
               <FAQItem
