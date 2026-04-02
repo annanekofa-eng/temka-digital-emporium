@@ -204,7 +204,7 @@ export default function Landing() {
                 custom={2}
                 className="text-sm sm:text-xl text-[#64748b] max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed"
               >
-                Собственный бот с Mini-App, приём оплаты через CryptoBot и автоматическая выдача товаров 24/7 — без
+                Собственный бот с Mini-App, приём оплаты через CryptoBot и СБП, автоматическая выдача товаров 24/7 — без
                 кода, хостинга и ручной работы.
               </motion.p>
 
