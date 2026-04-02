@@ -428,7 +428,7 @@ export default function Landing() {
               {[
                 { icon: Bot, title: "Telegram-бот", desc: "Ваш бот — ваш бренд. Полная кастомизация." },
                 { icon: Globe, title: "Mini App витрина", desc: "Полноценное приложение внутри Telegram." },
-                { icon: CreditCard, title: "Крипто-платежи", desc: "CryptoBot — клиенты оплачивают мгновенно." },
+                { icon: CreditCard, title: "Оплата крипто + СБП", desc: "CryptoBot и перевод по карте — на выбор." },
                 { icon: Zap, title: "Автовыдача", desc: "Товары доставляются автоматически 24/7." },
                 { icon: LayoutDashboard, title: "Админка в боте", desc: "Товары, заказы, промокоды и рассылки." },
                 { icon: Palette, title: "Свой стиль", desc: "Цвет, название, описание — ваш магазин." },
