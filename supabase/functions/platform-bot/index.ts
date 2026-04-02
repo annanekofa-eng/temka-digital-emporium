@@ -719,7 +719,7 @@ async function sendWelcome(tg: ReturnType<typeof TG>, chatId: number, firstName:
 
   const hasShop = await userHasShop(chatId);
   const config = await getWelcomeConfig();
-  const defaultText = `👋 Привет, <b>${esc(firstName)}</b>!\nДобро пожаловать в <b>${PLATFORM_NAME}</b>\n\nСоздай свой Telegram магазин\nс автовыдачей за 5 минут.\n\n— Никакого кода и хостинга\n— Автовыдача товаров 24/7\n— Приём крипты через CryptoBot\n— Полная настройка под себя`;
+  const defaultText = `👋 Привет, <b>${esc(firstName)}</b>!\nДобро пожаловать в <b>${PLATFORM_NAME}</b>\n\nСоздай свой Telegram магазин\nс автовыдачей за 5 минут.\n\n— Никакого кода и хостинга\n— Автовыдача товаров 24/7\n— Приём оплат: CryptoBot + СБП\n— Полная настройка под себя`;
   // Dynamic stats for {shops_count} placeholder
   let shopsCount = "0";
   const rawText = config.text || defaultText;
