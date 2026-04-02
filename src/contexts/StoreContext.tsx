@@ -93,6 +93,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPromoResult(null);
     setPromoCode('');
     setPromoError('');
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } catch {}
   }, []);
 
   const cartTotal = cart.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);

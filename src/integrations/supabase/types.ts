@@ -1178,6 +1178,136 @@ export type Database = {
           },
         ]
       }
+      shop_payment_methods: {
+        Row: {
+          config_encrypted: string | null
+          config_masked: Json | null
+          created_at: string
+          enabled: boolean
+          id: string
+          method: string
+          shop_id: string
+          updated_at: string
+        }
+        Insert: {
+          config_encrypted?: string | null
+          config_masked?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          method: string
+          shop_id: string
+          updated_at?: string
+        }
+        Update: {
+          config_encrypted?: string | null
+          config_masked?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          method?: string
+          shop_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_payment_methods_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_payment_methods_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_payment_requests: {
+        Row: {
+          amount_rub: number | null
+          amount_usd: number
+          buyer_telegram_id: number
+          created_at: string
+          id: string
+          note: string | null
+          order_id: string
+          payment_method: string
+          receipt_mime: string | null
+          receipt_path: string | null
+          receipt_url: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by_telegram_id: number | null
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_rub?: number | null
+          amount_usd?: number
+          buyer_telegram_id: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id: string
+          payment_method?: string
+          receipt_mime?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by_telegram_id?: number | null
+          shop_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_rub?: number | null
+          amount_usd?: number
+          buyer_telegram_id?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          order_id?: string
+          payment_method?: string
+          receipt_mime?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by_telegram_id?: number | null
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_payment_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_payment_requests_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_payment_requests_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_products: {
         Row: {
           category_id: string | null
@@ -1190,6 +1320,10 @@ export type Database = {
           name: string
           old_price: number | null
           price: number
+          price_converted_at: string | null
+          price_input_currency: string | null
+          price_input_rate: number | null
+          price_input_value: number | null
           shop_id: string
           sort_order: number
           stock: number
@@ -1208,6 +1342,10 @@ export type Database = {
           name: string
           old_price?: number | null
           price: number
+          price_converted_at?: string | null
+          price_input_currency?: string | null
+          price_input_rate?: number | null
+          price_input_value?: number | null
           shop_id: string
           sort_order?: number
           stock?: number
@@ -1226,6 +1364,10 @@ export type Database = {
           name?: string
           old_price?: number | null
           price?: number
+          price_converted_at?: string | null
+          price_input_currency?: string | null
+          price_input_rate?: number | null
+          price_input_value?: number | null
           shop_id?: string
           sort_order?: number
           stock?: number
