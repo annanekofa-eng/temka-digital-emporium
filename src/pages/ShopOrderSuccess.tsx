@@ -10,7 +10,7 @@ const ShopOrderSuccess = () => {
   const buildPath = useStorefrontPath();
   const navigate = useNavigate();
   const { supportLink } = useStorefront();
-  const { shop } = useShop();
+  const { shop, clearCart } = useShop();
   const shopId = shop?.id;
   const [searchParams] = useSearchParams();
   const orderNumber = searchParams.get('order');
@@ -19,6 +19,10 @@ const ShopOrderSuccess = () => {
   const order = orders?.find(o => o.order_number === orderNumber);
   const isPaid = order?.payment_status === 'paid';
   const isDelivered = order?.status === 'delivered' || order?.status === 'completed';
+
+  useEffect(() => {
+    if (isPaid) clearCart();
+  }, [isPaid, clearCart]);
 
   useEffect(() => {
     if (order && !isPaid) {
