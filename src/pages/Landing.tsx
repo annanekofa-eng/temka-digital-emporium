@@ -377,7 +377,7 @@ export default function Landing() {
                   step: "4",
                   icon: CreditCard,
                   title: "Подключите оплату",
-                  desc: "Настройте CryptoBot для приёма платежей",
+                  desc: "Настройте CryptoBot и/или СБП",
                 },
                 { step: "5", icon: Package, title: "Продавайте", desc: "Товары выдаются автоматически 24/7" },
               ].map((item, i) => (
