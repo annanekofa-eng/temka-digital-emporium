@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
+import PriceRub from '@/components/PriceRub';
 
 import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
@@ -170,6 +171,7 @@ const Checkout = () => {
               <div key={item.product.id} className="flex justify-between text-xs">
                 <span className="text-muted-foreground line-clamp-1 flex-1">{item.product.title} ×{item.quantity}</span>
                 <span className="font-medium ml-2">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
+                <span className="ml-1"><PriceRub usd={Number(item.product.price) * item.quantity} /></span>
               </div>
             ))}
           </div>
@@ -196,12 +198,18 @@ const Checkout = () => {
             {toPay > 0 ? (
               <div className="flex justify-between font-display font-bold text-base">
                 <span>К оплате через CryptoBot</span>
-                <span>${toPay.toFixed(2)}</span>
+                <div className="text-right">
+                  <div>${toPay.toFixed(2)}</div>
+                  <PriceRub usd={toPay} className="font-normal" />
+                </div>
               </div>
             ) : (
               <div className="flex justify-between font-display font-bold text-base">
                 <span>К оплате (баланс)</span>
-                <span>${totalAfterDiscount.toFixed(2)}</span>
+                <div className="text-right">
+                  <div>${totalAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={totalAfterDiscount} className="font-normal" />
+                </div>
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import { useShop } from '@/contexts/ShopContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import ShopProductCard from '@/components/ShopProductCard';
+import PriceRub from '@/components/PriceRub';
 
 const ShopCart = () => {
   const {
@@ -69,6 +70,7 @@ const ShopCart = () => {
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
                       <span className="font-display font-bold text-sm sm:text-base">${(Number(product.price) * quantity).toFixed(2)}</span>
+                      <PriceRub usd={Number(product.price) * quantity} />
                       <button onClick={() => removeFromCart(product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -93,7 +95,11 @@ const ShopCart = () => {
                 </div>
               )}
               <div className="border-t border-border/30 pt-2 flex justify-between font-display font-bold text-lg">
-                <span>Итого</span><span>${totalAfterDiscount.toFixed(2)}</span>
+                <span>Итого</span>
+                <div className="text-right">
+                  <div>${totalAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={totalAfterDiscount} className="font-normal text-xs" />
+                </div>
               </div>
             </div>
             <div className="border-t border-border pt-4 mt-1 space-y-2">

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { DbProduct } from '@/types/database';
 import { useStore } from '@/contexts/StoreContext';
 import { useTelegram } from '@/contexts/TelegramContext';
+import PriceRub from '@/components/PriceRub';
 
 const tagLabels: Record<string, string> = {
   'hot': 'ХИТ', 'new': 'НОВИНКА', 'sale': 'СКИДКА', 'best-seller': 'БЕСТСЕЛЛЕР', 'instant': 'МГНОВЕННО',
@@ -86,10 +87,13 @@ const ProductCard = ({ product }: { product: DbProduct }) => {
 
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
           <div>
-            <span className="font-display font-bold text-lg sm:text-xl">${Number(product.price).toFixed(2)}</span>
-            {product.old_price && (
-              <span className="text-[10px] sm:text-xs text-muted-foreground line-through ml-1.5 sm:ml-2">${Number(product.old_price).toFixed(2)}</span>
-            )}
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-display font-bold text-lg sm:text-xl">${Number(product.price).toFixed(2)}</span>
+              {product.old_price && (
+                <span className="text-[10px] sm:text-xs text-muted-foreground line-through">${Number(product.old_price).toFixed(2)}</span>
+              )}
+            </div>
+            <PriceRub usd={Number(product.price)} />
           </div>
           <Button
             size="sm"

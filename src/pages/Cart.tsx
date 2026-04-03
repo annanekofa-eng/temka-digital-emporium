@@ -5,6 +5,7 @@ import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
 import { useProducts } from '@/hooks/useProducts';
 import { useTelegram } from '@/contexts/TelegramContext';
+import PriceRub from '@/components/PriceRub';
 
 const categoryEmoji: Record<string, string> = {
   'social-media': '📱', 'gaming': '🎮', 'streaming': '🎬', 'software': '🔑',
@@ -76,6 +77,7 @@ const Cart = () => {
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
                       <span className="font-display font-bold text-sm sm:text-base">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
+                      <PriceRub usd={Number(item.product.price) * item.quantity} />
                       <button onClick={() => removeFromCart(item.product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -100,7 +102,11 @@ const Cart = () => {
                 </div>
               )}
               <div className="border-t border-border/30 pt-2 flex justify-between font-display font-bold text-lg">
-                <span>Итого</span><span>${totalAfterDiscount.toFixed(2)}</span>
+                <span>Итого</span>
+                <div className="text-right">
+                  <div>${totalAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={totalAfterDiscount} className="font-normal text-xs" />
+                </div>
               </div>
             </div>
             <div className="space-y-2">
