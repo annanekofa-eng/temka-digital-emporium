@@ -8,6 +8,7 @@ import { useStore } from '@/contexts/StoreContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSupportUsername } from '@/hooks/useSupportUsername';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
+import PriceRub from '@/components/PriceRub';
 
 const categoryEmoji: Record<string, string> = {
   'social-media': '📱', 'gaming': '🎮', 'streaming': '🎬', 'software': '🔑',
