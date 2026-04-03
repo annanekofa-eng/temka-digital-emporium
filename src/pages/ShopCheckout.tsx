@@ -496,7 +496,7 @@ const ShopCheckout = () => {
               {cart.map(item => (
                 <div key={item.product.id} className="flex justify-between text-xs">
                   <span className="text-muted-foreground line-clamp-1 flex-1">{item.product.name} ×{item.quantity}</span>
-                  <span className="font-medium ml-2">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
+                  <span className="font-medium ml-2">${(Number(item.product.price) * item.quantity).toFixed(2)}{rubRate ? ` ≈${formatRub(Number(item.product.price) * item.quantity, rubRate)}` : ''}</span>
                 </div>
               ))}
             </div>
