@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { DbProduct } from '@/types/database';
 import { useStore } from '@/contexts/StoreContext';
 import { useTelegram } from '@/contexts/TelegramContext';
+import PriceRub from '@/components/PriceRub';
 
 const tagLabels: Record<string, string> = {
   'hot': 'ХИТ', 'new': 'НОВИНКА', 'sale': 'СКИДКА', 'best-seller': 'БЕСТСЕЛЛЕР', 'instant': 'МГНОВЕННО',
