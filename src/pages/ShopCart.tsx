@@ -5,6 +5,7 @@ import { useShop } from '@/contexts/ShopContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import ShopProductCard from '@/components/ShopProductCard';
+import PriceRub from '@/components/PriceRub';
 
 const ShopCart = () => {
   const {
