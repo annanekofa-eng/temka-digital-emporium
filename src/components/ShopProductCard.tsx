@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useShop, ShopProduct } from '@/contexts/ShopContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { toast } from 'sonner';
+import PriceRub from '@/components/PriceRub';
 
 interface Props {
   product: ShopProduct;
