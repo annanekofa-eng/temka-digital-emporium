@@ -7,6 +7,7 @@ import { useStorefront } from '@/contexts/StorefrontContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import ShopProductCard from '@/components/ShopProductCard';
 import { toast } from 'sonner';
+import PriceRub from '@/components/PriceRub';
 
 const ShopProductDetails = () => {
   const { productId } = useParams();
