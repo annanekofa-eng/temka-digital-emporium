@@ -198,12 +198,18 @@ const Checkout = () => {
             {toPay > 0 ? (
               <div className="flex justify-between font-display font-bold text-base">
                 <span>К оплате через CryptoBot</span>
-                <span>${toPay.toFixed(2)}</span>
+                <div className="text-right">
+                  <div>${toPay.toFixed(2)}</div>
+                  <PriceRub usd={toPay} className="font-normal" />
+                </div>
               </div>
             ) : (
               <div className="flex justify-between font-display font-bold text-base">
                 <span>К оплате (баланс)</span>
-                <span>${totalAfterDiscount.toFixed(2)}</span>
+                <div className="text-right">
+                  <div>${totalAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={totalAfterDiscount} className="font-normal" />
+                </div>
               </div>
             )}
           </div>
