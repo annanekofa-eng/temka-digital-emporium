@@ -71,11 +71,11 @@ const ShopProductCard = ({ product, shopId }: Props) => {
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="font-display font-bold text-lg sm:text-xl">${Number(product.price).toFixed(2)}</span>
+              <PriceRub usd={Number(product.price)} />
               {product.old_price && (
                 <span className="text-[10px] sm:text-xs text-muted-foreground line-through">${Number(product.old_price).toFixed(2)}</span>
               )}
             </div>
-            <PriceRub usd={Number(product.price)} />
           </div>
           <Button
             size="sm"
