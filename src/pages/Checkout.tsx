@@ -171,6 +171,7 @@ const Checkout = () => {
               <div key={item.product.id} className="flex justify-between text-xs">
                 <span className="text-muted-foreground line-clamp-1 flex-1">{item.product.title} ×{item.quantity}</span>
                 <span className="font-medium ml-2">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
+                <span className="ml-1"><PriceRub usd={Number(item.product.price) * item.quantity} /></span>
               </div>
             ))}
           </div>
