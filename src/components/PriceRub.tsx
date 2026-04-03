@@ -5,12 +5,12 @@ interface PriceRubProps {
   className?: string;
 }
 
-/** Displays "~X ₽" conversion below a USD price */
+/** Displays "≈ X ₽" inline next to a USD price */
 const PriceRub = ({ usd, className = '' }: PriceRubProps) => {
   const { data: rate } = useExchangeRate();
   if (!rate || usd <= 0) return null;
   return (
-    <span className={`text-[10px] text-muted-foreground ${className}`}>
+    <span className={`text-sm text-muted-foreground ${className}`}>
       ≈ {formatRub(usd, rate)}
     </span>
   );
