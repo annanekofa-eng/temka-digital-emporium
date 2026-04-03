@@ -95,7 +95,11 @@ const ShopCart = () => {
                 </div>
               )}
               <div className="border-t border-border/30 pt-2 flex justify-between font-display font-bold text-lg">
-                <span>Итого</span><span>${totalAfterDiscount.toFixed(2)}</span>
+                <span>Итого</span>
+                <div className="text-right">
+                  <div>${totalAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={totalAfterDiscount} className="font-normal text-xs" />
+                </div>
               </div>
             </div>
             <div className="border-t border-border pt-4 mt-1 space-y-2">
