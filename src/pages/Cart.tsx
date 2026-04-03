@@ -77,6 +77,7 @@ const Cart = () => {
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
                       <span className="font-display font-bold text-sm sm:text-base">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
+                      <PriceRub usd={Number(item.product.price) * item.quantity} />
                       <button onClick={() => removeFromCart(item.product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
