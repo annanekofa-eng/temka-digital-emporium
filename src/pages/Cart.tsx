@@ -5,6 +5,7 @@ import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
 import { useProducts } from '@/hooks/useProducts';
 import { useTelegram } from '@/contexts/TelegramContext';
+import PriceRub from '@/components/PriceRub';
 
 const categoryEmoji: Record<string, string> = {
   'social-media': '📱', 'gaming': '🎮', 'streaming': '🎬', 'software': '🔑',
