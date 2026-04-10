@@ -720,14 +720,25 @@ async function sendWelcome(tg: ReturnType<typeof TG>, chatId: number, firstName:
   const hasShop = await userHasShop(chatId);
   const config = await getWelcomeConfig();
   const defaultText = `👋 Привет, <b>${esc(firstName)}</b>!\nДобро пожаловать в <b>${PLATFORM_NAME}</b>\n\nСоздай свой Telegram магазин\nс автовыдачей за 5 минут.\n\n— Никакого кода и хостинга\n— Автовыдача товаров 24/7\n— Приём оплат: CryptoBot + СБП\n— Полная настройка под себя`;
-  // Dynamic stats for {shops_count} placeholder
+  // Dynamic stats for {shops_count} and {total_revenue} placeholders
   let shopsCount = "0";
+  let totalRevenue = "0";
   const rawText = config.text || defaultText;
   if (rawText.includes("{shops_count}")) {
     const { count } = await db().from("shops").select("id", { count: "exact", head: true });
     shopsCount = String(count || 0);
   }
-  const welcomeText = (config.text ? config.text.replace(/\{name\}/g, esc(firstName)) : defaultText).replace(/\{shops_count\}/g, shopsCount);
+  if (rawText.includes("{total_revenue}")) {
+    const { data: revenueData } = await db()
+      .from("shop_orders")
+      .select("total_amount")
+      .eq("payment_status", "paid");
+    const sum = (revenueData || []).reduce((acc: number, r: any) => acc + (Number(r.total_amount) || 0), 0);
+    totalRevenue = sum.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  const welcomeText = (config.text ? config.text.replace(/\{name\}/g, esc(firstName)) : defaultText)
+    .replace(/\{shops_count\}/g, shopsCount)
+    .replace(/\{total_revenue\}/g, totalRevenue);
   const kb = { ...ikb(await welcomeButtons(chatId)) };
 
   if (config.media_type === "photo" && config.media_url) {
