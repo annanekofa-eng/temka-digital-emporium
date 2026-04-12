@@ -35,7 +35,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, svcKey);
-    const db = createClient(supabaseUrl, serviceKey);
+    
     const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
     const platformBotToken = Deno.env.get("PLATFORM_BOT_TOKEN");
 
