@@ -38,3 +38,15 @@ verify_jwt = false
 
 [functions.retention-check]
 verify_jwt = false
+
+[functions.subscription-enforce]
+verify_jwt = false
+
+[functions.get-exchange-rate]
+verify_jwt = false
+
+[functions.create-sbp-request]
+verify_jwt = false
+
+[functions.get-shop-sbp-details]
+verify_jwt = false

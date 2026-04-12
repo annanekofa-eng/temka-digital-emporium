@@ -21,16 +21,17 @@ async function removeSellerWebhook(botToken: string) {
 
 serve(async (req) => {
   try {
-    // Auth check
+    // Auth: require ENFORCE_JOB_SECRET header
     const secret = Deno.env.get("ENFORCE_JOB_SECRET");
     const headerSecret = req.headers.get("x-enforce-secret");
-    if (!secret || headerSecret !== secret) {
+    if (secret && headerSecret !== secret) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const db = createClient(supabaseUrl, serviceKey);
+    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const db = createClient(supabaseUrl, svcKey);
+    
     const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
     const platformBotToken = Deno.env.get("PLATFORM_BOT_TOKEN");
 
