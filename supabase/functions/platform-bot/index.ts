@@ -38,13 +38,25 @@ async function setupWebhook(): Promise<Response> {
 }
 
 // ─── Telegram API ─────────────────────────────
+/** Strip bot tokens from error messages to prevent leaking secrets to users */
+function maskToken(s: string): string {
+  return s.replace(/bot\d+:[A-Za-z0-9_-]+/g, "bot***:***");
+}
+
 const TG = (token: string) => {
-  const call = (method: string, body: Record<string, unknown>) =>
-    fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
+  const call = async (method: string, body: Record<string, unknown>) => {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(`TG API call failed (${method}):`, maskToken(String(e)));
+      return { ok: false, description: `Network error: ${method}` };
+    }
+  };
   return {
     send: (chatId: number, text: string, markup?: unknown) =>
       call("sendMessage", {
