@@ -38,13 +38,25 @@ async function setupWebhook(): Promise<Response> {
 }
 
 // ─── Telegram API ─────────────────────────────
+/** Strip bot tokens from error messages to prevent leaking secrets to users */
+function maskToken(s: string): string {
+  return s.replace(/bot\d+:[A-Za-z0-9_-]+/g, "bot***:***");
+}
+
 const TG = (token: string) => {
-  const call = (method: string, body: Record<string, unknown>) =>
-    fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
+  const call = async (method: string, body: Record<string, unknown>) => {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(`TG API call failed (${method}):`, maskToken(String(e)));
+      return { ok: false, description: `Network error: ${method}` };
+    }
+  };
   return {
     send: (chatId: number, text: string, markup?: unknown) =>
       call("sendMessage", {
@@ -2164,7 +2176,7 @@ async function handleCallback(
       return tg.edit(
         chatId,
         msgId,
-        `❌ Ошибка: ${(e as Error).message}`,
+        `❌ Ошибка: ${maskToken((e as Error).message)}`,
         ikb([[btn("◀️ Назад", `p:opsettings:${shopId}`)]]),
       );
     }
@@ -2371,7 +2383,7 @@ async function handleCallback(
       return tg.edit(chatId, msgId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
     } catch (e) {
       await clearSession(chatId);
-      return tg.edit(chatId, msgId, `❌ Ошибка: ${(e as Error).message}`, ikb([[btn("◀️ Назад", "p:sub")]]));
+      return tg.edit(chatId, msgId, `❌ Ошибка: ${maskToken((e as Error).message)}`, ikb([[btn("◀️ Назад", "p:sub")]]));
     }
   }
   if (cmd === "sub_promo") {
@@ -4746,7 +4758,7 @@ async function handleAdmCallback(
       });
       return tg.edit(chatId, msgId, `✅ Retention-проверка запущена вручную.`, ikb([[btn("◀️ Retention", "adm:retention")]]));
     } catch (e) {
-      return tg.edit(chatId, msgId, `❌ Ошибка запуска: ${(e as Error).message}`, ikb([[btn("◀️ Retention", "adm:retention")]]));
+      return tg.edit(chatId, msgId, `❌ Ошибка запуска: ${maskToken((e as Error).message)}`, ikb([[btn("◀️ Retention", "adm:retention")]]));
     }
   }
 
@@ -5102,7 +5114,7 @@ async function handleAdmText(
       await clearSession(chatId);
       return tg.send(
         chatId,
-        `❌ Ошибка: ${e.message || "Недостаточно средств"}`,
+        `❌ Ошибка: ${maskToken(e.message || "Недостаточно средств")}`,
         ikb([[btn("◀️ К пользователю", `adm:ucard:${targetTgId}`)]]),
       );
     }
@@ -5460,7 +5472,7 @@ async function handleAdmText(
           note,
         });
       if (error)
-        return tg.send(chatId, `❌ Ошибка: ${error.message}`, ikb([[btn("◀️ К промокодам", "adm:subpromo:0")]]));
+        return tg.send(chatId, `❌ Ошибка: ${maskToken(error.message)}`, ikb([[btn("◀️ К промокодам", "adm:subpromo:0")]]));
       await admLog(chatId, "create_sub_promo", "sub_promo", code, {
         discount_type: sData.discount_type,
         discount_value: sData.discount_value,
@@ -5554,7 +5566,7 @@ async function handleAdmText(
       return tg.send(chatId, "❌ Только owner может добавлять админов.", ikb([[btn("◀️ Назад", "adm:admins")]]));
     // Insert
     const { error } = await db().from("platform_admins").insert({ telegram_id: tgId, role: "admin" });
-    if (error) return tg.send(chatId, `❌ Ошибка: ${error.message}`, ikb([[btn("◀️ Назад", "adm:admins")]]));
+    if (error) return tg.send(chatId, `❌ Ошибка: ${maskToken(error.message)}`, ikb([[btn("◀️ Назад", "adm:admins")]]));
     await admLog(chatId, "add_admin", "admin", String(tgId));
     return tg.send(chatId, `✅ Админ ${tgId} добавлен.`, ikb([[btn("◀️ К администраторам", "adm:admins")]]));
   }
@@ -5882,7 +5894,7 @@ serve(async (req) => {
           } catch (e) {
             console.error("handleAdmCallback error:", data, e);
             try {
-              await tg.send(chatId, `❌ Ошибка: ${String(e?.message || e).slice(0, 200)}`);
+              await tg.send(chatId, `❌ Ошибка: ${maskToken(String(e?.message || e)).slice(0, 200)}`);
             } catch {}
           }
         } else if (data.startsWith("p:")) {
