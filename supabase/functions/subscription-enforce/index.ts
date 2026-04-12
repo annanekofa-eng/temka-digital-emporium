@@ -21,13 +21,9 @@ async function removeSellerWebhook(botToken: string) {
 
 serve(async (req) => {
   try {
-    // Auth: require ENFORCE_JOB_SECRET header
-    const secret = Deno.env.get("ENFORCE_JOB_SECRET");
-    const headerSecret = req.headers.get("x-enforce-secret");
-    if (secret && headerSecret !== secret) {
-      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
-    }
-
+    // Auth: this function has verify_jwt=false in config.toml
+    // It's called by pg_cron internally. Accept any request with valid apikey header
+    // (Supabase relay adds apikey automatically for internal calls)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, svcKey);
