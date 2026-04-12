@@ -3,12 +3,15 @@ import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { Flag } from 'lucide-react';
 import { APP_URL } from '@/config/app';
 
+const HIDE_PLATFORM_BADGE_SLUGS = ['sakura-store'];
+
 const Footer = () => {
-  const { shopName, basePath, botUsername } = useStorefront();
+  const { shopName, basePath, botUsername, slug } = useStorefront();
   const buildPath = useStorefrontPath();
   const displayName = shopName || 'TeleStore';
 
   const isShopStorefront = basePath.startsWith('/shop/');
+  const showPlatformBadge = isShopStorefront && !HIDE_PLATFORM_BADGE_SLUGS.includes(slug || '');
 
   const shopIdentifier = botUsername
     ? `@${botUsername}`
@@ -39,7 +42,7 @@ const Footer = () => {
           </div>
         </div>
 
-        {isShopStorefront && (
+        {showPlatformBadge && (
           <div className="mt-5 pt-5 border-t border-border/30 flex flex-col items-center gap-3">
             <p className="text-xs text-muted-foreground/70">
               Магазин создан через{' '}
