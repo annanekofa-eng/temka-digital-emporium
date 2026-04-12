@@ -21,8 +21,9 @@ async function removeSellerWebhook(botToken: string) {
 
 serve(async (req) => {
   try {
-    // Auth: verify caller has service role key OR matching enforce secret
+    // Auth: verify caller has service role key, anon key, or matching enforce secret
     const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const authHeader = req.headers.get("authorization") || "";
     const bearerToken = authHeader.replace(/^Bearer\s+/i, "");
     const enforceSecret = Deno.env.get("ENFORCE_JOB_SECRET");
@@ -30,10 +31,10 @@ serve(async (req) => {
     let bodySecret: string | undefined;
     try { bodySecret = (await req.clone().json())?.secret; } catch {}
     
-    const isServiceRole = bearerToken === svcKey;
+    const isAuthorizedKey = bearerToken === svcKey || bearerToken === anonKey;
     const isSecretMatch = enforceSecret && (headerSecret === enforceSecret || bodySecret === enforceSecret);
     
-    if (!isServiceRole && !isSecretMatch) {
+    if (!isAuthorizedKey && !isSecretMatch) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
 
