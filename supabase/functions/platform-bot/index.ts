@@ -5894,7 +5894,7 @@ serve(async (req) => {
           } catch (e) {
             console.error("handleAdmCallback error:", data, e);
             try {
-              await tg.send(chatId, `❌ Ошибка: ${String(e?.message || e).slice(0, 200)}`);
+              await tg.send(chatId, `❌ Ошибка: ${maskToken(String(e?.message || e)).slice(0, 200)}`);
             } catch {}
           }
         } else if (data.startsWith("p:")) {
