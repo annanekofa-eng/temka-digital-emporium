@@ -21,10 +21,16 @@ async function removeSellerWebhook(botToken: string) {
 
 serve(async (req) => {
   try {
-    // Auth: require ENFORCE_JOB_SECRET header
+    // Auth: check secret from header OR body
     const secret = Deno.env.get("ENFORCE_JOB_SECRET");
     const headerSecret = req.headers.get("x-enforce-secret");
-    if (secret && headerSecret !== secret) {
+    let bodySecret: string | undefined;
+    try {
+      const body = await req.clone().json();
+      bodySecret = body?.secret;
+    } catch {}
+    const providedSecret = headerSecret || bodySecret;
+    if (secret && providedSecret !== secret) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
 
