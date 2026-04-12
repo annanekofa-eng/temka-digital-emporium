@@ -6,6 +6,7 @@ interface StorefrontContextType {
   shopName?: string;
   supportLink?: string;
   botUsername?: string | null;
+  slug?: string;
 }
 
 const StorefrontContext = createContext<StorefrontContextType>({ basePath: '', cartCount: 0 });
@@ -30,12 +31,13 @@ export const StorefrontProvider: React.FC<{
   shopName?: string;
   supportLink?: string;
   botUsername?: string | null;
+  slug?: string;
   children: React.ReactNode;
-}> = ({ basePath, cartCount, shopName, supportLink, botUsername, children }) => {
+}> = ({ basePath, cartCount, shopName, supportLink, botUsername, slug, children }) => {
   const normalizedSupportLink = sanitizeSupportLink(supportLink);
 
   return (
-    <StorefrontContext.Provider value={{ basePath, cartCount, shopName, supportLink: normalizedSupportLink, botUsername }}>
+    <StorefrontContext.Provider value={{ basePath, cartCount, shopName, supportLink: normalizedSupportLink, botUsername, slug }}>
       {children}
     </StorefrontContext.Provider>
   );
