@@ -30,6 +30,7 @@ serve(async (req) => {
       bodySecret = body?.secret;
     } catch {}
     const providedSecret = headerSecret || bodySecret;
+    console.log("enforce-auth:", { hasSecret: !!secret, secretLen: secret?.length, headerSecret, bodySecret, providedSecret, match: providedSecret === secret });
     if (secret && providedSecret !== secret) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
