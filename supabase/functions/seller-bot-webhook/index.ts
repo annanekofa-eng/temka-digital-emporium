@@ -1999,6 +1999,29 @@ serve(async (req) => {
         });
       }
 
+      // ─── Capture referral (start payload "ref_<telegram_id>") ─────
+      const startPayload = text.startsWith("/start ") ? text.slice(7).trim() : "";
+      if (startPayload.startsWith("ref_") && msg.from) {
+        const refIdRaw = startPayload.slice(4);
+        const refId = Number(refIdRaw);
+        if (Number.isFinite(refId) && refId > 0 && refId !== msg.from.id) {
+          try {
+            // Only create link if user is not already linked in this shop and the referrer is a known customer of this shop
+            const { data: refExists } = await supabase().from("shop_customers")
+              .select("telegram_id").eq("shop_id", shopId).eq("telegram_id", refId).maybeSingle();
+            if (refExists) {
+              await supabase().from("shop_referrals").insert({
+                shop_id: shopId,
+                referrer_telegram_id: refId,
+                referred_telegram_id: msg.from.id,
+              });
+            }
+          } catch (e) {
+            // Ignore unique-violation (already linked) and any other errors silently
+          }
+        }
+      }
+
       // Clear any active admin FSM session so /start is a clean entry point
       await clearSession(chatId, shopId);
 
