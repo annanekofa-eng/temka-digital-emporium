@@ -11,10 +11,6 @@ interface TonPaymentSheetProps {
   memo: string;
   toPayUsd: number;
   usdPerTon: number;
-  /** Sub-currency selected for Tonkeeper: native TON or USDT (jUSDT jetton). */
-  currency?: 'TON' | 'USDT';
-  /** Human-readable USDT amount when currency='USDT' (≈ toPayUsd, rounded up to 2 dp). */
-  usdtAmount?: number;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -42,7 +38,6 @@ const Field = ({ label, value, field, copied, onCopy }: {
 
 const TonPaymentSheet = ({
   walletAddress, tonAmount, payUrl, memo, toPayUsd, usdPerTon,
-  currency = 'TON', usdtAmount = 0,
   onBack, onContinue,
 }: TonPaymentSheetProps) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -60,15 +55,6 @@ const TonPaymentSheet = ({
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const isUsdt = currency === 'USDT';
-  const primaryAmountLabel = isUsdt
-    ? `${(usdtAmount || toPayUsd).toFixed(2)} USDT`
-    : `${tonAmount.toFixed(3)} TON`;
-  const fieldAmountValue = isUsdt
-    ? (usdtAmount || toPayUsd).toFixed(2)
-    : tonAmount.toFixed(3);
-  const fieldAmountLabel = isUsdt ? 'Сумма (USDT)' : 'Сумма (TON)';
-
   return (
     <div className="space-y-3">
       <button
@@ -81,19 +67,15 @@ const TonPaymentSheet = ({
       <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <img src={tonLogo} alt="TON" className="w-5 h-5 rounded" loading="lazy" width={20} height={20} />
-          <h3 className="font-display font-semibold text-sm">
-            Оплата через Tonkeeper {isUsdt ? '(USDT)' : '(TON)'}
-          </h3>
+          <h3 className="font-display font-semibold text-sm">Оплата через Tonkeeper</h3>
         </div>
 
         {/* Сумма */}
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-center">
           <div className="text-xs text-muted-foreground mb-1">К переводу</div>
-          <div className="text-xl font-bold text-primary">{primaryAmountLabel}</div>
+          <div className="text-xl font-bold text-primary">{tonAmount.toFixed(3)} TON</div>
           <div className="text-[10px] text-muted-foreground mt-0.5">
-            {isUsdt
-              ? `≈ $${toPayUsd.toFixed(2)} · сеть TON (jUSDT)`
-              : `≈ $${toPayUsd.toFixed(2)} · курс ${usdPerTon.toFixed(2)} $/TON`}
+            ≈ ${toPayUsd.toFixed(2)} · курс {usdPerTon.toFixed(2)} $/TON
           </div>
         </div>
 
@@ -117,13 +99,12 @@ const TonPaymentSheet = ({
         {/* Реквизиты */}
         <div className="space-y-2">
           <Field label="Кошелёк получателя" value={walletAddress} field="wallet" copied={copied} onCopy={handleCopy} />
-          <Field label={fieldAmountLabel} value={fieldAmountValue} field="amount" copied={copied} onCopy={handleCopy} />
+          <Field label="Сумма (TON)" value={tonAmount.toFixed(3)} field="amount" copied={copied} onCopy={handleCopy} />
           <Field label="Комментарий (обязательно!)" value={memo} field="memo" copied={copied} onCopy={handleCopy} />
         </div>
 
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 text-[10px] text-amber-700 dark:text-amber-400">
           ⚠️ Обязательно укажите <b>точную сумму</b> и <b>комментарий</b>, иначе платёж не будет распознан.
-          {isUsdt && <> Перевод <b>USDT в сети TON</b> (jUSDT). Не путайте с TRC-20/ERC-20.</>}
         </div>
 
         <Button variant="outline" size="lg" className="w-full" onClick={onContinue}>

@@ -530,9 +530,7 @@ serve(async (req) => {
       }
     }
     // ── TON / Tonkeeper polling (shop orders only) ────────────
-    if (isShop && (order.payment_method === "ton" || order.payment_method === "ton_usdt")) {
-      const isJettonUsdt = order.payment_method === "ton_usdt";
-      const JUSDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+    if (isShop && order.payment_method === "ton") {
       try {
         const ek = Deno.env.get("TOKEN_ENCRYPTION_KEY");
         if (!ek) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
@@ -553,9 +551,8 @@ serve(async (req) => {
         const memo = order.invoice_id; // memo is stored in invoice_id
         if (!memo) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
 
-        // Recompute required base units from pay_url to avoid courier-rate drift.
-        // Native TON pay_url: ton://transfer/<addr>?amount=<nanoton>&text=<memo>
-        // Jetton USDT pay_url: ton://transfer/<addr>?jetton=<master>&amount=<base_units>&text=<memo>
+        // Recompute required nanoTON from pay_url to avoid courier-rate drift.
+        // pay_url format: ton://transfer/<addr>?amount=<nanoton>&text=<memo>
         let requiredNano = 0n;
         try {
           const m = String(order.pay_url || "").match(/[?&]amount=(\d+)/);
@@ -565,76 +562,40 @@ serve(async (req) => {
         const orderAgeMs = Date.now() - new Date(order.created_at).getTime();
         const TON_ORDER_TTL_MS = 30 * 60 * 1000;
 
+        // Poll TonAPI for recent transactions
+        const tonRes = await fetch(
+          `${TONAPI_URL}/v2/blockchain/accounts/${encodeURIComponent(walletAddress)}/transactions?limit=30`,
+          { signal: AbortSignal.timeout(8000) },
+        );
+        if (!tonRes.ok) {
+          console.warn(`[check-payment][ton] tonapi http ${tonRes.status}`);
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
+        const tonData = await tonRes.json().catch(() => ({}));
+        const txs: any[] = Array.isArray(tonData?.transactions) ? tonData.transactions : [];
+
+        // Look for an incoming message with matching memo (text comment)
         let foundTxHash: string | null = null;
         let receivedNano = 0n;
-
-        if (isJettonUsdt) {
-          // ── jUSDT (jetton) polling via TonAPI jetton history ──
-          // Endpoint returns jetton movements (incl. comments) for the owner address.
-          const jettonUrl = `${TONAPI_URL}/v2/accounts/${encodeURIComponent(walletAddress)}/jettons/${JUSDT_MASTER}/history?limit=30`;
-          const jRes = await fetch(jettonUrl, { signal: AbortSignal.timeout(8000) });
-          if (!jRes.ok) {
-            console.warn(`[check-payment][ton_usdt] tonapi http ${jRes.status}`);
-            return jsonRes({ status: order.status, paymentStatus: order.payment_status });
-          }
-          const jData = await jRes.json().catch(() => ({}));
-          const events: any[] = Array.isArray(jData?.events) ? jData.events : [];
-          for (const ev of events) {
-            const actions: any[] = Array.isArray(ev?.actions) ? ev.actions : [];
-            for (const act of actions) {
-              if (String(act?.type || "").toLowerCase() !== "jettontransfer") continue;
-              const jt = act?.JettonTransfer || act?.jetton_transfer || act;
-              const recipient: string = String(jt?.recipient?.address || jt?.recipient || "").trim();
-              // TonAPI returns recipient as raw or user-friendly form; compare loosely (lowercase, ignore bounceable prefix).
-              const normRecipient = recipient.toLowerCase();
-              const normWallet = String(walletAddress).toLowerCase();
-              if (normRecipient && !normRecipient.includes(normWallet.slice(-20)) && normRecipient !== normWallet) {
-                // Skip transfers that aren't to our wallet
-                continue;
-              }
-              const comment: string = String(jt?.comment || "").trim();
-              if (comment !== memo) continue;
-              const amount = BigInt(jt?.amount ?? 0);
-              if (requiredNano > 0n && amount < requiredNano) continue;
-              foundTxHash = String(ev?.event_id || ev?.hash || "");
-              receivedNano = amount;
-              break;
-            }
-            if (foundTxHash) break;
-          }
-        } else {
-          // ── Native TON polling via blockchain transactions ──
-          const tonRes = await fetch(
-            `${TONAPI_URL}/v2/blockchain/accounts/${encodeURIComponent(walletAddress)}/transactions?limit=30`,
-            { signal: AbortSignal.timeout(8000) },
-          );
-          if (!tonRes.ok) {
-            console.warn(`[check-payment][ton] tonapi http ${tonRes.status}`);
-            return jsonRes({ status: order.status, paymentStatus: order.payment_status });
-          }
-          const tonData = await tonRes.json().catch(() => ({}));
-          const txs: any[] = Array.isArray(tonData?.transactions) ? tonData.transactions : [];
-          for (const tx of txs) {
-            const inMsg = tx?.in_msg;
-            if (!inMsg) continue;
-            const comment: string = String(inMsg?.decoded_body?.text || inMsg?.message || "").trim();
-            if (comment !== memo) continue;
-            const value = BigInt(inMsg?.value ?? 0);
-            if (requiredNano > 0n && value < requiredNano) continue;
-            foundTxHash = String(tx?.hash || "");
-            receivedNano = value;
-            break;
-          }
+        for (const tx of txs) {
+          const inMsg = tx?.in_msg;
+          if (!inMsg) continue;
+          const comment: string = String(inMsg?.decoded_body?.text || inMsg?.message || "").trim();
+          if (comment !== memo) continue;
+          const value = BigInt(inMsg?.value ?? 0);
+          if (requiredNano > 0n && value < requiredNano) continue; // amount too low
+          foundTxHash = String(tx?.hash || "");
+          receivedNano = value;
+          break;
         }
 
         if (foundTxHash && order.payment_status !== "paid") {
           const telegramId = order.buyer_telegram_id;
           const resolvedShopId = tokens.resolvedShopId || shopId;
 
-          // Idempotency on tx/event hash (separate namespace for jetton vs native)
-          const dedupKey = isJettonUsdt ? `ton_usdt:${foundTxHash}` : `ton:${foundTxHash}`;
+          // Idempotency on tx hash
           const { error: dedupError } = await supabase.from("processed_invoices").insert({
-            invoice_id: dedupKey, type: "payment", order_id: orderId,
+            invoice_id: `ton:${foundTxHash}`, type: "payment", order_id: orderId,
             telegram_id: telegramId, amount: Number(order.total_amount) || 0,
           });
           if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
@@ -700,10 +661,8 @@ serve(async (req) => {
 
           // TG notification
           if (tokens.botToken) {
-            const receivedHuman = isJettonUsdt
-              ? `${(Number(receivedNano) / 1e6).toFixed(2)} USDT`
-              : `${(Number(receivedNano) / 1e9).toFixed(3)} TON`;
-            let message = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)} (${receivedHuman})\n`;
+            const tonReceived = Number(receivedNano) / 1e9;
+            let message = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)} (${tonReceived.toFixed(3)} TON)\n`;
             if (balanceUsed > 0) message += `💳 С баланса: $${balanceUsed.toFixed(2)}\n`;
             if (deliveredContent.length > 0) {
               message += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;

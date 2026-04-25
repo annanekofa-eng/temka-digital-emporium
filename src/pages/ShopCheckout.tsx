@@ -17,7 +17,6 @@ import { useQuery } from '@tanstack/react-query';
 import TonPaymentSheet from '@/components/storefront/TonPaymentSheet';
 
 type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket' | 'ton';
-type TonCurrency = 'TON' | 'USDT';
 
 type SbpDetails = {
   bankName: string;
@@ -51,12 +50,7 @@ const ShopCheckout = () => {
     memo: string;
     usdPerTon: number;
     orderNumber: string;
-    currency: TonCurrency;
-    usdtAmount: number;
   } | null>(null);
-  // Промежуточный экран выбора валюты (TON/USDT) перед созданием TON-инвойса
-  const [tonCurrencyStep, setTonCurrencyStep] = useState(false);
-  const [tonCurrency, setTonCurrency] = useState<TonCurrency>('TON');
 
   const displayName = user ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}` : 'Telegram User';
   const avatar = user?.firstName?.[0]?.toUpperCase() || 'T';
@@ -231,9 +225,7 @@ const ShopCheckout = () => {
   if (tonInvoice) {
     return (
       <div className="container-main mx-auto px-4 py-4 sm:py-6">
-        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">
-          Оплата {tonInvoice.currency === 'USDT' ? 'USDT (TON)' : 'TON'}
-        </h1>
+        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Оплата TON</h1>
         <TonPaymentSheet
           walletAddress={tonInvoice.walletAddress}
           tonAmount={tonInvoice.tonAmount}
@@ -241,110 +233,9 @@ const ShopCheckout = () => {
           memo={tonInvoice.memo}
           toPayUsd={toPay > 0 ? toPay : tonInvoice.tonAmount * tonInvoice.usdPerTon}
           usdPerTon={tonInvoice.usdPerTon}
-          currency={tonInvoice.currency}
-          usdtAmount={tonInvoice.usdtAmount}
           onBack={() => setTonInvoice(null)}
           onContinue={() => navigate(`${buildPath('/order-status')}?order=${tonInvoice.orderNumber}`)}
         />
-      </div>
-    );
-  }
-
-  // ── TON: промежуточный экран выбора валюты (TON / USDT) ──
-  if (tonCurrencyStep && paymentMethod === 'ton' && toPay > 0) {
-    return (
-      <div className="container-main mx-auto px-4 py-4 sm:py-6">
-        <button
-          onClick={() => { setTonCurrencyStep(false); setError(''); }}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3"
-        >
-          <ArrowLeft className="w-3 h-3" /> Назад
-        </button>
-        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Выбор валюты Tonkeeper</h1>
-
-        <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <img src={tonLogo} alt="TON" className="w-5 h-5 rounded" loading="lazy" />
-            <h3 className="font-display font-semibold text-sm">Чем оплатить?</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Выберите валюту для оплаты через кошелёк Tonkeeper.
-          </p>
-
-          <div className="grid grid-cols-2 gap-2">
-            {/* TON */}
-            <button
-              onClick={() => setTonCurrency('TON')}
-              className={`p-3 rounded-xl border text-center transition-all ${
-                tonCurrency === 'TON'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border/30 bg-secondary/30 hover:border-primary/30'
-              }`}
-            >
-              <img src={tonLogo} alt="TON" className="w-8 h-8 rounded-lg mx-auto mb-1 object-contain" loading="lazy" />
-              <div className={`text-sm font-medium ${tonCurrency === 'TON' ? 'text-primary' : 'text-foreground'}`}>TON</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {previewTonAmount > 0 ? `${previewTonAmount.toFixed(3)} TON` : '…'}
-              </div>
-            </button>
-
-            {/* USDT (jUSDT в сети TON) */}
-            <button
-              onClick={() => setTonCurrency('USDT')}
-              className={`p-3 rounded-xl border text-center transition-all ${
-                tonCurrency === 'USDT'
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border/30 bg-secondary/30 hover:border-primary/30'
-              }`}
-            >
-              <div className={`w-8 h-8 rounded-lg mx-auto mb-1 flex items-center justify-center text-xs font-bold ${
-                tonCurrency === 'USDT' ? 'bg-primary/20 text-primary' : 'bg-primary/10 text-primary'
-              }`}>$</div>
-              <div className={`text-sm font-medium ${tonCurrency === 'USDT' ? 'text-primary' : 'text-foreground'}`}>USDT</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                ${toPay.toFixed(2)}
-              </div>
-            </button>
-          </div>
-
-          {tonCurrency === 'TON' && usdPerTon > 0 && (
-            <div className="text-[10px] text-muted-foreground text-center">
-              Курс {usdPerTon.toFixed(2)} $/TON · сумма к оплате ≈ ${toPay.toFixed(2)}
-            </div>
-          )}
-          {tonCurrency === 'USDT' && (
-            <div className="text-[10px] text-muted-foreground text-center">
-              USDT в сети TON (jUSDT) · сумма к оплате ${toPay.toFixed(2)}
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 text-xs text-destructive">{error}</div>
-          )}
-
-          <Button
-            variant="hero"
-            size="lg"
-            className="w-full"
-            onClick={() => { setTonCurrencyStep(false); handleCheckout(); }}
-            disabled={processing || (tonCurrency === 'TON' && usdPerTon <= 0)}
-          >
-            {processing ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                Создание заказа...
-              </span>
-            ) : (
-              <><Lock className="w-4 h-4 mr-1" /> Перейти к оплате — {tonCurrency === 'USDT'
-                ? `${toPay.toFixed(2)} USDT`
-                : (previewTonAmount > 0 ? `${previewTonAmount.toFixed(3)} TON` : `$${toPay.toFixed(2)}`)}</>
-            )}
-          </Button>
-
-          <p className="text-[10px] text-muted-foreground text-center pt-1">
-            Оплата откроется в Tonkeeper. Сумма и комментарий уже заполнены — не меняйте их.
-          </p>
-        </div>
       </div>
     );
   }
@@ -369,13 +260,6 @@ const ShopCheckout = () => {
         return;
       }
       setSbpStep('details');
-      return;
-    }
-
-    // Если выбран TON — сначала показываем экран выбора валюты (TON / USDT)
-    if (paymentMethod === 'ton' && toPay > 0 && !tonCurrencyStep) {
-      setError('');
-      setTonCurrencyStep(true);
       return;
     }
 
@@ -484,7 +368,6 @@ const ShopCheckout = () => {
           body: {
             initData, shopId, orderNumber: tonOrderNumber, items: itemsPayload,
             balanceUsed, promoCode: promoResult?.code || null, description,
-            currency: tonCurrency,
           },
         });
         if (fnError) {
@@ -510,8 +393,6 @@ const ShopCheckout = () => {
           memo: data.memo,
           usdPerTon: Number(data.usdPerTon),
           orderNumber: data.orderNumber || tonOrderNumber,
-          currency: (String(data.currency || tonCurrency).toUpperCase() === 'USDT' ? 'USDT' : 'TON') as TonCurrency,
-          usdtAmount: Number(data.usdtAmount || 0),
         });
         clearCart();
       } else {
