@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
+import starsLogo from '@/assets/telegram-stars-logo.jpg';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
