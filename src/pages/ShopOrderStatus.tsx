@@ -19,7 +19,7 @@ const ShopOrderStatus = () => {
   const orderNumber = searchParams.get('order');
   const { data: orders } = useOrders(shopId);
   const queryClient = useQueryClient();
-  const { initData } = useTelegram();
+  const { initData, user } = useTelegram();
   const [polling, setPolling] = useState(true);
   const [expired, setExpired] = useState(false);
 
@@ -41,18 +41,28 @@ const ShopOrderStatus = () => {
       if (data?.paymentStatus === 'paid') {
         setPolling(false);
         clearCart();
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        // Optimistically update the cached order so the success page sees `paid`
+        // immediately and doesn't bounce us back to `/order-status`.
+        queryClient.setQueryData<any[]>(['orders', user?.id, shopId], (prev) => {
+          if (!Array.isArray(prev)) return prev;
+          return prev.map((o) => o.id === order.id
+            ? { ...o, payment_status: 'paid', status: data?.status || 'paid' }
+            : o);
+        });
+        // Refresh related data, then refetch orders before navigating to make sure
+        // the server-side state lands in cache.
         queryClient.invalidateQueries({ queryKey: ['user-profile'] });
         queryClient.invalidateQueries({ queryKey: ['balance-history'] });
         queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        await queryClient.refetchQueries({ queryKey: ['orders', user?.id, shopId] });
         navigate(`${buildPath('/order-success')}?order=${orderNumber}`, { replace: true });
       } else if (data?.paymentStatus === 'expired') {
         setExpired(true);
         setPolling(false);
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.invalidateQueries({ queryKey: ['orders', user?.id, shopId] });
       }
     } catch {}
-  }, [order?.id, order?.payment_status, queryClient, initData, shopId, clearCart, navigate, buildPath, orderNumber]);
+  }, [order?.id, order?.payment_status, queryClient, initData, shopId, user?.id, clearCart, navigate, buildPath, orderNumber]);
 
   useEffect(() => {
     if (!order?.id || expired) return;
