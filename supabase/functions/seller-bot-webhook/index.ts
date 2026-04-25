@@ -1088,6 +1088,34 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
 
   // ─── Set OP channel link ──────────────────
   if (state === "s_set_op_channel") {
+    // handled below
+  }
+
+  // ─── Set referral percent ─────────────────
+  if (state === "s_set_ref_percent") {
+    const num = Number(String(val).replace(",", ".").trim());
+    if (!Number.isFinite(num) || num < 0 || num > 100) {
+      await tg.send(cid, "❌ Введите число от 0 до 100. Пример: <code>15</code>");
+      return true;
+    }
+    await supabase().from("shop_referral_settings").upsert({
+      shop_id: shopId,
+      is_enabled: true,
+      reward_percent: num,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "shop_id" });
+    await logAction(shopId, adminId, "set_referral_percent", "shop", shopId, { percent: num });
+    await clearSession(cid);
+    const resp = await tg.send(cid, `✅ Процент обновлён: <b>${num}%</b>`);
+    const respMid = resp?.result?.message_id;
+    if (respMid) {
+      // Re-render referral admin
+      return handleCallback(tg, cid, respMid, "s:ref", "noop", shopId, adminId).then(() => true).catch(() => true);
+    }
+    return true;
+  }
+
+  if (state === "s_set_op_channel") {
     const input = val.trim();
     // Accept @username, t.me/username, or numeric chat_id
     let channelLink = input;
