@@ -476,7 +476,7 @@ const ShopCheckout = () => {
           </div>
 
           {toPay > 0 ? (
-            <div className={`grid gap-2 ${starsAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className={`grid gap-2 ${(starsAvailable && xrocketAvailable) ? 'grid-cols-2 sm:grid-cols-4' : (starsAvailable || xrocketAvailable) ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {/* CryptoBot */}
               <button
                 onClick={() => { setPaymentMethod('cryptobot'); setSbpStep('details'); }}
@@ -520,6 +520,22 @@ const ShopCheckout = () => {
                   <div className="text-[10px] text-muted-foreground mt-0.5">Telegram Stars</div>
                 </button>
               )}
+
+              {/* xRocket Pay */}
+              {xrocketAvailable && (
+                <button
+                  onClick={() => { setPaymentMethod('xrocket'); setSbpStep('details'); }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    paymentMethod === 'xrocket'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                      : 'border-border/30 bg-secondary/30 hover:border-primary/30'
+                  }`}
+                >
+                  <img src={xrocketLogo} alt="xRocket" className="w-8 h-8 rounded-lg mx-auto mb-1 object-contain" loading="lazy" />
+                  <div className={`text-sm font-medium ${paymentMethod === 'xrocket' ? 'text-primary' : 'text-foreground'}`}>xRocket</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Криптовалюта</div>
+                </button>
+              )}
             </div>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
@@ -539,6 +555,34 @@ const ShopCheckout = () => {
           {paymentMethod === 'stars' && toPay > 0 && (
             <div className="text-[10px] text-muted-foreground text-center mt-2">
               К оплате: <span className="text-primary font-semibold">{starsAmount} ⭐</span> · курс 1 ⭐ = ${usdPerStar.toFixed(4)}
+            </div>
+          )}
+
+          {paymentMethod === 'xrocket' && toPay > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-[10px] text-muted-foreground">Выберите валюту оплаты:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {xrocketCurrencies.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setXrCurrency(c)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                      xrCurrency === c
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border/30 bg-secondary/30 text-muted-foreground hover:border-primary/30'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] text-muted-foreground text-center">
+                {xrCryptoAmount > 0 ? (
+                  <>К оплате: <span className="text-primary font-semibold">{xrCryptoAmount} {xrCurrency}</span> · курс 1 {xrCurrency} ≈ ${xrUsdPerUnit.toFixed(xrUsdPerUnit < 1 ? 6 : 2)}</>
+                ) : (
+                  <>Загружаем актуальный курс {xrCurrency}…</>
+                )}
+              </div>
             </div>
           )}
         </div>
