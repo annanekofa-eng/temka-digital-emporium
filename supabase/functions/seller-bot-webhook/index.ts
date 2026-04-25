@@ -2002,6 +2002,51 @@ serve(async (req) => {
     const tg = TG(botToken);
     const msg = body.message;
     const cb = body.callback_query;
+    const preCheckout = body.pre_checkout_query;
+
+    // ─── Pre-checkout query (Telegram Stars) ──────────────────
+    // MUST respond within 10 seconds, otherwise Telegram cancels the payment
+    if (preCheckout) {
+      try {
+        const pcId = preCheckout.id;
+        const payload = String(preCheckout.invoice_payload || "");
+        const orderId = payload.startsWith("s_o:") ? payload.slice(4) : null;
+        let approve = false;
+        let errorMsg = "Заказ не найден или уже обработан.";
+        if (orderId) {
+          const { data: order } = await supabase()
+            .from("shop_orders")
+            .select("id, shop_id, payment_status, status")
+            .eq("id", orderId)
+            .maybeSingle();
+          if (order && order.shop_id === shopId && order.payment_status !== "paid") {
+            approve = true;
+          } else if (order?.payment_status === "paid") {
+            errorMsg = "Этот заказ уже оплачен.";
+          }
+        }
+        await fetch(`https://api.telegram.org/bot${botToken}/answerPreCheckoutQuery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(approve
+            ? { pre_checkout_query_id: pcId, ok: true }
+            : { pre_checkout_query_id: pcId, ok: false, error_message: errorMsg }),
+        });
+      } catch (e) {
+        console.error("pre_checkout_query error:", e);
+      }
+      return new Response("ok");
+    }
+
+    // ─── Successful payment (Telegram Stars) ──────────────────
+    if (msg?.successful_payment) {
+      try {
+        await handleStarsSuccessfulPayment(shopId, botToken, msg);
+      } catch (e) {
+        console.error("successful_payment handler error:", e);
+      }
+      return new Response("ok");
+    }
 
     // ─── Callback query ─────────────────────
     if (cb) {
