@@ -2636,7 +2636,7 @@ async function handleCallback(
           await setSession(cid, "s_set_xrocket_token", shopId, {});
           await tg.send(
             cid,
-            "🚀 <b>Подключение xRocket Pay</b>\n\nОтправьте API-ключ от вашего <b>xRocket Pay</b>-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → My Apps\n2. Создайте приложение (или выберите своё) → API Keys → Create\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
+            "🚀 <b>Подключение xRocket Pay</b>\n\nОтправьте API-ключ от вашего <b>xRocket Pay</b>-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → Создать\n2. Создайте приложение → API токен\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
             ikb([[btn("❌ Отмена", "s:paym")]]),
           );
           return;
@@ -2672,7 +2672,7 @@ async function handleCallback(
       await tg.deleteMessage(cid, mid).catch(() => null);
       return tg.send(
         cid,
-        "🚀 <b>Токен xRocket Pay</b>\n\nОтправьте API-ключ от вашего xRocket Pay-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → My Apps\n2. Создайте приложение → API Keys → Create\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
+        "🚀 <b>Токен xRocket Pay</b>\n\nОтправьте API-ключ от вашего xRocket Pay-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → Создать\n2. Создайте приложение → API токен\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
         ikb([[btn("❌ Отмена", "s:paym")]]),
       );
     }
