@@ -529,6 +529,168 @@ serve(async (req) => {
         return jsonRes({ status: order.status, paymentStatus: order.payment_status });
       }
     }
+    // ── TON / Tonkeeper polling (shop orders only) ────────────
+    if (isShop && order.payment_method === "ton") {
+      try {
+        const ek = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+        if (!ek) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        const { data: tonMethod } = await supabase
+          .from("shop_payment_methods")
+          .select("config_encrypted")
+          .eq("shop_id", shopId)
+          .eq("method", "ton")
+          .maybeSingle();
+        if (!tonMethod?.config_encrypted) {
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
+        const { data: walletAddress } = await supabase.rpc("decrypt_token", {
+          p_encrypted: tonMethod.config_encrypted, p_key: ek,
+        });
+        if (!walletAddress) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+
+        const memo = order.invoice_id; // memo is stored in invoice_id
+        if (!memo) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+
+        // Recompute required nanoTON from pay_url to avoid courier-rate drift.
+        // pay_url format: ton://transfer/<addr>?amount=<nanoton>&text=<memo>
+        let requiredNano = 0n;
+        try {
+          const m = String(order.pay_url || "").match(/[?&]amount=(\d+)/);
+          if (m) requiredNano = BigInt(m[1]);
+        } catch { /* ignore */ }
+        // Cancel order if older than 30 min and unpaid (matches typical TX confirmation window)
+        const orderAgeMs = Date.now() - new Date(order.created_at).getTime();
+        const TON_ORDER_TTL_MS = 30 * 60 * 1000;
+
+        // Poll TonAPI for recent transactions
+        const tonRes = await fetch(
+          `${TONAPI_URL}/v2/blockchain/accounts/${encodeURIComponent(walletAddress)}/transactions?limit=30`,
+          { signal: AbortSignal.timeout(8000) },
+        );
+        if (!tonRes.ok) {
+          console.warn(`[check-payment][ton] tonapi http ${tonRes.status}`);
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
+        const tonData = await tonRes.json().catch(() => ({}));
+        const txs: any[] = Array.isArray(tonData?.transactions) ? tonData.transactions : [];
+
+        // Look for an incoming message with matching memo (text comment)
+        let foundTxHash: string | null = null;
+        let receivedNano = 0n;
+        for (const tx of txs) {
+          const inMsg = tx?.in_msg;
+          if (!inMsg) continue;
+          const comment: string = String(inMsg?.decoded_body?.text || inMsg?.message || "").trim();
+          if (comment !== memo) continue;
+          const value = BigInt(inMsg?.value ?? 0);
+          if (requiredNano > 0n && value < requiredNano) continue; // amount too low
+          foundTxHash = String(tx?.hash || "");
+          receivedNano = value;
+          break;
+        }
+
+        if (foundTxHash && order.payment_status !== "paid") {
+          const telegramId = order.buyer_telegram_id;
+          const resolvedShopId = tokens.resolvedShopId || shopId;
+
+          // Idempotency on tx hash
+          const { error: dedupError } = await supabase.from("processed_invoices").insert({
+            invoice_id: `ton:${foundTxHash}`, type: "payment", order_id: orderId,
+            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
+          });
+          if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
+
+          const { data: updatedRows } = await supabase.from("shop_orders")
+            .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
+            .eq("id", orderId).neq("payment_status", "paid").select("id");
+          if (!updatedRows?.length) return jsonRes({ status: "paid", paymentStatus: "paid" });
+
+          if (order.promo_code) {
+            await supabase.rpc("increment_shop_promo_usage", { p_shop_id: resolvedShopId, p_code: order.promo_code });
+          }
+
+          const balanceUsed = Number(order.balance_used || 0);
+          if (balanceUsed > 0) {
+            const { data: nb, error: be } = await supabase.rpc("shop_deduct_balance", {
+              p_shop_id: resolvedShopId, p_telegram_id: telegramId, p_amount: balanceUsed,
+            });
+            if (!be) {
+              const promoInfo = order.promo_code ? ` (промо ${order.promo_code}, скидка $${Number(order.discount_amount || 0).toFixed(2)})` : "";
+              await supabase.from("shop_balance_history").insert({
+                shop_id: resolvedShopId, telegram_id: telegramId, amount: -balanceUsed, balance_after: nb,
+                type: "purchase", comment: `Заказ ${order.order_number}${promoInfo}`, admin_telegram_id: telegramId,
+              });
+            }
+          }
+
+          // Inventory reservation
+          const { data: orderItems } = await supabase.from("shop_order_items")
+            .select("product_id, quantity, product_name").eq("order_id", orderId);
+          const deliveredContent: string[] = [];
+          let allDelivered = true;
+          if (orderItems) {
+            for (const item of orderItems) {
+              const { data: reserved } = await supabase.rpc("reserve_shop_inventory", {
+                p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
+              });
+              if (reserved?.length) {
+                deliveredContent.push(`📦 <b>${item.product_name}</b> (×${reserved.length}):\n${reserved.map((i: any) => `<code>${i.content}</code>`).join("\n")}`);
+                const { count: remaining } = await supabase.from("shop_inventory").select("id", { count: "exact", head: true })
+                  .eq("product_id", item.product_id).eq("status", "available");
+                await supabase.from("shop_products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
+                if (reserved.length < item.quantity) allDelivered = false;
+              } else { allDelivered = false; }
+            }
+          }
+
+          const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
+          if (finalStatus !== "paid") {
+            await supabase.from("shop_orders").update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("id", orderId);
+          }
+
+          // Referral credit
+          try {
+            const refAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
+            if (refAmount > 0) {
+              await supabase.rpc("shop_credit_referral_for_order", {
+                p_shop_id: resolvedShopId, p_order_id: orderId,
+                p_referred_telegram_id: telegramId, p_order_amount: refAmount,
+              });
+            }
+          } catch (e) { console.error("ton referral credit error:", e); }
+
+          // TG notification
+          if (tokens.botToken) {
+            const tonReceived = Number(receivedNano) / 1e9;
+            let message = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)} (${tonReceived.toFixed(3)} TON)\n`;
+            if (balanceUsed > 0) message += `💳 С баланса: $${balanceUsed.toFixed(2)}\n`;
+            if (deliveredContent.length > 0) {
+              message += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;
+            } else { message += `\nВаш товар будет доставлен в ближайшее время.`; }
+            message += `\n\nСпасибо за покупку!`;
+            await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: telegramId, text: message, parse_mode: "HTML" }),
+            });
+          }
+
+          return jsonRes({ status: finalStatus, paymentStatus: "paid" });
+        }
+
+        // Expire stale unpaid orders
+        if (orderAgeMs > TON_ORDER_TTL_MS && order.payment_status !== "paid") {
+          await supabase.from("shop_orders").update({
+            status: "cancelled", payment_status: "expired", updated_at: new Date().toISOString(),
+          }).eq("id", orderId);
+          return jsonRes({ status: "cancelled", paymentStatus: "expired" });
+        }
+
+        return jsonRes({ status: order.status, paymentStatus: order.payment_status, invoiceStatus: "awaiting" });
+      } catch (e) {
+        console.error("ton check error:", e);
+        return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+      }
+    }
     if (!tokens.cryptobotToken) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
 
     // Poll CryptoBot
