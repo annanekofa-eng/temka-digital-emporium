@@ -726,12 +726,11 @@ serve(async (req) => {
     const resolvedShopId = tokens.resolvedShopId || shopId;
 
     if (invoice.status === "paid" && order.payment_status !== "paid") {
-      // Idempotency
-      const { error: dedupError } = await supabase.from("processed_invoices").insert({
-        invoice_id: String(invoice.invoice_id), type: "payment", order_id: orderId,
-        telegram_id: telegramId, amount: Number(invoice.amount) || 0,
-      });
-      if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
+      // Pre-flight check only (insert AFTER successful processing so a failed
+      // run can be retried by the next poll instead of being silently swallowed).
+      const { data: alreadyProcessed } = await supabase.from("processed_invoices")
+        .select("invoice_id").eq("invoice_id", String(invoice.invoice_id)).maybeSingle();
+      if (alreadyProcessed) return jsonRes({ status: "paid", paymentStatus: "paid" });
 
       const { data: updatedRows } = await supabase.from(orderTable)
         .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
@@ -819,6 +818,12 @@ serve(async (req) => {
           body: JSON.stringify({ chat_id: telegramId, text: message, parse_mode: "HTML" }),
         });
       }
+
+      // Mark as processed only AFTER everything above succeeded.
+      await supabase.from("processed_invoices").insert({
+        invoice_id: String(invoice.invoice_id), type: "payment", order_id: orderId,
+        telegram_id: telegramId, amount: Number(invoice.amount) || 0,
+      });
 
       return jsonRes({ status: finalStatus, paymentStatus: "paid" });
     }
