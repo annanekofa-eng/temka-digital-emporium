@@ -58,12 +58,19 @@ const TonPaymentSheet = ({
   };
 
   const openInTonkeeper = () => {
-    if (isInTelegram) {
-      onOpenLink(payUrl);
-    } else {
-      // Use location.href for ton:// scheme — window.open often blocks custom schemes
-      window.location.href = payUrl;
+    // ton:// — кастомная схема. В Telegram WebApp нужно использовать openLink(),
+    // а не openTelegramLink (тот понимает только https://t.me/...).
+    // В браузере — прямая навигация по location.href, т.к. window.open блокируется.
+    const tg = (window as any).Telegram?.WebApp;
+    if (isInTelegram && tg?.openLink) {
+      try {
+        tg.openLink(payUrl, { try_instant_view: false });
+        return;
+      } catch {
+        // fallthrough
+      }
     }
+    window.location.href = payUrl;
   };
 
   return (
