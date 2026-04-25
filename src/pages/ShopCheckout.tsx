@@ -339,6 +339,27 @@ const ShopCheckout = () => {
           window.open(data.payUrl, '_blank');
           navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
         }
+      } else if (paymentMethod === 'ton') {
+        // ── TON / Tonkeeper ─────────────────────────────────────
+        const tonOrderNumber = `TN-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-ton-invoice', {
+          body: {
+            initData, shopId, orderNumber: tonOrderNumber, items: itemsPayload,
+            balanceUsed, promoCode: promoResult?.code || null, description,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.payUrl) throw new Error('Не удалось создать TON-счёт');
+        setTonInvoice({
+          walletAddress: data.walletAddress,
+          tonAmount: Number(data.tonAmount),
+          payUrl: data.payUrl,
+          memo: data.memo,
+          usdPerTon: Number(data.usdPerTon),
+          orderNumber: data.orderNumber || tonOrderNumber,
+        });
+        clearCart();
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: { initData, amount: toPay.toFixed(2), currency: 'USD', description, orderNumber, items: itemsPayload, shopId, balanceUsed, promoCode: promoResult?.code || null },
