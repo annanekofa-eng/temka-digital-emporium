@@ -51,11 +51,12 @@ const ShopContent = () => {
   }
 
   return (
-    <StorefrontProvider basePath={basePath} cartCount={cartCount} shopName={shop.name} supportLink={shop.support_link} botUsername={shop.bot_username} slug={shop.slug}>
+    <StorefrontProvider basePath={basePath} cartCount={cartCount} shopName={shop.name} supportLink={shop.support_link} botUsername={shop.bot_username} botAvatarUrl={shop.bot_avatar_url} slug={shop.slug}>
       <div className="min-h-screen flex flex-col">
         <Header
           name={shop.name}
           nameInitial={shop.name?.[0]?.toUpperCase() || 'S'}
+          avatarUrl={shop.bot_avatar_url || undefined}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
         />
