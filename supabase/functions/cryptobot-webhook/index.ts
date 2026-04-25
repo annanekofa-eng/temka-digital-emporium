@@ -139,18 +139,27 @@ serve(async (req) => {
       } else if (orderData.type === "subscription") {
         await handleSubscriptionPayment(supabase, orderData, invoiceId);
       } else {
-        const { error: dedupError } = await supabase.from("processed_invoices").insert({
-          invoice_id: invoiceId, type: "payment", order_id: orderData.orderId || null,
-          telegram_id: orderData.telegramUserId || null, amount: Number(invoice.amount) || 0,
-        });
-        if (dedupError) {
+        // Pre-flight idempotency check ONLY (no insert yet) — the insert happens
+        // AFTER successful processing so a transient failure can be retried by
+        // CryptoBot's webhook redelivery instead of being silently swallowed.
+        const { data: alreadyProcessed } = await supabase.from("processed_invoices")
+          .select("invoice_id").eq("invoice_id", invoiceId).maybeSingle();
+        if (alreadyProcessed) {
           return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
+        let processedOk = false;
         if (shopId && orderData.orderId) {
-          await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+          processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
         } else if (orderData.orderId) {
-          await handleOrderPayment(supabase, invoice, orderData);
+          processedOk = await handleOrderPayment(supabase, invoice, orderData);
+        }
+
+        if (processedOk) {
+          await supabase.from("processed_invoices").insert({
+            invoice_id: invoiceId, type: "payment", order_id: orderData.orderId || null,
+            telegram_id: orderData.telegramUserId || null, amount: Number(invoice.amount) || 0,
+          });
         }
       }
     }
