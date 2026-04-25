@@ -374,6 +374,21 @@ async function handleShopOrderPayment(supabase: any, invoice: any, orderData: an
 
   const botToken = await decryptShopToken(supabase, shopId, "bot_token_encrypted");
   await deliverInventory(supabase, orderData.orderId, "shop_order_items", "product_name", "reserve_shop_inventory", "shop_inventory", "shop_products", order.buyer_telegram_id, order.order_number, balanceUsed, invoice, botToken, "shop_orders");
+
+  // Referral reward (idempotent via UNIQUE order_id)
+  try {
+    const finalAmount = Math.max(0, Number(invoice.amount || 0) + Number(order.balance_used || 0));
+    if (finalAmount > 0) {
+      await supabase.rpc("shop_credit_referral_for_order", {
+        p_shop_id: shopId,
+        p_order_id: orderData.orderId,
+        p_referred_telegram_id: order.buyer_telegram_id,
+        p_order_amount: finalAmount,
+      });
+    }
+  } catch (e) {
+    console.error("Referral credit error:", e);
+  }
 }
 
 // ─── Shared delivery logic ──────────────────────
