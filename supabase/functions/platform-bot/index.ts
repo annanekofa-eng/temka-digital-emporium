@@ -448,7 +448,7 @@ async function setupSellerWebhook(botToken: string, shopId: string): Promise<{ o
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         url: webhookUrl,
-        allowed_updates: ["message", "callback_query"],
+        allowed_updates: ["message", "callback_query", "pre_checkout_query"],
         drop_pending_updates: true,
         ...(secret ? { secret_token: secret } : {}),
       }),
