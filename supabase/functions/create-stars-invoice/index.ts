@@ -211,7 +211,6 @@ serve(async (req) => {
         title: `Заказ ${orderNumber}`.slice(0, 32),
         description: (description || `Оплата заказа в ${shop.name}`).slice(0, 255),
         payload: compactPayload,                  // we look up the order by this in webhook
-        provider_token: "",                       // empty for Telegram Stars
         currency: "XTR",
         prices: [{ label: `Заказ ${orderNumber}`.slice(0, 32), amount: stars }],
       }),
