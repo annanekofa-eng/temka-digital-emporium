@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { CheckCircle2, Package, MessageCircle, ShoppingCart } from 'lucide-react';
@@ -24,13 +24,23 @@ const ShopOrderSuccess = () => {
     if (isPaid) clearCart();
   }, [isPaid, clearCart]);
 
+  // Avoid a redirect loop when the user lands here right after payment is
+  // confirmed but the React Query cache hasn't refreshed yet. Wait a few
+  // seconds for the order to flip to `paid` before bouncing back.
+  const [shouldRedirect, setShouldRedirect] = useState(false);
   useEffect(() => {
-    if (order && !isPaid) {
+    if (isPaid) { setShouldRedirect(false); return; }
+    const t = setTimeout(() => setShouldRedirect(true), 4000);
+    return () => clearTimeout(t);
+  }, [isPaid]);
+
+  useEffect(() => {
+    if (order && !isPaid && shouldRedirect) {
       navigate(`${buildPath('/order-status')}?order=${orderNumber}`, { replace: true });
     }
-  }, [order, isPaid, navigate, buildPath, orderNumber]);
+  }, [order, isPaid, shouldRedirect, navigate, buildPath, orderNumber]);
 
-  if (order && !isPaid) return null;
+  if (order && !isPaid && shouldRedirect) return null;
 
   return (
     <div className="container-main mx-auto px-4 py-12 sm:py-16 text-center max-w-md">
