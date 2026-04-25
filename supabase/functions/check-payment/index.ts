@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 const CRYPTOBOT_API_URL = "https://pay.crypt.bot/api";
 const XROCKET_API_URL = "https://pay.xrocket.tg/";
+const TONAPI_URL = "https://tonapi.io";
 const TOPUP_COMMENT_PREFIX = "Пополнение через CryptoBot";
 
 const jsonRes = (data: unknown, status = 200) =>
