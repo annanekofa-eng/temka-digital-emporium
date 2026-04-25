@@ -1,0 +1,1 @@
+DELETE FROM public.rate_limits WHERE action = 'create_order' AND created_at > now() - interval '2 hours';
