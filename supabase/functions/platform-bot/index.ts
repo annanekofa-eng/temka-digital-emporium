@@ -1534,6 +1534,11 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       .from("shops")
       .update({ webhook_status: whResult.ok ? "active" : "failed", bot_validated_at: new Date().toISOString() })
       .eq("id", shop.id);
+    // Fire-and-forget avatar sync for the freshly connected bot
+    const botIdForAvatar = (sData.bot_id as number | undefined) ?? botValidation.bot_id;
+    if (botIdForAvatar) {
+      syncBotAvatar(sData.bot_token as string, botIdForAvatar, shop.id).catch(() => {});
+    }
     botStatusMsg = whResult.ok
       ? `\n\n🤖 Бот @${botUsername} подключён и готов к работе!\n\n✅ В боте уже создана Mini App и кнопки — всё настроено автоматически. Просто переходите в @${botUsername} и начинайте продавать!`
       : `\n\n⚠️ Бот @${botUsername} сохранён, но webhook не установлен: ${whResult.error}`;
