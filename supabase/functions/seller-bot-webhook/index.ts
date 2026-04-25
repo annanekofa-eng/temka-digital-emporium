@@ -870,12 +870,22 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const starsEnabled = Boolean(stars?.enabled);
   const starsCfg = (stars?.config_masked || {}) as Record<string, any>;
   const starsRate = Number(starsCfg.usd_per_star || 0);
+  const xr = byMethod.get("xrocket");
+  const xrEnabled = Boolean(xr?.enabled);
+  const xrCfg = (xr?.config_masked || {}) as Record<string, any>;
+  const xrCurrencies: string[] = Array.isArray(xrCfg.currencies) && xrCfg.currencies.length > 0
+    ? xrCfg.currencies.map((s: any) => String(s).toUpperCase())
+    : ["USDT", "TONCOIN", "BTC"];
+  const xrTokenSet = Boolean((xr as any)?.config_encrypted) || Boolean(xrCfg.token_set);
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Карта/СБП: <b>${sbpEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Telegram Stars: <b>${starsEnabled ? "✅ включён" : "❌ выключен"}</b>`;
   if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
+  t += `\n`;
+  t += `• xRocket Pay: <b>${xrEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (xrTokenSet) t += ` · валюты: <code>${xrCurrencies.join(", ")}</code>`;
   t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
@@ -887,6 +897,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (starsEnabled || starsRate > 0) {
     t += `\n<i>💡 Stars зачисляются на баланс вашего бота. Вывести их можно через @PremiumBot (Stars → TON).</i>\n`;
   }
+  if (xrTokenSet || xrEnabled) {
+    t += `\n<i>💡 xRocket Pay: средства поступают на счёт вашего приложения в @xRocket. Курс к USD считается автоматически на момент оплаты.</i>\n`;
+  }
 
   return tg.edit(
     cid,
@@ -896,9 +909,12 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
       [btn(cbEnabled ? "🟢 CryptoBot ON" : "⚪️ CryptoBot OFF", "s:paytoggle:cryptobot")],
       [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
       [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
+      [btn(xrEnabled ? "🟢 xRocket ON" : "⚪️ xRocket OFF", "s:paytoggle:xrocket")],
       [btn("✏️ Реквизиты СБП", "s:setsbp")],
       [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
       [btn("🔑 Токен CryptoBot", "s:setcb")],
+      [btn(`🚀 Токен xRocket${xrTokenSet ? " ✅" : ""}`, "s:setxr")],
+      [btn("🪙 Валюты xRocket", "s:setxrcur")],
       [btn("◀️ К настройкам", "s:se")],
     ]),
   );
