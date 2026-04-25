@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X } from 'lucide-react';
+import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/contexts/ShopContext';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useExchangeRate, formatRub } from '@/hooks/useExchangeRate';
 import { useQuery } from '@tanstack/react-query';
 
-type PaymentMethod = 'cryptobot' | 'sbp';
+type PaymentMethod = 'cryptobot' | 'sbp' | 'stars';
 
 type SbpDetails = {
   bankName: string;
@@ -24,7 +24,7 @@ type SbpDetails = {
 
 const ShopCheckout = () => {
   const { cart, clearCart, cartTotal, shop, discount, totalAfterDiscount, promoResult } = useShop();
-  const { user, isInTelegram, openTelegramLink, haptic, initData } = useTelegram();
+  const { user, isInTelegram, openTelegramLink, openInvoice, haptic, initData } = useTelegram();
   const navigate = useNavigate();
   const buildPath = useStorefrontPath();
   const shopId = shop?.id;
@@ -45,6 +45,27 @@ const ShopCheckout = () => {
   const balance = Number(profile?.balance || 0);
   const balanceUsed = Math.min(balance, totalAfterDiscount);
   const toPay = Math.max(0, totalAfterDiscount - balanceUsed);
+
+  // Available payment methods for this shop (from shop_payment_methods)
+  const { data: paymentMethods } = useQuery({
+    queryKey: ['shop-payment-methods', shopId],
+    queryFn: async () => {
+      if (!shopId) return [] as Array<{ method: string; enabled: boolean; config_masked: any }>;
+      const { data, error } = await supabase
+        .from('shop_payment_methods')
+        .select('method, enabled, config_masked')
+        .eq('shop_id', shopId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!shopId,
+    staleTime: 60_000,
+  });
+
+  const starsMethod = paymentMethods?.find(m => m.method === 'stars' && m.enabled);
+  const usdPerStar = Number((starsMethod?.config_masked as any)?.usd_per_star || 0);
+  const starsAvailable = Boolean(starsMethod) && usdPerStar > 0;
+  const starsAmount = starsAvailable && toPay > 0 ? Math.max(1, Math.ceil(toPay / usdPerStar)) : 0;
 
   const { data: sbpDetails, isLoading: sbpDetailsLoading } = useQuery<SbpDetails | null>({
     queryKey: ['shop-sbp-details', shopId],
