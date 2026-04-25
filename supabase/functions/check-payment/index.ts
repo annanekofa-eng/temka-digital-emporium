@@ -432,12 +432,10 @@ serve(async (req) => {
           const telegramId = order.buyer_telegram_id;
           const resolvedShopId = tokens.resolvedShopId || shopId;
 
-          // Idempotency
-          const { error: dedupError } = await supabase.from("processed_invoices").insert({
-            invoice_id: `xr:${order.invoice_id}`, type: "payment", order_id: orderId,
-            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
-          });
-          if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
+          // Pre-flight check only — insert AFTER successful processing.
+          const { data: alreadyProcessed } = await supabase.from("processed_invoices")
+            .select("invoice_id").eq("invoice_id", `xr:${order.invoice_id}`).maybeSingle();
+          if (alreadyProcessed) return jsonRes({ status: "paid", paymentStatus: "paid" });
 
           const { data: updatedRows } = await supabase.from("shop_orders")
             .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
@@ -515,6 +513,11 @@ serve(async (req) => {
               body: JSON.stringify({ chat_id: telegramId, text: message, parse_mode: "HTML" }),
             });
           }
+
+          await supabase.from("processed_invoices").insert({
+            invoice_id: `xr:${order.invoice_id}`, type: "payment", order_id: orderId,
+            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
+          });
 
           return jsonRes({ status: finalStatus, paymentStatus: "paid" });
         }
@@ -611,12 +614,10 @@ serve(async (req) => {
           const telegramId = order.buyer_telegram_id;
           const resolvedShopId = tokens.resolvedShopId || shopId;
 
-          // Idempotency on tx hash
-          const { error: dedupError } = await supabase.from("processed_invoices").insert({
-            invoice_id: `ton:${foundTxHash}`, type: "payment", order_id: orderId,
-            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
-          });
-          if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
+          // Pre-flight check only — insert AFTER successful processing.
+          const { data: alreadyProcessed } = await supabase.from("processed_invoices")
+            .select("invoice_id").eq("invoice_id", `ton:${foundTxHash}`).maybeSingle();
+          if (alreadyProcessed) return jsonRes({ status: "paid", paymentStatus: "paid" });
 
           const { data: updatedRows } = await supabase.from("shop_orders")
             .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
@@ -691,6 +692,11 @@ serve(async (req) => {
               body: JSON.stringify({ chat_id: telegramId, text: message, parse_mode: "HTML" }),
             });
           }
+
+          await supabase.from("processed_invoices").insert({
+            invoice_id: `ton:${foundTxHash}`, type: "payment", order_id: orderId,
+            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
+          });
 
           return jsonRes({ status: finalStatus, paymentStatus: "paid" });
         }
