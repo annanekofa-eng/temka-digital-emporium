@@ -366,6 +366,27 @@ async function userView(tg: ReturnType<typeof TG>, cid: number, mid: number, sho
   const { data: orders } = await supabase().from("shop_orders").select("id, total_amount, status, payment_status").eq("shop_id", shopId).eq("buyer_telegram_id", u.telegram_id);
   const paid = orders?.filter(o => ["paid", "completed", "delivered", "processing"].includes(o.status)) || [];
   const spent = paid.reduce((s, o) => s + Number(o.total_amount), 0);
+
+  // Referral info
+  const sb = supabase();
+  const [{ data: refRow }, { count: invitedCount }, { data: earnings }] = await Promise.all([
+    sb.from("shop_referrals").select("referrer_telegram_id, created_at").eq("shop_id", shopId).eq("referred_telegram_id", u.telegram_id).maybeSingle(),
+    sb.from("shop_referrals").select("id", { count: "exact", head: true }).eq("shop_id", shopId).eq("referrer_telegram_id", u.telegram_id),
+    sb.from("shop_referral_earnings").select("reward_amount, status").eq("shop_id", shopId).eq("referrer_telegram_id", u.telegram_id),
+  ]);
+  const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount || 0), 0);
+  const pendingPayout = (earnings || []).filter((e: any) => e.status === "pending").reduce((s: number, e: any) => s + Number(e.reward_amount || 0), 0);
+
+  let inviterLabel = "—";
+  if (refRow?.referrer_telegram_id) {
+    const { data: inviter } = await sb.from("shop_customers").select("first_name, last_name, username").eq("shop_id", shopId).eq("telegram_id", refRow.referrer_telegram_id).maybeSingle();
+    if (inviter) {
+      inviterLabel = `${esc(inviter.first_name)}${inviter.last_name ? " " + esc(inviter.last_name) : ""}` + (inviter.username ? ` (@${esc(inviter.username)})` : ` (${refRow.referrer_telegram_id})`);
+    } else {
+      inviterLabel = String(refRow.referrer_telegram_id);
+    }
+  }
+
   let t = `👤 <b>${esc(u.first_name)}${u.last_name ? " " + esc(u.last_name) : ""}</b>\n\n`;
   if (u.username) t += `📱 @${esc(u.username)}\n`;
   t += `🆔 TG: ${u.telegram_id}\n`;
@@ -375,6 +396,11 @@ async function userView(tg: ReturnType<typeof TG>, cid: number, mid: number, sho
   t += `💰 Баланс: <b>$${Number(u.balance || 0).toFixed(2)}</b>\n`;
   t += `📅 ${new Date(u.created_at).toLocaleDateString("ru-RU")}\n\n`;
   t += `🛒 Заказов: ${orders?.length || 0}\n💵 Потрачено: $${spent.toFixed(2)}\n`;
+  t += `\n🎁 <b>Рефералы</b>\n`;
+  t += `👥 Пригласил: <b>${invitedCount || 0}</b>\n`;
+  t += `💎 Заработал: <b>$${totalEarned.toFixed(2)}</b>\n`;
+  t += `💸 К выплате: <b>$${pendingPayout.toFixed(2)}</b>\n`;
+  t += `🔗 Пригласил его: ${inviterLabel}\n`;
   if (u.internal_note) t += `\n📝 <i>${esc(u.internal_note)}</i>\n`;
   return tg.edit(cid, mid, t, ikb([
     [btn("📢 Написать", `s:um:${u.telegram_id}`), btn("🛒 Заказы", `s:uo:${u.telegram_id}:0`)],
