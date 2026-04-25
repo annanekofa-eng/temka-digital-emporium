@@ -356,6 +356,13 @@ const ShopCheckout = () => {
       return;
     }
 
+    // Если выбран TON — сначала показываем экран выбора валюты (TON / USDT)
+    if (paymentMethod === 'ton' && toPay > 0 && !tonCurrencyStep) {
+      setError('');
+      setTonCurrencyStep(true);
+      return;
+    }
+
     setProcessing(true);
     setError('');
     haptic.impact('medium');
