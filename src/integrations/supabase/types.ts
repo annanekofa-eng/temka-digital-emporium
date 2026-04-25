@@ -2042,6 +2042,15 @@ export type Database = {
         Args: { p_amount: number; p_shop_id: string; p_telegram_id: number }
         Returns: number
       }
+      shop_credit_referral_for_order: {
+        Args: {
+          p_order_amount: number
+          p_order_id: string
+          p_referred_telegram_id: number
+          p_shop_id: string
+        }
+        Returns: string
+      }
       shop_deduct_balance: {
         Args: { p_amount: number; p_shop_id: string; p_telegram_id: number }
         Returns: number
