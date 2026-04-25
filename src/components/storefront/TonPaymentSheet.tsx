@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Copy, Check, ArrowLeft, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import tonLogo from '@/assets/ton-logo.png';
 
@@ -11,8 +11,6 @@ interface TonPaymentSheetProps {
   memo: string;
   toPayUsd: number;
   usdPerTon: number;
-  isInTelegram: boolean;
-  onOpenLink: (url: string) => void;
   onBack: () => void;
   onContinue: () => void;
 }
@@ -40,7 +38,7 @@ const Field = ({ label, value, field, copied, onCopy }: {
 
 const TonPaymentSheet = ({
   walletAddress, tonAmount, payUrl, memo, toPayUsd, usdPerTon,
-  isInTelegram, onOpenLink, onBack, onContinue,
+  onBack, onContinue,
 }: TonPaymentSheetProps) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState<string | null>(null);
@@ -55,22 +53,6 @@ const TonPaymentSheet = ({
     navigator.clipboard.writeText(text);
     setCopied(field);
     setTimeout(() => setCopied(null), 2000);
-  };
-
-  const openInTonkeeper = () => {
-    // ton:// — кастомная схема. В Telegram WebApp нужно использовать openLink(),
-    // а не openTelegramLink (тот понимает только https://t.me/...).
-    // В браузере — прямая навигация по location.href, т.к. window.open блокируется.
-    const tg = (window as any).Telegram?.WebApp;
-    if (isInTelegram && tg?.openLink) {
-      try {
-        tg.openLink(payUrl, { try_instant_view: false });
-        return;
-      } catch {
-        // fallthrough
-      }
-    }
-    window.location.href = payUrl;
   };
 
   return (
@@ -124,10 +106,6 @@ const TonPaymentSheet = ({
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 text-[10px] text-amber-700 dark:text-amber-400">
           ⚠️ Обязательно укажите <b>точную сумму</b> и <b>комментарий</b>, иначе платёж не будет распознан.
         </div>
-
-        <Button variant="hero" size="lg" className="w-full" onClick={openInTonkeeper}>
-          <ExternalLink className="w-4 h-4 mr-1" /> Открыть в Tonkeeper
-        </Button>
 
         <Button variant="outline" size="lg" className="w-full" onClick={onContinue}>
           Я оплатил — проверить статус
