@@ -2526,7 +2526,7 @@ async function handleCallback(
           await setSession(cid, "s_set_stars_rate", shopId, {});
           await tg.send(
             cid,
-            "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n/cancel — отмена",
+            "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n/cancel — отмена.",
           );
           return;
         }
@@ -2552,7 +2552,7 @@ async function handleCallback(
       await tg.deleteMessage(cid, mid).catch(() => null);
       return tg.send(
         cid,
-        "⭐ <b>Курс Telegram Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>\n\n/cancel — отмена",
+        "⭐ <b>Курс Telegram Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>\n\n/cancel — отмена.",
         ikb([[btn("❌ Отмена", "s:paym")]]),
       );
     }
