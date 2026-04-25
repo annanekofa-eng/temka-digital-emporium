@@ -26,7 +26,7 @@ async function setWebhook(botToken: string, url: string) {
       url,
       secret_token: TELEGRAM_WEBHOOK_SECRET,
       drop_pending_updates: true,
-      allowed_updates: ["message", "callback_query", "my_chat_member", "chat_member"],
+      allowed_updates: ["message", "callback_query", "pre_checkout_query", "my_chat_member", "chat_member"],
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -91,7 +91,7 @@ serve(async (req) => {
           results.shops.push(entry);
           continue;
         }
-        const r = await setWebhook(decrypted as string, SELLER_WEBHOOK_URL);
+        const r = await setWebhook(decrypted as string, `${SELLER_WEBHOOK_URL}?shop_id=${shop.id}`);
         entry.ok = r.ok;
         entry.status = r.status;
         entry.response = r.data;

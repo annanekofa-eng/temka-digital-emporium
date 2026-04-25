@@ -30,6 +30,28 @@ function verifyAndExtractUser(initData: string, botToken: string): { id: number;
   try { return JSON.parse(params.get("user") || ""); } catch { return null; }
 }
 
+async function ensureStarsWebhook(botToken: string, shopId: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+  if (!supabaseUrl || !webhookSecret) return;
+
+  const webhookUrl = `${supabaseUrl}/functions/v1/seller-bot-webhook?shop_id=${shopId}`;
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: webhookUrl,
+      secret_token: webhookSecret,
+      drop_pending_updates: false,
+      allowed_updates: ["message", "callback_query", "pre_checkout_query"],
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.ok !== true) {
+    console.error("ensureStarsWebhook failed:", maskToken(JSON.stringify(data)));
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -54,6 +76,7 @@ serve(async (req) => {
 
     const { data: botToken } = await supabase.rpc("decrypt_token", { p_encrypted: shop.bot_token_encrypted, p_key: encKey });
     if (!botToken) return jsonRes({ error: "Bot token decryption failed" }, 500);
+    await ensureStarsWebhook(botToken, shopId);
 
     // ── Auth via Telegram WebApp initData ──────────────────────
     if (!initData) return jsonRes({ error: "Authentication required" }, 401);
