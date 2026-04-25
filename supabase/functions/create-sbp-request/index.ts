@@ -60,7 +60,7 @@ async function uploadReceiptToTelegram(
 ): Promise<string | null> {
   const form = new FormData();
   form.append("chat_id", String(chatId));
-  form.append("photo", new Blob([photoBytes], { type: mime }), fileName);
+  form.append("photo", new Blob([photoBytes as BlobPart], { type: mime }), fileName);
   form.append("caption", caption);
   form.append("parse_mode", "HTML");
 
@@ -257,7 +257,7 @@ serve(async (req) => {
     if (!receiptFileId) {
       const form = new FormData();
       form.append("chat_id", String(telegramUserId));
-      form.append("photo", new Blob([fileBytes], { type: contentType }), fileName);
+      form.append("photo", new Blob([fileBytes as BlobPart], { type: contentType }), fileName);
       form.append("disable_notification", "true");
       const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, { method: "POST", body: form });
       const rd = await res.json();
