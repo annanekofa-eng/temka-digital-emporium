@@ -14,6 +14,10 @@ const jsonRes = (data: unknown, status = 200) =>
 
 const NANO = 1_000_000_000n; // 1 TON = 10^9 nanoTON
 
+// jUSDT (USD₮ Jetton) on TON mainnet — 6 decimals (same as TRC-20 USDT)
+const JUSDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+const JUSDT_DECIMALS = 6;
+
 function verifyAndExtractUser(initData: string, botToken: string): { id: number } | null {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
@@ -52,9 +56,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { initData, shopId, orderNumber, items, promoCode, balanceUsed: clientBalanceUsed, description } = await req.json();
+    const { initData, shopId, orderNumber, items, promoCode, balanceUsed: clientBalanceUsed, description, currency: rawCurrency } = await req.json();
     if (!shopId) return jsonRes({ error: "shopId is required" }, 400);
     if (!orderNumber || !items?.length) return jsonRes({ error: "Missing required fields" }, 400);
+
+    // Choose Tonkeeper sub-currency: native TON (default) or USDT jetton (jUSDT)
+    const currency: "TON" | "USDT" = String(rawCurrency || "TON").toUpperCase() === "USDT" ? "USDT" : "TON";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -192,15 +199,31 @@ serve(async (req) => {
     const toPayUsd = Math.max(0, totalAfterDiscount - balanceUsed);
     if (toPayUsd <= 0) return jsonRes({ error: "Use pay-with-balance endpoint for full balance payments" }, 400);
 
-    // ── USD → TON conversion ───────────────────────────────────
-    const usdPerTon = await fetchUsdPerTon(supabaseUrl, serviceKey);
-    // Round UP to ensure exact-or-greater payment satisfies threshold (3 decimals = mTON precision).
-    const tonAmountRaw = toPayUsd / usdPerTon;
-    const tonAmount = Math.ceil(tonAmountRaw * 1000) / 1000; // 3 decimals
-    if (!Number.isFinite(tonAmount) || tonAmount <= 0) {
-      return jsonRes({ error: "Не удалось рассчитать сумму TON" }, 500);
+    // ── Compute payable amount in selected sub-currency ────────
+    // For TON: convert USD → TON via live rate.
+    // For USDT (jUSDT jetton): 1 jUSDT ≈ $1 (no rate conversion; pay USD value directly).
+    let usdPerTon = 0;
+    let tonAmount = 0;          // human-readable TON amount (3 decimals) — used for UI/notifications
+    let nanoAmount = 0n;        // integer nanoTON (for native) OR jetton base units (for USDT)
+    let usdtAmount = 0;         // human-readable USDT amount (2 decimals) — for UI when currency=USDT
+    if (currency === "TON") {
+      usdPerTon = await fetchUsdPerTon(supabaseUrl, serviceKey);
+      // Round UP to ensure exact-or-greater payment (3 decimals = mTON precision).
+      const tonAmountRaw = toPayUsd / usdPerTon;
+      tonAmount = Math.ceil(tonAmountRaw * 1000) / 1000;
+      if (!Number.isFinite(tonAmount) || tonAmount <= 0) {
+        return jsonRes({ error: "Не удалось рассчитать сумму TON" }, 500);
+      }
+      nanoAmount = BigInt(Math.round(tonAmount * 1e9));
+    } else {
+      // USDT (jUSDT) — round UP to 2 decimals so the on-chain amount is ≥ requested USD.
+      usdtAmount = Math.ceil(toPayUsd * 100) / 100;
+      if (!Number.isFinite(usdtAmount) || usdtAmount <= 0) {
+        return jsonRes({ error: "Не удалось рассчитать сумму USDT" }, 500);
+      }
+      // jUSDT has 6 decimals → base units = usdtAmount * 10^6
+      nanoAmount = BigInt(Math.round(usdtAmount * 1_000_000));
     }
-    const nanoAmount = BigInt(Math.round(tonAmount * 1e9));
 
     // ── Create order with unique memo (retry on collision) ─────
     let order: any = null;
@@ -218,7 +241,7 @@ serve(async (req) => {
         balance_used: balanceUsed,
         discount_amount: discountAmount,
         promo_code: validatedPromoCode,
-        payment_method: "ton",
+        payment_method: currency === "USDT" ? "ton_usdt" : "ton",
         invoice_id: memo, // memo serves as the unique identifier we look for on-chain
       }).select().single();
       if (!orderErr && o) { order = o; break; }
@@ -236,8 +259,13 @@ serve(async (req) => {
     })));
 
     // ── Build ton:// deeplink ──────────────────────────────────
-    // Per Tonkeeper docs: ton://transfer/<address>?amount=<nanoton>&text=<memo>
-    const payUrl = `ton://transfer/${encodeURIComponent(walletAddress)}?amount=${nanoAmount.toString()}&text=${encodeURIComponent(memo)}`;
+    // Per Tonkeeper docs:
+    //  - Native TON:    ton://transfer/<address>?amount=<nanoton>&text=<memo>
+    //  - Jetton (USDT): ton://transfer/<address>?jetton=<master>&amount=<base_units>&text=<memo>
+    //    Tonkeeper resolves the recipient's jetton wallet automatically from <address> + <jetton master>.
+    const payUrl = currency === "USDT"
+      ? `ton://transfer/${encodeURIComponent(walletAddress)}?jetton=${JUSDT_MASTER}&amount=${nanoAmount.toString()}&text=${encodeURIComponent(memo)}`
+      : `ton://transfer/${encodeURIComponent(walletAddress)}?amount=${nanoAmount.toString()}&text=${encodeURIComponent(memo)}`;
 
     await supabase.from("shop_orders").update({
       pay_url: payUrl,
@@ -253,10 +281,14 @@ serve(async (req) => {
       memo,
       payUrl,
       walletAddress,
+      currency,
       tonAmount,
+      usdtAmount,
       nanoAmount: nanoAmount.toString(),
       usdPerTon,
       toPayUsd,
+      jettonMaster: currency === "USDT" ? JUSDT_MASTER : null,
+      jettonDecimals: currency === "USDT" ? JUSDT_DECIMALS : null,
       orderNumber,
       orderId: order.id,
     });
