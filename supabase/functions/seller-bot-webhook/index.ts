@@ -74,7 +74,26 @@ function escHtmlWelcome(raw: string, name: string): string {
 function renderWelcome(raw: string, name: string): string {
   return raw.replace(/\{name\}/gi, esc(name));
 }
-const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
+const DEFAULT_WEBAPP_DOMAIN = "https://id-preview--98332db7-c339-40e6-bdd9-715b91a3cfb5.lovable.app";
+const STALE_WEBAPP_HOSTS = new Set([
+  "telestore.lovable.app",
+  "temka-digital-vault.lovable.app",
+  "remix-of-temka-digital-hub-11.vercel.app",
+]);
+
+function getWebAppDomain(): string {
+  const raw = (Deno.env.get("WEBAPP_URL") || DEFAULT_WEBAPP_DOMAIN).trim().replace(/\/+$/, "");
+  try {
+    const parsed = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    if (parsed.protocol !== "https:" || STALE_WEBAPP_HOSTS.has(parsed.hostname)) return DEFAULT_WEBAPP_DOMAIN;
+    return parsed.origin;
+  } catch {
+    return DEFAULT_WEBAPP_DOMAIN;
+  }
+}
+
+const WEBAPP_DOMAIN = getWebAppDomain();
+const shopWebAppUrl = (shop: { id: string; slug?: string | null }) => `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shop.slug || shop.id)}`;
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
