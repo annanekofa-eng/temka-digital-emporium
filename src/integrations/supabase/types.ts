@@ -1633,6 +1633,7 @@ export type Database = {
       }
       shops: {
         Row: {
+          bot_avatar_url: string | null
           bot_id: number | null
           bot_token_encrypted: string | null
           bot_username: string | null
@@ -1657,6 +1658,7 @@ export type Database = {
           welcome_photo_id: string | null
         }
         Insert: {
+          bot_avatar_url?: string | null
           bot_id?: number | null
           bot_token_encrypted?: string | null
           bot_username?: string | null
@@ -1681,6 +1683,7 @@ export type Database = {
           welcome_photo_id?: string | null
         }
         Update: {
+          bot_avatar_url?: string | null
           bot_id?: number | null
           bot_token_encrypted?: string | null
           bot_username?: string | null
@@ -1924,6 +1927,7 @@ export type Database = {
       }
       public_shop_storefront: {
         Row: {
+          bot_avatar_url: string | null
           bot_username: string | null
           color: string | null
           created_at: string | null
@@ -1938,6 +1942,7 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          bot_avatar_url?: string | null
           bot_username?: string | null
           color?: string | null
           created_at?: string | null
@@ -1952,6 +1957,7 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          bot_avatar_url?: string | null
           bot_username?: string | null
           color?: string | null
           created_at?: string | null
