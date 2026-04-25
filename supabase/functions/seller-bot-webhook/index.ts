@@ -1686,6 +1686,49 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "lg") return logsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
     if (cmd === "sk") return stockOverview(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
 
+    // Referral system admin
+    if (cmd === "ref") {
+      const { data: rs } = await supabase().from("shop_referral_settings")
+        .select("is_enabled, reward_percent").eq("shop_id", shopId).maybeSingle();
+      const enabled = rs?.is_enabled ?? true;
+      const pct = Number(rs?.reward_percent ?? 10);
+      const { count: refCount } = await supabase().from("shop_referrals")
+        .select("id", { count: "exact", head: true }).eq("shop_id", shopId);
+      const { data: earnings } = await supabase().from("shop_referral_earnings")
+        .select("reward_amount, status").eq("shop_id", shopId);
+      const totalAccrued = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+      const totalPending = (earnings || []).filter((e: any) => e.status === "pending")
+        .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+      const t = `🎁 <b>Реферальная система</b>\n\n` +
+        `Статус: <b>${enabled ? "✅ включена" : "❌ выключена"}</b>\n` +
+        `Процент вознаграждения: <b>${pct}%</b>\n\n` +
+        `👥 Связей: <b>${refCount || 0}</b>\n` +
+        `💰 Всего начислено: <b>$${totalAccrued.toFixed(2)}</b>\n` +
+        `⏳ К выплате: <b>$${totalPending.toFixed(2)}</b>\n\n` +
+        `<i>Начисление идёт автоматически после оплаты заказа приглашённого. Считается от суммы заказа после промокода.</i>`;
+      return tg.edit(cid, mid, t, ikb([
+        [btn(enabled ? "❌ Выключить" : "✅ Включить", "s:reftog")],
+        [btn("✏️ Изменить %", "s:refset")],
+        [btn("◀️ К настройкам", "s:se")],
+      ]));
+    }
+    if (cmd === "reftog") {
+      const { data: rs } = await supabase().from("shop_referral_settings")
+        .select("is_enabled, reward_percent").eq("shop_id", shopId).maybeSingle();
+      const newVal = !(rs?.is_enabled ?? true);
+      await supabase().from("shop_referral_settings").upsert({
+        shop_id: shopId, is_enabled: newVal,
+        reward_percent: rs?.reward_percent ?? 10,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "shop_id" });
+      await logAction(shopId, adminId, newVal ? "enable_referral" : "disable_referral", "shop", shopId);
+      return handleCallback(tg, cid, mid, "s:ref", cbId, shopId, adminId, botToken);
+    }
+    if (cmd === "refset") {
+      await setSession(cid, "s_set_ref_percent", shopId, {});
+      return tg.send(cid, "✏️ Введите новый процент вознаграждения (число от 0 до 100):\n\nПример: <code>15</code>\n\n/cancel — отмена");
+    }
+
     // Edit shop field
     if (cmd === "edit") {
       const field = parts[2];
