@@ -70,11 +70,9 @@ const ShopCheckout = () => {
   const starsAmount = starsAvailable && toPay > 0 ? Math.max(1, Math.ceil(toPay / usdPerStar)) : 0;
 
   const xrocketMethod = paymentMethods?.find(m => m.method === 'xrocket' && m.enabled);
-  const xrocketCurrencies: string[] = Array.isArray((xrocketMethod?.config_masked as any)?.currencies)
-    ? (xrocketMethod!.config_masked as any).currencies.map((s: string) => String(s).toUpperCase())
-    : [];
-  const xrocketAvailable = Boolean(xrocketMethod) && xrocketCurrencies.length > 0;
-  const [xrCurrency, setXrCurrency] = useState<string>('USDT');
+  const xrocketAvailable = Boolean(xrocketMethod);
+  // xRocket принимает только USDT (выбор валюты отключён)
+  const xrCurrency = 'USDT';
 
   const { data: xrRates } = useQuery<Record<string, number>>({
     queryKey: ['xrocket-rates'],
