@@ -487,6 +487,49 @@ async function removeSellerWebhook(botToken: string): Promise<void> {
   } catch {}
 }
 
+// ─── Bot Avatar Sync ─────────────────────
+// Fetches the bot's profile photo via Telegram API and uploads it to the
+// public `bot-avatars` bucket. Stores the resulting public URL in shops.bot_avatar_url.
+// Designed to be fire-and-forget — never throws.
+async function syncBotAvatar(botToken: string, botId: number, shopId: string): Promise<void> {
+  try {
+    const photosRes = await fetch(
+      `https://api.telegram.org/bot${botToken}/getUserProfilePhotos?user_id=${botId}&limit=1`,
+    );
+    const photosData = await photosRes.json();
+    if (!photosData?.ok || !photosData.result?.photos?.length) {
+      // No avatar set on the bot — clear stored avatar
+      await db().from("shops").update({ bot_avatar_url: null }).eq("id", shopId);
+      return;
+    }
+    // Pick the largest size from the first photo
+    const sizes = photosData.result.photos[0] as Array<{ file_id: string; file_size?: number; width: number; height: number }>;
+    const largest = sizes.reduce((a, b) => (a.width * a.height >= b.width * b.height ? a : b));
+    const fileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${largest.file_id}`);
+    const fileData = await fileRes.json();
+    if (!fileData?.ok || !fileData.result?.file_path) return;
+    const filePath = fileData.result.file_path as string;
+    const downloadRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+    if (!downloadRes.ok) return;
+    const bytes = new Uint8Array(await downloadRes.arrayBuffer());
+    const ext = filePath.split(".").pop()?.toLowerCase() || "jpg";
+    const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    const objectPath = `${shopId}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await db().storage.from("bot-avatars").upload(objectPath, bytes, {
+      contentType,
+      upsert: true,
+      cacheControl: "3600",
+    });
+    if (upErr) return;
+    const { data: pub } = db().storage.from("bot-avatars").getPublicUrl(objectPath);
+    if (!pub?.publicUrl) return;
+    await db().from("shops").update({ bot_avatar_url: pub.publicUrl }).eq("id", shopId);
+  } catch (_e) {
+    // swallow — avatar sync must never break bot connection
+  }
+}
+
+
 async function connectBotToken(
   rawToken: string,
   shopId: string,
