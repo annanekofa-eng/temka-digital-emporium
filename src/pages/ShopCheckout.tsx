@@ -219,6 +219,41 @@ const ShopCheckout = () => {
         haptic.notification('success');
         clearCart();
         navigate(`${buildPath('/order-success')}?order=${data?.orderNumber || orderNumber}`);
+      } else if (paymentMethod === 'stars') {
+        // ── Telegram Stars ─────────────────────────────────────
+        if (!isInTelegram) {
+          throw new Error('Оплата Stars доступна только в Telegram Mini App');
+        }
+        const starsOrderNumber = `ST-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-stars-invoice', {
+          body: {
+            initData,
+            shopId,
+            orderNumber: starsOrderNumber,
+            items: itemsPayload,
+            balanceUsed,
+            promoCode: promoResult?.code || null,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.invoiceLink) throw new Error('Не удалось создать инвойс Stars');
+
+        const finalOrderNumber = data.orderNumber || starsOrderNumber;
+        // Open native Telegram Stars invoice
+        openInvoice(data.invoiceLink, (status: string) => {
+          if (status === 'paid') {
+            haptic.notification('success');
+            clearCart();
+            navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+          } else if (status === 'cancelled' || status === 'failed') {
+            haptic.notification('error');
+            setError(status === 'failed' ? 'Оплата Stars не прошла' : 'Оплата отменена');
+          } else {
+            // pending — just go to status page
+            navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+          }
+        });
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: { initData, amount: toPay.toFixed(2), currency: 'USD', description, orderNumber, items: itemsPayload, shopId, balanceUsed, promoCode: promoResult?.code || null },
