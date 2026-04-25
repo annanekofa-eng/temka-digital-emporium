@@ -286,7 +286,24 @@ const ShopCheckout = () => {
             currency: xrCurrency, description,
           },
         });
-        if (fnError) throw new Error(fnError.message);
+        if (fnError) {
+          // Try to surface server-provided error message (FunctionsHttpError hides body)
+          let serverMsg = '';
+          try {
+            const ctx: any = (fnError as any)?.context;
+            if (ctx && typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              serverMsg = body?.error || body?.message || '';
+            } else if (ctx && typeof ctx.text === 'function') {
+              const txt = await ctx.text();
+              try { const j = JSON.parse(txt); serverMsg = j?.error || j?.message || ''; } catch { serverMsg = txt; }
+            }
+          } catch { /* ignore */ }
+          if (/too many requests/i.test(serverMsg)) {
+            serverMsg = 'Слишком много попыток. Подождите немного и попробуйте снова.';
+          }
+          throw new Error(serverMsg || fnError.message || 'Не удалось создать инвойс xRocket');
+        }
         if (data?.error) throw new Error(data.error);
         if (!data?.payUrl) throw new Error('Не удалось создать инвойс xRocket');
         const finalOrderNumber = data.orderNumber || xrOrderNumber;
