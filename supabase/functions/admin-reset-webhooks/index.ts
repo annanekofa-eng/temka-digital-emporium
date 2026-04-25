@@ -91,7 +91,7 @@ serve(async (req) => {
           results.shops.push(entry);
           continue;
         }
-        const r = await setWebhook(decrypted as string, SELLER_WEBHOOK_URL);
+        const r = await setWebhook(decrypted as string, `${SELLER_WEBHOOK_URL}?shop_id=${shop.id}`);
         entry.ok = r.ok;
         entry.status = r.status;
         entry.response = r.data;
