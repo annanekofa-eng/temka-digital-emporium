@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Zap, CheckCircle2, ChevronRight, Shield, MessageCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ShoppingCart, Zap, CheckCircle2, ChevronRight, Shield, MessageCircle, X, ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useShop } from '@/contexts/ShopContext';
@@ -16,6 +17,19 @@ const ShopProductDetails = () => {
   const product = products.find(p => p.id === productId);
   const buildPath = useStorefrontPath();
   const shopId = shop?.id || '';
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [lightboxOpen]);
 
   if (productsLoading) {
     return (
@@ -69,14 +83,24 @@ const ShopProductDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
         <div className="bg-card border border-border/50 rounded-2xl p-6 sm:p-8 flex items-center justify-center min-h-[250px] sm:min-h-[300px] lg:min-h-[400px] relative overflow-hidden">
           {product.image ? (
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover absolute inset-0" />
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label="Открыть фото в полном размере"
+              className="absolute inset-0 group cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+              <span className="absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-full bg-background/70 backdrop-blur-sm text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="w-4 h-4" />
+              </span>
+            </button>
           ) : (
             <div className="text-center">
               <div className="text-6xl sm:text-8xl mb-4">📦</div>
             </div>
           )}
           {outOfStock && (
-            <div className="absolute inset-0 bg-background/60 rounded-2xl flex items-center justify-center">
+            <div className="absolute inset-0 bg-background/60 rounded-2xl flex items-center justify-center pointer-events-none">
               <span className="text-lg font-bold text-muted-foreground">Нет в наличии</span>
             </div>
           )}
@@ -172,6 +196,31 @@ const ShopProductDetails = () => {
           <a href={supportLink} target="_blank" rel="noopener noreferrer">
             <Button variant="outline">Связаться с поддержкой</Button>
           </a>
+        </div>
+      )}
+
+      {lightboxOpen && product.image && (
+        <div
+          className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 animate-in fade-in"
+          onClick={() => setLightboxOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Просмотр фото"
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+            aria-label="Закрыть"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center justify-center w-11 h-11 rounded-full bg-card border border-border text-foreground hover:bg-secondary transition-colors z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={product.image}
+            alt={product.name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+          />
         </div>
       )}
     </div>
