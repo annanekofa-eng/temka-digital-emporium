@@ -1194,6 +1194,36 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
     return true;
   }
 
+  // ─── Set Stars exchange rate (USD per 1 star) ──────────────────
+  if (state === "s_set_stars_rate") {
+    const raw = val.replace(",", ".").trim();
+    const rate = Number(raw);
+    if (!isFinite(rate) || rate <= 0 || rate > 10) {
+      await tg.send(cid, "❌ Введите положительное число (USD за 1 ⭐). Пример: <code>0.013</code>");
+      return true;
+    }
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled")
+      .eq("shop_id", shopId).eq("method", "stars").maybeSingle();
+    const cfg = { ...((existing?.config_masked as any) || {}), usd_per_star: rate };
+    await supabase().from("shop_payment_methods").upsert({
+      shop_id: shopId,
+      method: "stars",
+      enabled: existing?.enabled ?? true,
+      config_masked: cfg,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "shop_id,method" });
+    await logAction(shopId, cid, "set_stars_rate", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Курс сохранён: <b>1 ⭐ = $${rate.toFixed(4)}</b>\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]])
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
