@@ -560,7 +560,7 @@ const ShopCheckout = () => {
           </div>
 
           {toPay > 0 ? (
-            <div className={`grid gap-2 ${(starsAvailable && xrocketAvailable) ? 'grid-cols-2 sm:grid-cols-4' : (starsAvailable || xrocketAvailable) ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
               {/* CryptoBot */}
               <button
                 onClick={() => { setPaymentMethod('cryptobot'); setSbpStep('details'); }}
@@ -620,6 +620,22 @@ const ShopCheckout = () => {
                   <div className="text-[10px] text-muted-foreground mt-0.5">Криптовалюта</div>
                 </button>
               )}
+
+              {/* TON / Tonkeeper */}
+              {tonAvailable && (
+                <button
+                  onClick={() => { setPaymentMethod('ton'); setSbpStep('details'); }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    paymentMethod === 'ton'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                      : 'border-border/30 bg-secondary/30 hover:border-primary/30'
+                  }`}
+                >
+                  <img src={tonLogo} alt="TON" className="w-8 h-8 rounded-lg mx-auto mb-1 object-contain" loading="lazy" />
+                  <div className={`text-sm font-medium ${paymentMethod === 'ton' ? 'text-primary' : 'text-foreground'}`}>TON</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Tonkeeper</div>
+                </button>
+              )}
             </div>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
@@ -645,6 +661,15 @@ const ShopCheckout = () => {
           {paymentMethod === 'xrocket' && toPay > 0 && (
             <div className="text-[10px] text-muted-foreground text-center mt-2">
               К оплате: <span className="text-primary font-semibold">{toPay.toFixed(2)} USDT</span>
+            </div>
+          )}
+
+          {paymentMethod === 'ton' && toPay > 0 && (
+            <div className="text-[10px] text-muted-foreground text-center mt-2">
+              К оплате: <span className="text-primary font-semibold">
+                {previewTonAmount > 0 ? `${previewTonAmount.toFixed(3)} TON` : '…'}
+              </span>
+              {usdPerTon > 0 && <> · курс {usdPerTon.toFixed(2)} $/TON</>}
             </div>
           )}
         </div>
