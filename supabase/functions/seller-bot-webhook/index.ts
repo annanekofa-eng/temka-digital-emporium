@@ -96,6 +96,19 @@ function getWebAppDomain(): string {
 const WEBAPP_DOMAIN = getWebAppDomain();
 const shopWebAppUrl = (shop: { id: string; slug?: string | null }) => `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shop.slug || shop.id)}`;
 
+async function refreshShopMenuButton(botToken: string, shop: { id: string; slug?: string | null }) {
+  const url = shopWebAppUrl(shop);
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ menu_button: { type: "web_app", text: "🛍 Магазин", web_app: { url } } }),
+    });
+  } catch (e) {
+    console.error("refresh menu button failed:", e);
+  }
+}
+
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
   const p = Math.min(Math.max(0, page), total - 1);
@@ -2051,6 +2064,7 @@ serve(async (req) => {
       }
 
       const shopUrl = shopWebAppUrl(shop);
+      await refreshShopMenuButton(botToken, shop);
 
       // Render welcome message — HTML is validated at save time, use as-is
       let greeting: string;
