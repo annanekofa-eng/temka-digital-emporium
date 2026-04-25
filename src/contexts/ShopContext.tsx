@@ -14,6 +14,7 @@ export interface ShopData {
   support_link: string;
   status: string;
   bot_username: string | null;
+  bot_avatar_url: string | null;
   paymentsConfigured?: boolean;
 }
 
@@ -159,7 +160,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchShop = async () => {
       let query = supabase
         .from('public_shop_storefront' as any)
-        .select('id, name, slug, color, hero_title, hero_description, welcome_message, support_link, status, bot_username');
+        .select('id, name, slug, color, hero_title, hero_description, welcome_message, support_link, status, bot_username, bot_avatar_url');
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shopId);
       if (isUuid) {
