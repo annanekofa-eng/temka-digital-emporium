@@ -2054,17 +2054,15 @@ async function handleFSM(
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
       .eq("shop_id", shopId)
       .eq("telegram_id", tgId);
-    await supabase()
-      .from("shop_balance_history")
-      .insert({
-        shop_id: shopId,
-        telegram_id: tgId,
-        amount: histAmount,
-        balance_after: newBalance,
-        type: histType,
-        comment,
-        admin_telegram_id: adminId,
-      });
+    await supabase().from("shop_balance_history").insert({
+      shop_id: shopId,
+      telegram_id: tgId,
+      amount: histAmount,
+      balance_after: newBalance,
+      type: histType,
+      comment,
+      admin_telegram_id: adminId,
+    });
     await logAction(shopId, adminId, `balance_${histType}`, "user", String(tgId), {
       amount: histAmount,
       balance_after: newBalance,
@@ -2528,7 +2526,7 @@ async function handleCallback(
           await setSession(cid, "s_set_stars_rate", shopId, {});
           await tg.send(
             cid,
-            "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n/cancel — отмена",
+            "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n/cancel — отмена",
           );
           return;
         }
