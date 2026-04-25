@@ -2693,6 +2693,25 @@ async function handleCallback(
           return;
         }
       }
+      // Guard: TON requires wallet address before enabling
+      if (method === "ton" && enabled) {
+        const { data: full } = await supabase()
+          .from("shop_payment_methods")
+          .select("config_encrypted")
+          .eq("shop_id", shopId)
+          .eq("method", "ton")
+          .maybeSingle();
+        if (!full?.config_encrypted) {
+          await tg.answer(cbId, "Сначала укажите TON-кошелёк").catch(() => null);
+          await setSession(cid, "s_set_ton_wallet", shopId, {});
+          await tg.send(
+            cid,
+            "💎 <b>Подключение TON / Tonkeeper</b>\n\nОтправьте адрес вашего TON-кошелька.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://tonkeeper.com\">Tonkeeper</a> → ваш кошелёк → Получить\n2. Скопируйте адрес (начинается с <code>UQ</code> или <code>EQ</code>)\n3. Пришлите сюда.\n\n💡 Платежи поступают напрямую на ваш кошелёк. Курс USD→TON считается автоматически.\n\n/cancel — отмена.",
+            ikb([[btn("❌ Отмена", "s:paym")]]),
+          );
+          return;
+        }
+      }
       await supabase().from("shop_payment_methods").upsert(
         {
           shop_id: shopId,
@@ -2733,6 +2752,15 @@ async function handleCallback(
       return tg.send(
         cid,
         "🪙 <b>Валюты xRocket</b>\n\nПеречислите тикеры через запятую — какие валюты предлагать покупателю.\n\nПример: <code>USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT</code>\n\nДоступны: USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT, HMSTR, DOGS, CATI, MAJOR, PX.\n\n/cancel — отмена.",
+        ikb([[btn("❌ Отмена", "s:paym")]]),
+      );
+    }
+    if (cmd === "setton") {
+      await setSession(cid, "s_set_ton_wallet", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "💎 <b>TON-кошелёк</b>\n\nОтправьте адрес вашего TON-кошелька.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://tonkeeper.com\">Tonkeeper</a> → ваш кошелёк → Получить\n2. Скопируйте адрес (начинается с <code>UQ</code> или <code>EQ</code>)\n3. Пришлите сюда.\n\n💡 Платежи поступают напрямую на ваш кошелёк, без посредников. Курс USD→TON считается автоматически на момент оплаты.\n\n/cancel — отмена.",
         ikb([[btn("❌ Отмена", "s:paym")]]),
       );
     }
