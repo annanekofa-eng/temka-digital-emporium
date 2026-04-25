@@ -1941,7 +1941,7 @@ serve(async (req) => {
             }).then(r => r.json());
             if (memberRes.ok && ["member", "administrator", "creator"].includes(memberRes.result.status)) {
               // Subscribed — show normal start
-              const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+              const shopUrl = shopWebAppUrl(shop);
               const welcomeText = shop.welcome_message
                 ? renderWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
@@ -2049,7 +2049,7 @@ serve(async (req) => {
         }
       }
 
-      const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+      const shopUrl = shopWebAppUrl(shop);
 
       // Render welcome message — HTML is validated at save time, use as-is
       let greeting: string;
@@ -2088,7 +2088,7 @@ serve(async (req) => {
 
     // ─── /help — before FSM ─────────────────
     if (text === "/help") {
-      const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+      const shopUrl = shopWebAppUrl(shop);
       const supportUrl = shop.support_link
         ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`)
         : null;
@@ -2123,7 +2123,7 @@ serve(async (req) => {
     }
 
     // ─── Default ────────────────────────────
-    const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+    const shopUrl = shopWebAppUrl(shop);
     await tg.send(chatId, `Используйте кнопку ниже для перехода в магазин 👇`, {
       inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }]],
     });
