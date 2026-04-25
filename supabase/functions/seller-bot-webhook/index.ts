@@ -1653,8 +1653,18 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "paym") return paymentMethodsView(tg, cid, mid, shopId);
     if (cmd === "paytoggle") {
       const method = parts[2];
-      const { data: row } = await supabase().from("shop_payment_methods").select("enabled").eq("shop_id", shopId).eq("method", method).maybeSingle();
+      const { data: row } = await supabase().from("shop_payment_methods").select("enabled, config_masked").eq("shop_id", shopId).eq("method", method).maybeSingle();
       const enabled = !(row?.enabled);
+      // Guard: Stars require usd_per_star rate before enabling
+      if (method === "stars" && enabled) {
+        const rate = Number((row?.config_masked as any)?.usd_per_star || 0);
+        if (!(rate > 0)) {
+          await tg.answerCallback(cbId, "Сначала задайте курс Stars", true).catch(() => null);
+          await setSession(cid, "s_set_stars_rate", shopId, {});
+          await tg.send(cid, "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n/cancel — отмена");
+          return;
+        }
+      }
       await supabase().from("shop_payment_methods").upsert({
         shop_id: shopId,
         method,
@@ -1667,6 +1677,15 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "setsbp") {
       await setSession(cid, "s_set_sbp_bank", shopId, {});
       return tg.send(cid, "🏦 Введите название банка для СБП:");
+    }
+    if (cmd === "setstars") {
+      await setSession(cid, "s_set_stars_rate", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "⭐ <b>Курс Telegram Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>\n\n/cancel — отмена",
+        ikb([[btn("❌ Отмена", "s:paym")]])
+      );
     }
     if (cmd === "rql") return paymentRequestsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
     if (cmd === "rqv") return paymentRequestView(tg, cid, mid, shopId, parts[2], botToken);
