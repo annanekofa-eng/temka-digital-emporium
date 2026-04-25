@@ -1908,6 +1908,142 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
 // ═══════════════════════════════════════════════
 // MAIN SERVE
 // ═══════════════════════════════════════════════
+// ─── Telegram Stars: process successful_payment ─────────────
+// Called when Telegram delivers a `successful_payment` message in the
+// shop bot's chat with the buyer. Atomically marks the order paid,
+// reserves digital inventory, debits used balance, increments promo,
+// credits referral reward, and sends the delivery message.
+async function handleStarsSuccessfulPayment(shopId: string, botToken: string, msg: any) {
+  const sp = msg.successful_payment;
+  if (!sp) return;
+  const buyerTelegramId = Number(msg.from?.id || msg.chat?.id);
+  const payload = String(sp.invoice_payload || "");
+  const orderId = payload.startsWith("s_o:") ? payload.slice(4) : null;
+  const chargeId = String(sp.telegram_payment_charge_id || sp.provider_payment_charge_id || "");
+  if (!orderId || !buyerTelegramId) {
+    console.error("stars-payment: missing orderId or buyerTelegramId", { payload, buyerTelegramId });
+    return;
+  }
+
+  // Idempotency: insert into processed_invoices first; if already there, skip.
+  const dedupKey = `stars:${chargeId || orderId}`;
+  const { error: dedupErr } = await supabase().from("processed_invoices").insert({
+    invoice_id: dedupKey,
+    type: "payment",
+    order_id: orderId,
+    telegram_id: buyerTelegramId,
+    amount: Number(sp.total_amount || 0),
+  });
+  if (dedupErr) {
+    // Already processed
+    return;
+  }
+
+  // Load + atomically transition order to paid (only if not already paid)
+  const { data: order } = await supabase().from("shop_orders")
+    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, promo_code, discount_amount, total_amount")
+    .eq("id", orderId).maybeSingle();
+  if (!order || order.shop_id !== shopId) return;
+
+  const { data: updatedRows } = await supabase().from("shop_orders")
+    .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
+    .eq("id", orderId).neq("payment_status", "paid").select("id");
+  if (!updatedRows?.length) return;
+
+  // Promo usage increment
+  if (order.promo_code) {
+    await supabase().rpc("increment_shop_promo_usage", { p_shop_id: shopId, p_code: order.promo_code });
+  }
+
+  // Debit balance if it was used to partially pay this order
+  const balanceUsed = Number(order.balance_used || 0);
+  if (balanceUsed > 0) {
+    const { data: nb, error: be } = await supabase().rpc("shop_deduct_balance", {
+      p_shop_id: shopId, p_telegram_id: order.buyer_telegram_id, p_amount: balanceUsed,
+    });
+    if (!be) {
+      const promoInfo = order.promo_code ? ` (промо ${order.promo_code}, скидка $${Number(order.discount_amount || 0).toFixed(2)})` : "";
+      await supabase().from("shop_balance_history").insert({
+        shop_id: shopId, telegram_id: order.buyer_telegram_id, amount: -balanceUsed, balance_after: nb,
+        type: "purchase", comment: `Заказ ${order.order_number}${promoInfo}`, admin_telegram_id: order.buyer_telegram_id,
+      });
+    }
+  }
+
+  // Reserve and deliver inventory
+  const { data: orderItems } = await supabase().from("shop_order_items")
+    .select("product_id, quantity, product_name").eq("order_id", orderId);
+  const deliveredContent: string[] = [];
+  let allDelivered = true;
+
+  if (orderItems) {
+    for (const item of orderItems) {
+      const { data: reserved } = await supabase().rpc("reserve_shop_inventory", {
+        p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
+      });
+      if (reserved?.length) {
+        deliveredContent.push(
+          `📦 <b>${esc(item.product_name)}</b> (×${reserved.length}):\n` +
+          reserved.map((i: any) => `<code>${esc(i.content)}</code>`).join("\n")
+        );
+        const { count: remaining } = await supabase().from("shop_inventory")
+          .select("id", { count: "exact", head: true })
+          .eq("product_id", item.product_id).eq("status", "available");
+        await supabase().from("shop_products").update({
+          stock: remaining || 0, updated_at: new Date().toISOString(),
+        }).eq("id", item.product_id);
+        if (reserved.length < item.quantity) allDelivered = false;
+      } else {
+        allDelivered = false;
+      }
+    }
+  }
+
+  const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
+  if (finalStatus !== "paid") {
+    await supabase().from("shop_orders").update({
+      status: finalStatus, updated_at: new Date().toISOString(),
+    }).eq("id", orderId);
+  }
+
+  // Notify buyer in the bot chat
+  const totalUsd = Number(order.total_amount || 0);
+  const finalUsd = Math.max(0, totalUsd - Number(order.discount_amount || 0) - balanceUsed);
+  let message = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${esc(order.order_number)}</code>\n` +
+    `⭐ Stars: ${sp.total_amount}\n` +
+    `💵 Сумма: $${finalUsd.toFixed(2)}\n`;
+  if (balanceUsed > 0) message += `💳 С баланса: $${balanceUsed.toFixed(2)}\n`;
+  if (deliveredContent.length > 0) {
+    message += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;
+  } else {
+    message += `\nВаш товар будет доставлен в ближайшее время.`;
+  }
+  message += `\n\nСпасибо за покупку!`;
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: buyerTelegramId, text: message, parse_mode: "HTML" }),
+    });
+  } catch (e) {
+    console.error("stars-payment: notify buyer failed", e);
+  }
+
+  // Referral reward (idempotent on UNIQUE order_id)
+  try {
+    const finalAmount = Math.max(0, totalUsd - Number(order.discount_amount || 0));
+    if (finalAmount > 0) {
+      await supabase().rpc("shop_credit_referral_for_order", {
+        p_shop_id: shopId,
+        p_order_id: orderId,
+        p_referred_telegram_id: order.buyer_telegram_id,
+        p_order_amount: finalAmount,
+      });
+    }
+  } catch (e) {
+    console.error("stars-payment: referral credit error", e);
+  }
+}
+
 serve(async (req) => {
   // Reset singleton per request
   _db = null;
