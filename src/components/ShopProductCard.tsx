@@ -9,9 +9,10 @@ import PriceRub from '@/components/PriceRub';
 interface Props {
   product: ShopProduct;
   shopId: string;
+  view?: 'grid' | 'list';
 }
 
-const ShopProductCard = ({ product, shopId }: Props) => {
+const ShopProductCard = ({ product, shopId, view = 'grid' }: Props) => {
   const { addToCart } = useShop();
   const buildPath = useStorefrontPath();
   const outOfStock = product.stock <= 0;
@@ -24,6 +25,66 @@ const ShopProductCard = ({ product, shopId }: Props) => {
     addToCart(product);
     toast.success('Добавлено в корзину');
   };
+
+  if (view === 'list') {
+    return (
+      <div className={`group relative bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
+        <div className="flex gap-3 p-3">
+          <Link to={buildPath(`/product/${product.id}`)} className="shrink-0 relative w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden bg-secondary/50 flex items-center justify-center">
+            {product.image ? (
+              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="text-3xl">📦</div>
+            )}
+            {discount > 0 && (
+              <span className="absolute top-1 right-1 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                -{discount}%
+              </span>
+            )}
+            {outOfStock && (
+              <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
+                <span className="text-[10px] font-semibold text-muted-foreground">Нет</span>
+              </div>
+            )}
+          </Link>
+
+          <div className="flex-1 min-w-0 flex flex-col">
+            <Link to={buildPath(`/product/${product.id}`)} className="min-w-0">
+              <h3 className="font-display font-semibold text-sm sm:text-base line-clamp-1 group-hover:text-primary transition-colors">{product.name}</h3>
+              {product.subtitle && (
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-2">{product.subtitle}</p>
+              )}
+            </Link>
+
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="flex items-center gap-1 text-[10px] text-primary font-medium">
+                <Zap className="w-3 h-3" /> Мгновенная доставка
+              </span>
+              {product.stock > 0 && product.stock < 10 && (
+                <span className="text-[10px] text-warning font-medium">Осталось {product.stock}</span>
+              )}
+            </div>
+
+            <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-display font-bold text-base sm:text-lg">${Number(product.price).toFixed(2)}</span>
+                  {product.old_price && (
+                    <span className="text-[10px] sm:text-xs text-muted-foreground line-through">${Number(product.old_price).toFixed(2)}</span>
+                  )}
+                </div>
+                <PriceRub usd={Number(product.price)} />
+              </div>
+              <Button size="sm" className="h-8 sm:h-9 text-sm shrink-0" disabled={outOfStock} onClick={handleAdd}>
+                <ShoppingCart className="w-3.5 h-3.5 mr-1" />
+                {outOfStock ? 'Нет' : 'В корзину'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`group relative bg-card border border-border/50 rounded-xl overflow-hidden hover-lift hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
