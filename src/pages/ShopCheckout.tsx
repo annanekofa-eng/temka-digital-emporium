@@ -221,6 +221,27 @@ const ShopCheckout = () => {
     }
   };
 
+  // ── TON: показываем лист оплаты даже после очистки корзины ──
+  if (tonInvoice) {
+    return (
+      <div className="container-main mx-auto px-4 py-4 sm:py-6">
+        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Оплата TON</h1>
+        <TonPaymentSheet
+          walletAddress={tonInvoice.walletAddress}
+          tonAmount={tonInvoice.tonAmount}
+          payUrl={tonInvoice.payUrl}
+          memo={tonInvoice.memo}
+          toPayUsd={toPay > 0 ? toPay : tonInvoice.tonAmount * tonInvoice.usdPerTon}
+          usdPerTon={tonInvoice.usdPerTon}
+          isInTelegram={isInTelegram}
+          onOpenLink={openTelegramLink}
+          onBack={() => setTonInvoice(null)}
+          onContinue={() => navigate(`${buildPath('/order-status')}?order=${tonInvoice.orderNumber}`)}
+        />
+      </div>
+    );
+  }
+
   if (cart.length === 0) {
     return (
       <div className="container-main mx-auto px-4 py-16 text-center">
@@ -509,27 +530,6 @@ const ShopCheckout = () => {
 
   // ── SBP: Экран реквизитов ──
   const showSbpDetails = paymentMethod === 'sbp' && sbpStep === 'details' && toPay > 0;
-
-  // ── TON: показ листа оплаты после создания инвойса ──
-  if (tonInvoice) {
-    return (
-      <div className="container-main mx-auto px-4 py-4 sm:py-6">
-        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Оплата TON</h1>
-        <TonPaymentSheet
-          walletAddress={tonInvoice.walletAddress}
-          tonAmount={tonInvoice.tonAmount}
-          payUrl={tonInvoice.payUrl}
-          memo={tonInvoice.memo}
-          toPayUsd={toPay > 0 ? toPay : tonInvoice.tonAmount * tonInvoice.usdPerTon}
-          usdPerTon={tonInvoice.usdPerTon}
-          isInTelegram={isInTelegram}
-          onOpenLink={openTelegramLink}
-          onBack={() => setTonInvoice(null)}
-          onContinue={() => navigate(`${buildPath('/order-status')}?order=${tonInvoice.orderNumber}`)}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="container-main mx-auto px-4 py-4 sm:py-6">
