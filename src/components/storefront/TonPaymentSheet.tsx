@@ -93,7 +93,7 @@ const TonPaymentSheet = ({
         {/* QR-код */}
         {qrDataUrl ? (
           <div className="flex justify-center">
-            <div className="bg-white p-2 rounded-lg border border-border/30">
+            <div className="bg-background p-2 rounded-lg border border-border/30">
               <img src={qrDataUrl} alt="TON QR" className="w-44 h-44" width={220} height={220} />
             </div>
           </div>
