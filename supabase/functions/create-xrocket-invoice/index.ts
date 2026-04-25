@@ -119,8 +119,10 @@ serve(async (req) => {
       .from("rate_limits").select("id", { count: "exact", head: true })
       .eq("identifier", String(telegramUserId)).eq("action", "create_order")
       .gte("created_at", new Date(Date.now() - 3600000).toISOString());
-    if (recentRequests && recentRequests >= 15) return jsonRes({ error: "Too many requests" }, 429);
-    await supabase.from("rate_limits").insert({ identifier: String(telegramUserId), action: "create_order" });
+    if (recentRequests && recentRequests >= 30) {
+      return jsonRes({ error: "Слишком много попыток. Подождите немного и попробуйте снова." }, 429);
+    }
+    // NOTE: rate-limit slot is consumed only AFTER successful invoice creation (see below)
 
     // ── Buyer block + balance check ────────────────────────────
     const { data: customer } = await supabase
