@@ -3,6 +3,7 @@ import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
 import starsLogo from '@/assets/telegram-stars-logo.jpg';
 import xrocketLogo from '@/assets/xrocket-logo.jpg';
+import tonLogo from '@/assets/ton-logo.png';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,9 @@ import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { useExchangeRate, formatRub } from '@/hooks/useExchangeRate';
 import { useQuery } from '@tanstack/react-query';
+import TonPaymentSheet from '@/components/storefront/TonPaymentSheet';
 
-type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket';
+type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket' | 'ton';
 
 type SbpDetails = {
   bankName: string;
@@ -41,6 +43,14 @@ const ShopCheckout = () => {
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: rubRate } = useExchangeRate();
+  const [tonInvoice, setTonInvoice] = useState<{
+    walletAddress: string;
+    tonAmount: number;
+    payUrl: string;
+    memo: string;
+    usdPerTon: number;
+    orderNumber: string;
+  } | null>(null);
 
   const displayName = user ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}` : 'Telegram User';
   const avatar = user?.firstName?.[0]?.toUpperCase() || 'T';
@@ -71,6 +81,23 @@ const ShopCheckout = () => {
 
   const xrocketMethod = paymentMethods?.find(m => m.method === 'xrocket' && m.enabled);
   const xrocketAvailable = Boolean(xrocketMethod);
+  const tonMethod = paymentMethods?.find(m => m.method === 'ton' && m.enabled);
+  const tonAvailable = Boolean(tonMethod);
+
+  // Live TON rate (only when TON selected)
+  const { data: tonRate } = useQuery<{ usdPerTon: number }>({
+    queryKey: ['ton-rate'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('ton-rate', { body: {} });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: tonAvailable && paymentMethod === 'ton' && toPay > 0,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const usdPerTon = Number(tonRate?.usdPerTon || 0);
+  const previewTonAmount = usdPerTon > 0 && toPay > 0 ? Math.ceil((toPay / usdPerTon) * 1000) / 1000 : 0;
   // xRocket принимает только USDT (выбор валюты отключён)
   const xrCurrency = 'USDT';
 
