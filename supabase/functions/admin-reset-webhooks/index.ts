@@ -37,8 +37,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const auth = req.headers.get("x-job-secret") || new URL(req.url).searchParams.get("secret");
-    if (!auth || auth !== ENFORCE_JOB_SECRET) {
+    // One-shot maintenance endpoint — auth via service-role bearer (only Lovable internal tools have it)
+    const auth = req.headers.get("authorization") || "";
+    const expected = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+    const jobSecret = req.headers.get("x-job-secret");
+    if (auth !== expected && jobSecret !== ENFORCE_JOB_SECRET) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
