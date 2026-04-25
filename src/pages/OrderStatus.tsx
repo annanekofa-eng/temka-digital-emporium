@@ -18,7 +18,7 @@ const OrderStatus = () => {
   const queryClient = useQueryClient();
   const { data: supportUsername } = useSupportUsername();
   const { supportLink } = useStorefront();
-  const { initData } = useTelegram();
+  const { initData, user } = useTelegram();
   const [polling, setPolling] = useState(true);
   const [expired, setExpired] = useState(false);
 
@@ -44,20 +44,26 @@ const OrderStatus = () => {
 
       if (data?.paymentStatus === 'paid') {
         setPolling(false);
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.setQueryData<any[]>(['orders', user?.id, undefined], (prev) => {
+          if (!Array.isArray(prev)) return prev;
+          return prev.map((o) => o.id === order.id
+            ? { ...o, payment_status: 'paid', status: data?.status || 'paid' }
+            : o);
+        });
         queryClient.invalidateQueries({ queryKey: ['user-profile'] });
         queryClient.invalidateQueries({ queryKey: ['balance-history'] });
         queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        await queryClient.refetchQueries({ queryKey: ['orders', user?.id, undefined] });
         navigate(`${buildPath('/order-success')}?order=${orderNumber}`, { replace: true });
       } else if (data?.paymentStatus === 'expired') {
         setExpired(true);
         setPolling(false);
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.invalidateQueries({ queryKey: ['orders', user?.id, undefined] });
       }
     } catch (err) {
       console.error('Payment check failed:', err);
     }
-  }, [order?.id, order?.payment_status, queryClient, initData, navigate, buildPath, orderNumber]);
+  }, [order?.id, order?.payment_status, queryClient, initData, user?.id, navigate, buildPath, orderNumber]);
 
   useEffect(() => {
     if (!order?.id || expired) return;
