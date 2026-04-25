@@ -1782,6 +1782,82 @@ async function handleFSM(
     return true;
   }
 
+  // ─── Set xRocket Pay API token ──────────────────
+  if (state === "s_set_xrocket_token") {
+    const token = val.trim();
+    if (token.length < 16 || /\s/.test(token)) {
+      await tg.send(cid, "❌ Похоже, это не API-ключ. Попробуйте снова или /cancel.");
+      return true;
+    }
+    const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+    if (!encKey) { await tg.send(cid, "❌ Ошибка конфигурации."); return true; }
+    const { data: enc } = await supabase().rpc("encrypt_token", { p_token: token, p_key: encKey });
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled")
+      .eq("shop_id", shopId)
+      .eq("method", "xrocket")
+      .maybeSingle();
+    const cfg = {
+      ...((existing?.config_masked as any) || {}),
+      token_set: true,
+      currencies: (existing?.config_masked as any)?.currencies || ["USDT", "TONCOIN", "BTC"],
+    };
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "xrocket",
+        enabled: existing?.enabled ?? true,
+        config_encrypted: enc, config_masked: cfg,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_xrocket_token", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Токен xRocket сохранён!\n\nВалюты по умолчанию: <code>${(cfg.currencies as string[]).join(", ")}</code>\nИзменить — кнопка «🪙 Валюты xRocket».`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
+  // ─── Set xRocket Pay accepted currencies ──────────────────
+  if (state === "s_set_xrocket_currencies") {
+    const allowed = ["USDT","TONCOIN","BTC","ETH","BNB","TRX","SOL","NOT","HMSTR","DOGS","CATI","MAJOR","PX"];
+    const list = val.toUpperCase().split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    const filtered = Array.from(new Set(list.filter((c) => allowed.includes(c))));
+    if (filtered.length === 0) {
+      await tg.send(cid, `❌ Не распознано ни одной валюты. Допустимы: ${allowed.join(", ")}.`);
+      return true;
+    }
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled, config_encrypted")
+      .eq("shop_id", shopId)
+      .eq("method", "xrocket")
+      .maybeSingle();
+    const cfg = { ...((existing?.config_masked as any) || {}), currencies: filtered };
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "xrocket",
+        enabled: existing?.enabled ?? false,
+        config_masked: cfg,
+        ...(existing?.config_encrypted ? {} : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_xrocket_currencies", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Валюты xRocket обновлены: <code>${filtered.join(", ")}</code>`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
