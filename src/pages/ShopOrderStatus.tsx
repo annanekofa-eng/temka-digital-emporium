@@ -5,7 +5,7 @@ import { Package, MessageCircle, ShoppingCart, Clock, Loader2, XCircle } from 'l
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useShop } from '@/contexts/ShopContext';
 
@@ -23,7 +23,24 @@ const ShopOrderStatus = () => {
   const [polling, setPolling] = useState(true);
   const [expired, setExpired] = useState(false);
 
-  const order = orders?.find(o => o.order_number === orderNumber);
+  // Найти заказ в кеше; если его там ещё нет (свежесозданный) — подгрузить точечно.
+  const cachedOrder = orders?.find(o => o.order_number === orderNumber);
+  const { data: fetchedOrder } = useQuery({
+    queryKey: ['shop-order-by-number', shopId, orderNumber],
+    enabled: !!shopId && !!orderNumber && !cachedOrder,
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_orders')
+        .select('*')
+        .eq('shop_id', shopId!)
+        .eq('order_number', orderNumber!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const order: any = cachedOrder || fetchedOrder;
 
   const checkPayment = useCallback(async () => {
     if (!order?.id) return;
