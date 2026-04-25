@@ -1120,6 +1120,7 @@ export type Database = {
           invoice_id: string | null
           order_number: string
           pay_url: string | null
+          payment_method: string
           payment_status: string
           promo_code: string | null
           shop_id: string
@@ -1137,6 +1138,7 @@ export type Database = {
           invoice_id?: string | null
           order_number: string
           pay_url?: string | null
+          payment_method?: string
           payment_status?: string
           promo_code?: string | null
           shop_id: string
@@ -1154,6 +1156,7 @@ export type Database = {
           invoice_id?: string | null
           order_number?: string
           pay_url?: string | null
+          payment_method?: string
           payment_status?: string
           promo_code?: string | null
           shop_id?: string
