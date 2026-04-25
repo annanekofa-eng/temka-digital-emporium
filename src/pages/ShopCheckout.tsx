@@ -2,8 +2,9 @@ import { useState, useRef } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
 import starsLogo from '@/assets/telegram-stars-logo.jpg';
+import xrocketLogo from '@/assets/xrocket-logo.png';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star } from 'lucide-react';
+import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/contexts/ShopContext';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -13,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useExchangeRate, formatRub } from '@/hooks/useExchangeRate';
 import { useQuery } from '@tanstack/react-query';
 
-type PaymentMethod = 'cryptobot' | 'sbp' | 'stars';
+type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket';
 
 type SbpDetails = {
   bankName: string;
@@ -67,6 +68,27 @@ const ShopCheckout = () => {
   const usdPerStar = Number((starsMethod?.config_masked as any)?.usd_per_star || 0);
   const starsAvailable = Boolean(starsMethod) && usdPerStar > 0;
   const starsAmount = starsAvailable && toPay > 0 ? Math.max(1, Math.ceil(toPay / usdPerStar)) : 0;
+
+  const xrocketMethod = paymentMethods?.find(m => m.method === 'xrocket' && m.enabled);
+  const xrocketCurrencies: string[] = Array.isArray((xrocketMethod?.config_masked as any)?.currencies)
+    ? (xrocketMethod!.config_masked as any).currencies.map((s: string) => String(s).toUpperCase())
+    : [];
+  const xrocketAvailable = Boolean(xrocketMethod) && xrocketCurrencies.length > 0;
+  const [xrCurrency, setXrCurrency] = useState<string>('USDT');
+
+  const { data: xrRates } = useQuery<Record<string, number>>({
+    queryKey: ['xrocket-rates'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('xrocket-rates', { body: {} });
+      if (error) throw new Error(error.message);
+      return (data?.rates || { USDT: 1 }) as Record<string, number>;
+    },
+    enabled: xrocketAvailable && paymentMethod === 'xrocket' && toPay > 0,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const xrUsdPerUnit = Number(xrRates?.[xrCurrency] || (xrCurrency === 'USDT' ? 1 : 0));
+  const xrCryptoAmount = xrUsdPerUnit > 0 && toPay > 0 ? Number((toPay / xrUsdPerUnit).toFixed(6)) : 0;
 
   const { data: sbpDetails, isLoading: sbpDetailsLoading } = useQuery<SbpDetails | null>({
     queryKey: ['shop-sbp-details', shopId],
@@ -255,6 +277,26 @@ const ShopCheckout = () => {
             navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
           }
         });
+      } else if (paymentMethod === 'xrocket') {
+        const xrOrderNumber = `XR-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-xrocket-invoice', {
+          body: {
+            initData, shopId, orderNumber: xrOrderNumber, items: itemsPayload,
+            balanceUsed, promoCode: promoResult?.code || null,
+            currency: xrCurrency, description,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.payUrl) throw new Error('Не удалось создать инвойс xRocket');
+        const finalOrderNumber = data.orderNumber || xrOrderNumber;
+        if (isInTelegram) {
+          openTelegramLink(data.payUrl);
+          navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+        } else {
+          window.open(data.payUrl, '_blank');
+          navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+        }
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: { initData, amount: toPay.toFixed(2), currency: 'USD', description, orderNumber, items: itemsPayload, shopId, balanceUsed, promoCode: promoResult?.code || null },
