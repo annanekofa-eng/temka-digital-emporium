@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
@@ -27,6 +27,14 @@ const Catalog = () => {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [deliveryType, setDeliveryType] = useState<string>('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'grid';
+    return (localStorage.getItem('catalog-view') as 'grid' | 'list') || 'grid';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('catalog-view', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     setSearch(searchParam);
@@ -106,9 +114,65 @@ const Catalog = () => {
             className="h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer flex-1 sm:flex-none">
             {sortOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
+          <div className="hidden sm:flex h-10 bg-card border border-border rounded-lg overflow-hidden">
+            <button
+              type="button"
+              aria-label="Сетка"
+              aria-pressed={viewMode === 'grid'}
+              onClick={() => setViewMode('grid')}
+              className={`px-3 flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Список"
+              aria-pressed={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+              className={`px-3 flex items-center justify-center border-l border-border transition-colors ${viewMode === 'list' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
           <Button variant="outline" className="lg:hidden shrink-0" onClick={() => setFiltersOpen(!filtersOpen)}>
             <SlidersHorizontal className="w-4 h-4 mr-1" /> Фильтры
           </Button>
+        </div>
+      </div>
+
+      {/* Category chips (horizontal scroll) */}
+      <div className="-mx-4 px-4 mb-5 sm:mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <button
+            onClick={() => { setSelectedCategory(''); setSearchParams({}); }}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+              !selectedCategory
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+            }`}
+          >
+            Все
+          </button>
+          {categories?.map(cat => {
+            const active = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => { setSelectedCategory(cat.id); setSearchParams({ category: cat.id }); }}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.name}</span>
+                <span className={`text-[10px] ${active ? 'opacity-80' : 'opacity-60'}`}>
+                  {categoryCounts[cat.id] || 0}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -164,7 +228,7 @@ const Catalog = () => {
 
         <div className="flex-1">
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            <div className={viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4'}>
               {Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)}
             </div>
           ) : filtered.length === 0 ? (
@@ -176,10 +240,36 @@ const Catalog = () => {
             </div>
           ) : (
             <>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-4">Найдено товаров: {filtered.length}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                {filtered.map(product => <ProductCard key={product.id} product={product} />)}
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <p className="text-xs sm:text-sm text-muted-foreground">Найдено товаров: {filtered.length}</p>
+                <div className="flex sm:hidden h-8 bg-card border border-border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    aria-label="Сетка"
+                    onClick={() => setViewMode('grid')}
+                    className={`px-2.5 flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Список"
+                    onClick={() => setViewMode('list')}
+                    className={`px-2.5 flex items-center justify-center border-l border-border transition-colors ${viewMode === 'list' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+              {viewMode === 'list' ? (
+                <div className="flex flex-col gap-3">
+                  {filtered.map(product => <ProductCard key={product.id} product={product} view="list" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                  {filtered.map(product => <ProductCard key={product.id} product={product} />)}
+                </div>
+              )}
             </>
           )}
         </div>
