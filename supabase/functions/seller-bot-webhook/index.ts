@@ -1659,7 +1659,7 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
       if (method === "stars" && enabled) {
         const rate = Number((row?.config_masked as any)?.usd_per_star || 0);
         if (!(rate > 0)) {
-          await tg.answerCallback(cbId, "Сначала задайте курс Stars", true).catch(() => null);
+          await tg.answer(cbId, "Сначала задайте курс Stars").catch(() => null);
           await setSession(cid, "s_set_stars_rate", shopId, {});
           await tg.send(cid, "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n/cancel — отмена");
           return;
