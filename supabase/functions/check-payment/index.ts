@@ -417,7 +417,9 @@ serve(async (req) => {
           headers: { "Rocket-Pay-Key": xrToken },
         });
         const xrData = await xrRes.json().catch(() => ({}));
+        console.log(`[check-payment][xrocket] invoice=${order.invoice_id} httpStatus=${xrRes.status} success=${xrData?.success} apiStatus=${xrData?.data?.status} payments=${Array.isArray(xrData?.data?.payments) ? xrData.data.payments.length : 'n/a'}`);
         if (!xrRes.ok || xrData?.success !== true || !xrData?.data) {
+          console.log(`[check-payment][xrocket] body=`, JSON.stringify(xrData).slice(0, 500));
           return jsonRes({ status: order.status, paymentStatus: order.payment_status });
         }
         const inv = xrData.data;
