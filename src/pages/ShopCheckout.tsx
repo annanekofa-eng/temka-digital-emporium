@@ -70,11 +70,9 @@ const ShopCheckout = () => {
   const starsAmount = starsAvailable && toPay > 0 ? Math.max(1, Math.ceil(toPay / usdPerStar)) : 0;
 
   const xrocketMethod = paymentMethods?.find(m => m.method === 'xrocket' && m.enabled);
-  const xrocketCurrencies: string[] = Array.isArray((xrocketMethod?.config_masked as any)?.currencies)
-    ? (xrocketMethod!.config_masked as any).currencies.map((s: string) => String(s).toUpperCase())
-    : [];
-  const xrocketAvailable = Boolean(xrocketMethod) && xrocketCurrencies.length > 0;
-  const [xrCurrency, setXrCurrency] = useState<string>('USDT');
+  const xrocketAvailable = Boolean(xrocketMethod);
+  // xRocket принимает только USDT (выбор валюты отключён)
+  const xrCurrency = 'USDT';
 
   const { data: xrRates } = useQuery<Record<string, number>>({
     queryKey: ['xrocket-rates'],
@@ -576,30 +574,8 @@ const ShopCheckout = () => {
           )}
 
           {paymentMethod === 'xrocket' && toPay > 0 && (
-            <div className="mt-3 space-y-2">
-              <div className="text-[10px] text-muted-foreground">Выберите валюту оплаты:</div>
-              <div className="flex flex-wrap gap-1.5">
-                {xrocketCurrencies.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setXrCurrency(c)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                      xrCurrency === c
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border/30 bg-secondary/30 text-muted-foreground hover:border-primary/30'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <div className="text-[10px] text-muted-foreground text-center">
-                {xrCryptoAmount > 0 ? (
-                  <>К оплате: <span className="text-primary font-semibold">{xrCryptoAmount} {xrCurrency}</span> · курс 1 {xrCurrency} ≈ ${xrUsdPerUnit.toFixed(xrUsdPerUnit < 1 ? 6 : 2)}</>
-                ) : (
-                  <>Загружаем актуальный курс {xrCurrency}…</>
-                )}
-              </div>
+            <div className="text-[10px] text-muted-foreground text-center mt-2">
+              К оплате: <span className="text-primary font-semibold">{toPay.toFixed(2)} USDT</span>
             </div>
           )}
         </div>

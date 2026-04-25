@@ -90,13 +90,8 @@ serve(async (req) => {
     if (!xrMethod?.enabled || !xrMethod?.config_encrypted) {
       return jsonRes({ error: "xRocket Pay не подключён для этого магазина" }, 400);
     }
-    const allowedCurrencies: string[] = Array.isArray((xrMethod.config_masked as any)?.currencies)
-      ? (xrMethod.config_masked as any).currencies.map((s: string) => String(s).toUpperCase())
-      : ["USDT", "TONCOIN", "BTC"];
-    const cur = currency.toUpperCase();
-    if (!allowedCurrencies.includes(cur)) {
-      return jsonRes({ error: `Валюта ${cur} не поддерживается` }, 400);
-    }
+    // Принудительно используем только USDT (выбор валюты отключён на фронтенде).
+    const cur = "USDT";
 
     const { data: xrToken } = await supabase.rpc("decrypt_token", { p_encrypted: xrMethod.config_encrypted, p_key: encKey });
     if (!xrToken) return jsonRes({ error: "xRocket token decryption failed" }, 500);
