@@ -553,6 +553,10 @@ async function connectBotToken(
       updated_at: new Date().toISOString(),
     })
     .eq("id", shopId);
+  // Fire-and-forget avatar sync
+  if (validation.bot_id) {
+    syncBotAvatar(rawToken, validation.bot_id, shopId).catch(() => {});
+  }
   if (!webhookResult.ok)
     return {
       ok: false,
