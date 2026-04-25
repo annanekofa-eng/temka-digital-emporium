@@ -94,14 +94,18 @@ const Account = () => {
     try {
       const pendingId = localStorage.getItem(pendingTopupStorageKey);
       if (pendingId) setPendingTopupInvoiceId(pendingId);
-    } catch {}
+    } catch {
+      // ignore storage errors
+    }
   }, [pendingTopupStorageKey]);
 
   const clearPendingTopup = useCallback(() => {
     setPendingTopupInvoiceId(null);
     try {
       localStorage.removeItem(pendingTopupStorageKey);
-    } catch {}
+    } catch {
+      // ignore storage errors
+    }
   }, [pendingTopupStorageKey]);
 
   const checkTopupPayment = useCallback(async () => {
@@ -128,7 +132,9 @@ const Account = () => {
         clearPendingTopup();
         toast.error('Инвойс пополнения истёк');
       }
-    } catch {}
+    } catch {
+      // ignore polling errors
+    }
   }, [pendingTopupInvoiceId, initData, shopId, clearPendingTopup, queryClient, haptic]);
 
   useEffect(() => {
@@ -169,7 +175,9 @@ const Account = () => {
         setPendingTopupInvoiceId(invoiceId);
         try {
           localStorage.setItem(pendingTopupStorageKey, invoiceId);
-        } catch {}
+        } catch {
+          // ignore storage errors
+        }
       }
 
       if (isInTelegram && data?.payUrl) {
@@ -183,9 +191,9 @@ const Account = () => {
         setShowTopup(false);
         setTopupAmount('');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Topup error:', err);
-      toast.error(err.message || 'Ошибка пополнения');
+      toast.error(err instanceof Error ? err.message : 'Ошибка пополнения');
       haptic.notification('error');
     } finally {
       setTopupProcessing(false);
