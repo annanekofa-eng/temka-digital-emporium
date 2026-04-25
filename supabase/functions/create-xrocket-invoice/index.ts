@@ -264,6 +264,12 @@ serve(async (req) => {
       payment_status: "awaiting",
     }).eq("id", order.id);
 
+    // Consume rate-limit slot only after successful invoice creation,
+    // so that aborted/failed attempts don't lock the user out.
+    await supabase.from("rate_limits").insert({
+      identifier: String(telegramUserId), action: "create_order",
+    }).then(() => null, (e) => { console.warn("rate_limits insert failed:", e); });
+
     return jsonRes({
       invoiceId,
       payUrl: payLink,
