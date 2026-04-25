@@ -483,7 +483,8 @@ async function setupSellerWebhook(botToken: string, shopId: string): Promise<{ o
         ],
       }),
     }).catch(() => {});
-    const webappUrl = `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shopId)}`;
+    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).maybeSingle();
+    const webappUrl = shopWebAppUrl(shop || { id: shopId });
     await fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
