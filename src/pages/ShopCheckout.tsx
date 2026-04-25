@@ -341,6 +341,9 @@ const ShopCheckout = () => {
         }
       } else if (paymentMethod === 'ton') {
         // ── TON / Tonkeeper ─────────────────────────────────────
+        if (!initData) {
+          throw new Error('Откройте магазин в Telegram, чтобы оплатить через TON');
+        }
         const tonOrderNumber = `TN-${Date.now().toString(36).toUpperCase()}`;
         const { data, error: fnError } = await supabase.functions.invoke('create-ton-invoice', {
           body: {
@@ -348,7 +351,20 @@ const ShopCheckout = () => {
             balanceUsed, promoCode: promoResult?.code || null, description,
           },
         });
-        if (fnError) throw new Error(fnError.message);
+        if (fnError) {
+          let serverMsg = '';
+          try {
+            const ctx: any = (fnError as any)?.context;
+            if (ctx && typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              serverMsg = body?.error || body?.message || '';
+            } else if (ctx && typeof ctx.text === 'function') {
+              const txt = await ctx.text();
+              try { const j = JSON.parse(txt); serverMsg = j?.error || j?.message || ''; } catch { serverMsg = txt; }
+            }
+          } catch { /* ignore */ }
+          throw new Error(serverMsg || fnError.message || 'Не удалось создать TON-счёт');
+        }
         if (data?.error) throw new Error(data.error);
         if (!data?.payUrl) throw new Error('Не удалось создать TON-счёт');
         setTonInvoice({
