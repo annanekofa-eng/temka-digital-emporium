@@ -3,6 +3,7 @@ import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
 import starsLogo from '@/assets/telegram-stars-logo.jpg';
 import xrocketLogo from '@/assets/xrocket-logo.jpg';
+import tonLogo from '@/assets/ton-logo.png';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,9 @@ import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import { useExchangeRate, formatRub } from '@/hooks/useExchangeRate';
 import { useQuery } from '@tanstack/react-query';
+import TonPaymentSheet from '@/components/storefront/TonPaymentSheet';
 
-type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket';
+type PaymentMethod = 'cryptobot' | 'sbp' | 'stars' | 'xrocket' | 'ton';
 
 type SbpDetails = {
   bankName: string;
@@ -41,6 +43,14 @@ const ShopCheckout = () => {
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: rubRate } = useExchangeRate();
+  const [tonInvoice, setTonInvoice] = useState<{
+    walletAddress: string;
+    tonAmount: number;
+    payUrl: string;
+    memo: string;
+    usdPerTon: number;
+    orderNumber: string;
+  } | null>(null);
 
   const displayName = user ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}` : 'Telegram User';
   const avatar = user?.firstName?.[0]?.toUpperCase() || 'T';
@@ -71,6 +81,23 @@ const ShopCheckout = () => {
 
   const xrocketMethod = paymentMethods?.find(m => m.method === 'xrocket' && m.enabled);
   const xrocketAvailable = Boolean(xrocketMethod);
+  const tonMethod = paymentMethods?.find(m => m.method === 'ton' && m.enabled);
+  const tonAvailable = Boolean(tonMethod);
+
+  // Live TON rate (only when TON selected)
+  const { data: tonRate } = useQuery<{ usdPerTon: number }>({
+    queryKey: ['ton-rate'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('ton-rate', { body: {} });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: tonAvailable && paymentMethod === 'ton' && toPay > 0,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const usdPerTon = Number(tonRate?.usdPerTon || 0);
+  const previewTonAmount = usdPerTon > 0 && toPay > 0 ? Math.ceil((toPay / usdPerTon) * 1000) / 1000 : 0;
   // xRocket принимает только USDT (выбор валюты отключён)
   const xrCurrency = 'USDT';
 
@@ -312,6 +339,27 @@ const ShopCheckout = () => {
           window.open(data.payUrl, '_blank');
           navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
         }
+      } else if (paymentMethod === 'ton') {
+        // ── TON / Tonkeeper ─────────────────────────────────────
+        const tonOrderNumber = `TN-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-ton-invoice', {
+          body: {
+            initData, shopId, orderNumber: tonOrderNumber, items: itemsPayload,
+            balanceUsed, promoCode: promoResult?.code || null, description,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.payUrl) throw new Error('Не удалось создать TON-счёт');
+        setTonInvoice({
+          walletAddress: data.walletAddress,
+          tonAmount: Number(data.tonAmount),
+          payUrl: data.payUrl,
+          memo: data.memo,
+          usdPerTon: Number(data.usdPerTon),
+          orderNumber: data.orderNumber || tonOrderNumber,
+        });
+        clearCart();
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: { initData, amount: toPay.toFixed(2), currency: 'USD', description, orderNumber, items: itemsPayload, shopId, balanceUsed, promoCode: promoResult?.code || null },
@@ -446,6 +494,27 @@ const ShopCheckout = () => {
   // ── SBP: Экран реквизитов ──
   const showSbpDetails = paymentMethod === 'sbp' && sbpStep === 'details' && toPay > 0;
 
+  // ── TON: показ листа оплаты после создания инвойса ──
+  if (tonInvoice) {
+    return (
+      <div className="container-main mx-auto px-4 py-4 sm:py-6">
+        <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Оплата TON</h1>
+        <TonPaymentSheet
+          walletAddress={tonInvoice.walletAddress}
+          tonAmount={tonInvoice.tonAmount}
+          payUrl={tonInvoice.payUrl}
+          memo={tonInvoice.memo}
+          toPayUsd={toPay > 0 ? toPay : tonInvoice.tonAmount * tonInvoice.usdPerTon}
+          usdPerTon={tonInvoice.usdPerTon}
+          isInTelegram={isInTelegram}
+          onOpenLink={openTelegramLink}
+          onBack={() => setTonInvoice(null)}
+          onContinue={() => navigate(`${buildPath('/order-status')}?order=${tonInvoice.orderNumber}`)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="container-main mx-auto px-4 py-4 sm:py-6">
       <Link to={buildPath('/cart')} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
@@ -491,7 +560,7 @@ const ShopCheckout = () => {
           </div>
 
           {toPay > 0 ? (
-            <div className={`grid gap-2 ${(starsAvailable && xrocketAvailable) ? 'grid-cols-2 sm:grid-cols-4' : (starsAvailable || xrocketAvailable) ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
               {/* CryptoBot */}
               <button
                 onClick={() => { setPaymentMethod('cryptobot'); setSbpStep('details'); }}
@@ -551,6 +620,22 @@ const ShopCheckout = () => {
                   <div className="text-[10px] text-muted-foreground mt-0.5">Криптовалюта</div>
                 </button>
               )}
+
+              {/* TON / Tonkeeper */}
+              {tonAvailable && (
+                <button
+                  onClick={() => { setPaymentMethod('ton'); setSbpStep('details'); }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    paymentMethod === 'ton'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                      : 'border-border/30 bg-secondary/30 hover:border-primary/30'
+                  }`}
+                >
+                  <img src={tonLogo} alt="TON" className="w-8 h-8 rounded-lg mx-auto mb-1 object-contain" loading="lazy" />
+                  <div className={`text-sm font-medium ${paymentMethod === 'ton' ? 'text-primary' : 'text-foreground'}`}>TON</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Tonkeeper</div>
+                </button>
+              )}
             </div>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
@@ -576,6 +661,15 @@ const ShopCheckout = () => {
           {paymentMethod === 'xrocket' && toPay > 0 && (
             <div className="text-[10px] text-muted-foreground text-center mt-2">
               К оплате: <span className="text-primary font-semibold">{toPay.toFixed(2)} USDT</span>
+            </div>
+          )}
+
+          {paymentMethod === 'ton' && toPay > 0 && (
+            <div className="text-[10px] text-muted-foreground text-center mt-2">
+              К оплате: <span className="text-primary font-semibold">
+                {previewTonAmount > 0 ? `${previewTonAmount.toFixed(3)} TON` : '…'}
+              </span>
+              {usdPerTon > 0 && <> · курс {usdPerTon.toFixed(2)} $/TON</>}
             </div>
           )}
         </div>
@@ -696,12 +790,19 @@ const ShopCheckout = () => {
               size="lg"
               className="w-full"
               onClick={handleCheckout}
-              disabled={processing || (toPay > 0 && paymentMethod === 'cryptobot' && shop?.paymentsConfigured === false) || (toPay > 0 && paymentMethod === 'stars' && !starsAvailable)}
+              disabled={
+                processing ||
+                (toPay > 0 && paymentMethod === 'cryptobot' && shop?.paymentsConfigured === false) ||
+                (toPay > 0 && paymentMethod === 'stars' && !starsAvailable) ||
+                (toPay > 0 && paymentMethod === 'ton' && (!tonAvailable || usdPerTon <= 0))
+              }
             >
               {processing ? (
                 <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Создание заказа...</span>
               ) : toPay > 0 && paymentMethod === 'stars' ? (
                 <><Star className="w-4 h-4 mr-1 fill-current" /> Оплатить — {starsAmount} ⭐</>
+              ) : toPay > 0 && paymentMethod === 'ton' ? (
+                <><Lock className="w-4 h-4 mr-1" /> Оплатить — {previewTonAmount > 0 ? `${previewTonAmount.toFixed(3)} TON` : `$${toPay.toFixed(2)}`}</>
               ) : toPay > 0 ? (
                 <><Lock className="w-4 h-4 mr-1" /> Оплатить — ${toPay.toFixed(2)} {rubRate && <span className="opacity-80 text-sm ml-1">≈{formatRub(toPay, rubRate)}</span>}</>
               ) : (

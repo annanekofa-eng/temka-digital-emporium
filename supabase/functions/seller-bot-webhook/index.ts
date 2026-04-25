@@ -874,6 +874,11 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const xrEnabled = Boolean(xr?.enabled);
   const xrCfg = (xr?.config_masked || {}) as Record<string, any>;
   const xrTokenSet = Boolean((xr as any)?.config_encrypted) || Boolean(xrCfg.token_set);
+  const ton = byMethod.get("ton");
+  const tonEnabled = Boolean(ton?.enabled);
+  const tonCfg = (ton?.config_masked || {}) as Record<string, any>;
+  const tonWalletSet = Boolean((ton as any)?.config_encrypted) || Boolean(tonCfg.wallet_set);
+  const tonWalletMasked = String(tonCfg.wallet_masked || "");
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
@@ -882,6 +887,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
   t += `\n`;
   t += `• xRocket Pay: <b>${xrEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  t += `\n`;
+  t += `• TON / Tonkeeper: <b>${tonEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (tonWalletMasked) t += ` · <code>${esc(tonWalletMasked)}</code>`;
   t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
@@ -896,6 +904,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (xrTokenSet || xrEnabled) {
     t += `\n<i>💡 xRocket Pay: средства поступают на счёт вашего приложения в @xRocket. Курс к USD считается автоматически на момент оплаты.</i>\n`;
   }
+  if (tonWalletSet || tonEnabled) {
+    t += `\n<i>💎 TON / Tonkeeper: переводы поступают напрямую на ваш кошелёк. Сумма в USD конвертируется в TON по актуальному курсу.</i>\n`;
+  }
 
   return tg.edit(
     cid,
@@ -906,10 +917,12 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
       [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
       [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
       [btn(xrEnabled ? "🟢 xRocket ON" : "⚪️ xRocket OFF", "s:paytoggle:xrocket")],
+      [btn(tonEnabled ? "🟢 TON ON" : "⚪️ TON OFF", "s:paytoggle:ton")],
       [btn("✏️ Реквизиты СБП", "s:setsbp")],
       [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
       [btn("🔑 Токен CryptoBot", "s:setcb")],
       [btn(`🚀 Токен xRocket${xrTokenSet ? " ✅" : ""}`, "s:setxr")],
+      [btn(`💎 TON-кошелёк${tonWalletSet ? " ✅" : ""}`, "s:setton")],
       [btn("◀️ К настройкам", "s:se")],
     ]),
   );
@@ -1853,6 +1866,49 @@ async function handleFSM(
     return true;
   }
 
+  // ─── Set TON wallet address ──────────────────
+  if (state === "s_set_ton_wallet") {
+    const wallet = val.trim();
+    // Tonkeeper / TON wallet — base64url 48 chars (UQ/EQ/0Q/kQ...) OR raw 0:hex
+    const isFriendly = /^[A-Za-z0-9_-]{48}$/.test(wallet);
+    const isRaw = /^-?[01]:[0-9a-fA-F]{64}$/.test(wallet);
+    if (!isFriendly && !isRaw) {
+      await tg.send(
+        cid,
+        "❌ Не похоже на TON-адрес. Пример: <code>UQABcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIj</code>\nИли используйте raw-формат: <code>0:abcdef...</code>",
+      );
+      return true;
+    }
+    const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+    if (!encKey) { await tg.send(cid, "❌ Ошибка конфигурации."); return true; }
+    const { data: enc } = await supabase().rpc("encrypt_token", { p_token: wallet, p_key: encKey });
+    const masked = wallet.length > 12 ? `${wallet.slice(0, 6)}…${wallet.slice(-6)}` : wallet;
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("enabled")
+      .eq("shop_id", shopId)
+      .eq("method", "ton")
+      .maybeSingle();
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "ton",
+        enabled: existing?.enabled ?? true,
+        config_encrypted: enc,
+        config_masked: { wallet_set: true, wallet_masked: masked },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_ton_wallet", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ TON-кошелёк сохранён: <code>${esc(masked)}</code>\n\n💎 Покупатели смогут оплачивать заказы переводом TON напрямую на ваш кошелёк через Tonkeeper.`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
@@ -2637,6 +2693,25 @@ async function handleCallback(
           return;
         }
       }
+      // Guard: TON requires wallet address before enabling
+      if (method === "ton" && enabled) {
+        const { data: full } = await supabase()
+          .from("shop_payment_methods")
+          .select("config_encrypted")
+          .eq("shop_id", shopId)
+          .eq("method", "ton")
+          .maybeSingle();
+        if (!full?.config_encrypted) {
+          await tg.answer(cbId, "Сначала укажите TON-кошелёк").catch(() => null);
+          await setSession(cid, "s_set_ton_wallet", shopId, {});
+          await tg.send(
+            cid,
+            "💎 <b>Подключение TON / Tonkeeper</b>\n\nОтправьте адрес вашего TON-кошелька.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://tonkeeper.com\">Tonkeeper</a> → ваш кошелёк → Получить\n2. Скопируйте адрес (начинается с <code>UQ</code> или <code>EQ</code>)\n3. Пришлите сюда.\n\n💡 Платежи поступают напрямую на ваш кошелёк. Курс USD→TON считается автоматически.\n\n/cancel — отмена.",
+            ikb([[btn("❌ Отмена", "s:paym")]]),
+          );
+          return;
+        }
+      }
       await supabase().from("shop_payment_methods").upsert(
         {
           shop_id: shopId,
@@ -2677,6 +2752,15 @@ async function handleCallback(
       return tg.send(
         cid,
         "🪙 <b>Валюты xRocket</b>\n\nПеречислите тикеры через запятую — какие валюты предлагать покупателю.\n\nПример: <code>USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT</code>\n\nДоступны: USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT, HMSTR, DOGS, CATI, MAJOR, PX.\n\n/cancel — отмена.",
+        ikb([[btn("❌ Отмена", "s:paym")]]),
+      );
+    }
+    if (cmd === "setton") {
+      await setSession(cid, "s_set_ton_wallet", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "💎 <b>TON-кошелёк</b>\n\nОтправьте адрес вашего TON-кошелька.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://tonkeeper.com\">Tonkeeper</a> → ваш кошелёк → Получить\n2. Скопируйте адрес (начинается с <code>UQ</code> или <code>EQ</code>)\n3. Пришлите сюда.\n\n💡 Платежи поступают напрямую на ваш кошелёк, без посредников. Курс USD→TON считается автоматически на момент оплаты.\n\n/cancel — отмена.",
         ikb([[btn("❌ Отмена", "s:paym")]]),
       );
     }
