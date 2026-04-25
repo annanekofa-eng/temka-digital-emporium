@@ -2018,9 +2018,9 @@ async function handleCallback(
   if (cmd === "accept_terms") return finalizeShop(tg, chatId, msgId);
   if (cmd === "copylink") {
     const shopId = parts[2];
-    const { data: shop } = await db().from("shops").select("id").eq("id", shopId).single();
+    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).single();
     if (shop) {
-      const url = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+      const url = shopWebAppUrl(shop);
       await tg.send(
         chatId,
         `📋 Ссылка на магазин:\n\n<code>${esc(url)}</code>\n\nНажми на ссылку выше чтобы скопировать.`,
@@ -4155,7 +4155,8 @@ async function handleAdmCallback(
   }
   if (cmd === "slink") {
     const shopId = parts[2];
-    const url = `${WEBAPP_DOMAIN}/shop/${shopId}`;
+    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).single();
+    const url = shop ? shopWebAppUrl(shop) : `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shopId)}`;
     await tg.send(chatId, `🔗 Storefront:\n\n<code>${esc(url)}</code>`);
     return;
   }
