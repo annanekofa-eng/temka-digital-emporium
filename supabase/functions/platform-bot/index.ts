@@ -483,7 +483,7 @@ async function setupSellerWebhook(botToken: string, shopId: string): Promise<{ o
         ],
       }),
     }).catch(() => {});
-    const webappUrl = `${Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app"}/shop/${shopId}`;
+    const webappUrl = `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shopId)}`;
     await fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -897,7 +897,7 @@ async function shopView(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     .from("shop_orders")
     .select("id", { count: "exact", head: true })
     .eq("shop_id", shopId);
-  const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+  const shopUrl = shopWebAppUrl(shop);
   const statusEmoji = shop.status === "active" ? "🟢" : "🔴";
   const botLine = shop.bot_username
     ? `\n🤖 Бот: @${shop.bot_username}\n\n✅ Mini App и кнопки в боте уже настроены — переходите в @${shop.bot_username} и продавайте!`
@@ -1578,7 +1578,7 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
   });
   await deactivateWizardMessages(tg, chatId, finalizingData, msgId);
   await clearSession(chatId);
-  const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
+  const shopUrl = shopWebAppUrl(shop);
   const helpBlock = `\n\n📘 <b>Центр помощи</b>\nЕсли возникнут вопросы по настройке и работе магазина:\nhttps://telegra.ph/Centr-pomoshchi-TeleStore-03-17`;
   const text = `🎉 <b>Магазин создан!</b>\n\nВот твоя ссылка:\n${esc(shopUrl)}${botStatusMsg}${trialMsg}${helpBlock}`;
   await tg.edit(
