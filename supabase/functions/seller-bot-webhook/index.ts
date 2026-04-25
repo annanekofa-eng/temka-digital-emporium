@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ─── Supabase (singleton per request) ─────
-let _db: any = null;
+let _db: ReturnType<typeof createClient> | null = null;
 const supabase = () => {
   if (!_db) _db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   return _db;
@@ -75,39 +74,7 @@ function escHtmlWelcome(raw: string, name: string): string {
 function renderWelcome(raw: string, name: string): string {
   return raw.replace(/\{name\}/gi, esc(name));
 }
-const DEFAULT_WEBAPP_DOMAIN = "https://id-preview--98332db7-c339-40e6-bdd9-715b91a3cfb5.lovable.app";
-const STALE_WEBAPP_HOSTS = new Set([
-  "telestore.lovable.app",
-  "temka-digital-vault.lovable.app",
-  "remix-of-temka-digital-hub-11.vercel.app",
-]);
-
-function getWebAppDomain(): string {
-  const raw = (Deno.env.get("WEBAPP_URL") || DEFAULT_WEBAPP_DOMAIN).trim().replace(/\/+$/, "");
-  try {
-    const parsed = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-    if (parsed.protocol !== "https:" || STALE_WEBAPP_HOSTS.has(parsed.hostname)) return DEFAULT_WEBAPP_DOMAIN;
-    return parsed.origin;
-  } catch {
-    return DEFAULT_WEBAPP_DOMAIN;
-  }
-}
-
-const WEBAPP_DOMAIN = getWebAppDomain();
-const shopWebAppUrl = (shop: { id: string; slug?: string | null }) => `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shop.slug || shop.id)}`;
-
-async function refreshShopMenuButton(botToken: string, shop: { id: string; slug?: string | null }) {
-  const url = shopWebAppUrl(shop);
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ menu_button: { type: "web_app", text: "🛍 Магазин", web_app: { url } } }),
-    });
-  } catch (e) {
-    console.error("refresh menu button failed:", e);
-  }
-}
+const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
@@ -1955,7 +1922,7 @@ serve(async (req) => {
             }).then(r => r.json());
             if (memberRes.ok && ["member", "administrator", "creator"].includes(memberRes.result.status)) {
               // Subscribed — show normal start
-              const shopUrl = shopWebAppUrl(shop);
+              const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
               const welcomeText = shop.welcome_message
                 ? renderWelcome(shop.welcome_message, cb.from?.first_name || "друг")
                 : `👋 Привет, <b>${esc(cb.from?.first_name || "друг")}</b>!\n\nДобро пожаловать в ${esc(shop.name)}!`;
@@ -2063,8 +2030,7 @@ serve(async (req) => {
         }
       }
 
-      const shopUrl = shopWebAppUrl(shop);
-      await refreshShopMenuButton(botToken, shop);
+      const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
 
       // Render welcome message — HTML is validated at save time, use as-is
       let greeting: string;
@@ -2103,7 +2069,7 @@ serve(async (req) => {
 
     // ─── /help — before FSM ─────────────────
     if (text === "/help") {
-      const shopUrl = shopWebAppUrl(shop);
+      const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
       const supportUrl = shop.support_link
         ? (shop.support_link.startsWith("http") ? shop.support_link : `https://${shop.support_link}`)
         : null;
@@ -2138,7 +2104,7 @@ serve(async (req) => {
     }
 
     // ─── Default ────────────────────────────
-    const shopUrl = shopWebAppUrl(shop);
+    const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
     await tg.send(chatId, `Используйте кнопку ниже для перехода в магазин 👇`, {
       inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url: shopUrl } }]],
     });

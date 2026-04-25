@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -118,8 +117,8 @@ const TG = (token: string) => {
 };
 
 // ─── Supabase (singleton per request, set in serve()) ─────
-let _db: any = null;
-const db = (): any => {
+let _db: ReturnType<typeof createClient> | null = null;
+const db = () => {
   if (!_db) _db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   return _db;
 };
@@ -133,25 +132,7 @@ const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const PLATFORM_NAME = "TeleStore";
-const DEFAULT_WEBAPP_DOMAIN = "https://id-preview--98332db7-c339-40e6-bdd9-715b91a3cfb5.lovable.app";
-const STALE_WEBAPP_HOSTS = new Set([
-  "temka-digital-vault.lovable.app",
-  "remix-of-temka-digital-hub-11.vercel.app",
-]);
-
-function getWebAppDomain(): string {
-  const raw = (Deno.env.get("WEBAPP_URL") || DEFAULT_WEBAPP_DOMAIN).trim().replace(/\/+$/, "");
-  try {
-    const parsed = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-    if (parsed.protocol !== "https:" || STALE_WEBAPP_HOSTS.has(parsed.hostname)) return DEFAULT_WEBAPP_DOMAIN;
-    return parsed.origin;
-  } catch {
-    return DEFAULT_WEBAPP_DOMAIN;
-  }
-}
-
-const WEBAPP_DOMAIN = getWebAppDomain();
-const shopWebAppUrl = (shop: { id: string; slug?: string | null }) => `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shop.slug || shop.id)}`;
+const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app";
 const SUPPORT_LINK_DEFAULT = "https://t.me/TeleStoreHelp";
 
 async function getSupportLink(): Promise<string> {
@@ -484,8 +465,7 @@ async function setupSellerWebhook(botToken: string, shopId: string): Promise<{ o
         ],
       }),
     }).catch(() => {});
-    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).maybeSingle();
-    const webappUrl = shopWebAppUrl(shop || { id: shopId });
+    const webappUrl = `${Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app"}/shop/${shopId}`;
     await fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -899,7 +879,7 @@ async function shopView(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     .from("shop_orders")
     .select("id", { count: "exact", head: true })
     .eq("shop_id", shopId);
-  const shopUrl = shopWebAppUrl(shop);
+  const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
   const statusEmoji = shop.status === "active" ? "🟢" : "🔴";
   const botLine = shop.bot_username
     ? `\n🤖 Бот: @${shop.bot_username}\n\n✅ Mini App и кнопки в боте уже настроены — переходите в @${shop.bot_username} и продавайте!`
@@ -1580,7 +1560,7 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
   });
   await deactivateWizardMessages(tg, chatId, finalizingData, msgId);
   await clearSession(chatId);
-  const shopUrl = shopWebAppUrl(shop);
+  const shopUrl = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
   const helpBlock = `\n\n📘 <b>Центр помощи</b>\nЕсли возникнут вопросы по настройке и работе магазина:\nhttps://telegra.ph/Centr-pomoshchi-TeleStore-03-17`;
   const text = `🎉 <b>Магазин создан!</b>\n\nВот твоя ссылка:\n${esc(shopUrl)}${botStatusMsg}${trialMsg}${helpBlock}`;
   await tg.edit(
@@ -2020,9 +2000,9 @@ async function handleCallback(
   if (cmd === "accept_terms") return finalizeShop(tg, chatId, msgId);
   if (cmd === "copylink") {
     const shopId = parts[2];
-    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).single();
+    const { data: shop } = await db().from("shops").select("id").eq("id", shopId).single();
     if (shop) {
-      const url = shopWebAppUrl(shop);
+      const url = `${WEBAPP_DOMAIN}/shop/${shop.id}`;
       await tg.send(
         chatId,
         `📋 Ссылка на магазин:\n\n<code>${esc(url)}</code>\n\nНажми на ссылку выше чтобы скопировать.`,
@@ -4157,8 +4137,7 @@ async function handleAdmCallback(
   }
   if (cmd === "slink") {
     const shopId = parts[2];
-    const { data: shop } = await db().from("shops").select("id, slug").eq("id", shopId).single();
-    const url = shop ? shopWebAppUrl(shop) : `${WEBAPP_DOMAIN}/shop/${encodeURIComponent(shopId)}`;
+    const url = `${WEBAPP_DOMAIN}/shop/${shopId}`;
     await tg.send(chatId, `🔗 Storefront:\n\n<code>${esc(url)}</code>`);
     return;
   }

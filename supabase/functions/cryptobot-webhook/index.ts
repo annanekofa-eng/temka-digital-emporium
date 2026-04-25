@@ -338,7 +338,7 @@ async function handleOrderPayment(supabase: any, invoice: any, orderData: any) {
     });
   }
 
-  await deliverInventory(supabase, orderData.orderId, "order_items", "product_title", "reserve_inventory", "inventory_items", "products", order.telegram_id, order.order_number, balanceUsed, invoice, Deno.env.get("TELEGRAM_BOT_TOKEN") ?? null, "orders");
+  await deliverInventory(supabase, orderData.orderId, "order_items", "product_title", "reserve_inventory", "inventory_items", "products", order.telegram_id, order.order_number, balanceUsed, invoice, Deno.env.get("TELEGRAM_BOT_TOKEN"), "orders");
 }
 
 // ─── Shop order payment (tenant-scoped balance) ──

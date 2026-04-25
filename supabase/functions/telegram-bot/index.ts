@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1199,14 +1198,10 @@ serve(async (req) => {
 
     // /start
     if (text === "/start") {
-      const fallbackUrl = "https://id-preview--98332db7-c339-40e6-bdd9-715b91a3cfb5.lovable.app";
-      const staleHosts = new Set(["temka-digital-vault.lovable.app", "remix-of-temka-digital-hub-11.vercel.app"]);
-      let webAppUrl = (Deno.env.get("WEBAPP_URL") || fallbackUrl).trim().replace(/\/+$/, "");
-      try {
-        const parsed = new URL(webAppUrl.startsWith("http") ? webAppUrl : `https://${webAppUrl}`);
-        webAppUrl = parsed.protocol === "https:" && !staleHosts.has(parsed.hostname) ? parsed.origin : fallbackUrl;
-      } catch {
-        webAppUrl = fallbackUrl;
+      let webAppUrl = Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app";
+      // Ensure URL has https:// prefix
+      if (!webAppUrl.startsWith("http://") && !webAppUrl.startsWith("https://")) {
+        webAppUrl = `https://${webAppUrl}`;
       }
       const { data: supportSetting } = await db().from("shop_settings").select("value").eq("key", "support_username").maybeSingle();
       const support = supportSetting?.value || "TeleStoreHelp";
