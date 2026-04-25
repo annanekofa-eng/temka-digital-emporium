@@ -325,16 +325,17 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 }
 
 // ─── Platform order payment ─────────────────────
-async function handleOrderPayment(supabase: any, invoice: any, orderData: any) {
+async function handleOrderPayment(supabase: any, invoice: any, orderData: any): Promise<boolean> {
   const { data: order } = await supabase.from("orders")
     .select("id, status, payment_status, promo_code, balance_used, telegram_id, order_number")
     .eq("id", orderData.orderId).single();
-  if (!order || order.payment_status === "paid") return;
+  if (!order) return false;
+  if (order.payment_status === "paid") return true; // already done — safe to mark processed
 
   const { data: updatedRows } = await supabase.from("orders")
     .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
     .eq("id", orderData.orderId).neq("payment_status", "paid").select("id");
-  if (!updatedRows?.length) return;
+  if (!updatedRows?.length) return true; // someone else won the race — also safe
 
   if (order.promo_code) await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
 
@@ -348,19 +349,21 @@ async function handleOrderPayment(supabase: any, invoice: any, orderData: any) {
   }
 
   await deliverInventory(supabase, orderData.orderId, "order_items", "product_title", "reserve_inventory", "inventory_items", "products", order.telegram_id, order.order_number, balanceUsed, invoice, Deno.env.get("TELEGRAM_BOT_TOKEN"), "orders");
+  return true;
 }
 
 // ─── Shop order payment (tenant-scoped balance) ──
-async function handleShopOrderPayment(supabase: any, invoice: any, orderData: any, shopId: string) {
+async function handleShopOrderPayment(supabase: any, invoice: any, orderData: any, shopId: string): Promise<boolean> {
   const { data: order } = await supabase.from("shop_orders")
     .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, promo_code, discount_amount")
     .eq("id", orderData.orderId).single();
-  if (!order || order.payment_status === "paid") return;
+  if (!order) return false;
+  if (order.payment_status === "paid") return true;
 
   const { data: updatedRows } = await supabase.from("shop_orders")
     .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
     .eq("id", orderData.orderId).neq("payment_status", "paid").select("id");
-  if (!updatedRows?.length) return;
+  if (!updatedRows?.length) return true;
 
   // Shop promo increment
   if (order.promo_code) {
@@ -398,6 +401,7 @@ async function handleShopOrderPayment(supabase: any, invoice: any, orderData: an
   } catch (e) {
     console.error("Referral credit error:", e);
   }
+  return true;
 }
 
 // ─── Shared delivery logic ──────────────────────
