@@ -558,6 +558,12 @@ serve(async (req) => {
           const m = String(order.pay_url || "").match(/[?&]amount=(\d+)/);
           if (m) requiredNano = BigInt(m[1]);
         } catch { /* ignore */ }
+        // Fail-safe: if we couldn't recover the required amount, refuse to confirm
+        // (otherwise any tiny TX with the right memo would mark the order paid).
+        if (requiredNano <= 0n) {
+          console.warn(`[check-payment][ton] missing requiredNano for order=${orderId}`);
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
         // Cancel order if older than 30 min and unpaid (matches typical TX confirmation window)
         const orderAgeMs = Date.now() - new Date(order.created_at).getTime();
         const TON_ORDER_TTL_MS = 30 * 60 * 1000;
@@ -580,10 +586,22 @@ serve(async (req) => {
         for (const tx of txs) {
           const inMsg = tx?.in_msg;
           if (!inMsg) continue;
-          const comment: string = String(inMsg?.decoded_body?.text || inMsg?.message || "").trim();
-          if (comment !== memo) continue;
+          // TonAPI v2 exposes the text comment in several possible locations
+          // depending on the wallet/version. Try each in order.
+          let comment = "";
+          if (inMsg?.decoded_op_name === "text_comment" && inMsg?.decoded_body?.text) {
+            comment = String(inMsg.decoded_body.text);
+          } else if (typeof inMsg?.message === "string") {
+            comment = inMsg.message;
+          } else if (typeof inMsg?.comment === "string") {
+            comment = inMsg.comment;
+          } else if (inMsg?.decoded_body?.text) {
+            comment = String(inMsg.decoded_body.text);
+          }
+          comment = comment.trim();
+          if (!comment || comment !== memo) continue;
           const value = BigInt(inMsg?.value ?? 0);
-          if (requiredNano > 0n && value < requiredNano) continue; // amount too low
+          if (value < requiredNano) continue; // amount too low
           foundTxHash = String(tx?.hash || "");
           receivedNano = value;
           break;
