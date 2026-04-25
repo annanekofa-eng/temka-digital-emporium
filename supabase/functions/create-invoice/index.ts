@@ -63,7 +63,7 @@ serve(async (req) => {
 
     let tokens;
     try { tokens = await resolveTokens(supabase, shopId); }
-    catch (e) { return jsonRes({ error: e.message }, 500); }
+    catch (e: any) { return jsonRes({ error: e?.message ?? String(e) }, 500); }
 
     if (!tokens.botToken) return jsonRes({ error: "Bot not configured" }, 500);
     if (!initData) return jsonRes({ error: "Authentication required" }, 401);

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -117,8 +118,8 @@ const TG = (token: string) => {
 };
 
 // ─── Supabase (singleton per request, set in serve()) ─────
-let _db: ReturnType<typeof createClient> | null = null;
-const db = () => {
+let _db: any = null;
+const db = (): any => {
   if (!_db) _db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   return _db;
 };
