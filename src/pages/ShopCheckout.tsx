@@ -233,8 +233,6 @@ const ShopCheckout = () => {
           memo={tonInvoice.memo}
           toPayUsd={toPay > 0 ? toPay : tonInvoice.tonAmount * tonInvoice.usdPerTon}
           usdPerTon={tonInvoice.usdPerTon}
-          isInTelegram={isInTelegram}
-          onOpenLink={openTelegramLink}
           onBack={() => setTonInvoice(null)}
           onContinue={() => navigate(`${buildPath('/order-status')}?order=${tonInvoice.orderNumber}`)}
         />
