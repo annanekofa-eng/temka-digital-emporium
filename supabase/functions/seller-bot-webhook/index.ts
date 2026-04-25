@@ -589,10 +589,17 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const sbp = byMethod.get("sbp_card");
   const sbpEnabled = Boolean(sbp?.enabled);
   const sbpCfg = (sbp?.config_masked || {}) as Record<string, string>;
+  const stars = byMethod.get("stars");
+  const starsEnabled = Boolean(stars?.enabled);
+  const starsCfg = (stars?.config_masked || {}) as Record<string, any>;
+  const starsRate = Number(starsCfg.usd_per_star || 0);
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Карта/СБП: <b>${sbpEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
+  t += `• Telegram Stars: <b>${starsEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
+  t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
     t += `Банк: ${esc(sbpCfg.bankName || "—")}\n`;
@@ -600,11 +607,16 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
     t += `Получатель: ${esc(sbpCfg.recipientName || "—")}\n`;
     t += `Телефон: ${esc(sbpCfg.phone || "—")}\n`;
   }
+  if (starsEnabled || starsRate > 0) {
+    t += `\n<i>💡 Stars зачисляются на баланс вашего бота. Вывести их можно через @PremiumBot (Stars → TON).</i>\n`;
+  }
 
   return tg.edit(cid, mid, t, ikb([
     [btn(cbEnabled ? "🟢 CryptoBot ON" : "⚪️ CryptoBot OFF", "s:paytoggle:cryptobot")],
     [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
+    [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
     [btn("✏️ Реквизиты СБП", "s:setsbp")],
+    [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
     [btn("🔑 Токен CryptoBot", "s:setcb")],
     [btn("◀️ К настройкам", "s:se")],
   ]));
@@ -1182,6 +1194,36 @@ async function handleFSM(tg: ReturnType<typeof TG>, cid: number, val: string, ph
     return true;
   }
 
+  // ─── Set Stars exchange rate (USD per 1 star) ──────────────────
+  if (state === "s_set_stars_rate") {
+    const raw = val.replace(",", ".").trim();
+    const rate = Number(raw);
+    if (!isFinite(rate) || rate <= 0 || rate > 10) {
+      await tg.send(cid, "❌ Введите положительное число (USD за 1 ⭐). Пример: <code>0.013</code>");
+      return true;
+    }
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled")
+      .eq("shop_id", shopId).eq("method", "stars").maybeSingle();
+    const cfg = { ...((existing?.config_masked as any) || {}), usd_per_star: rate };
+    await supabase().from("shop_payment_methods").upsert({
+      shop_id: shopId,
+      method: "stars",
+      enabled: existing?.enabled ?? true,
+      config_masked: cfg,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "shop_id,method" });
+    await logAction(shopId, cid, "set_stars_rate", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Курс сохранён: <b>1 ⭐ = $${rate.toFixed(4)}</b>\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]])
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
@@ -1641,8 +1683,18 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "paym") return paymentMethodsView(tg, cid, mid, shopId);
     if (cmd === "paytoggle") {
       const method = parts[2];
-      const { data: row } = await supabase().from("shop_payment_methods").select("enabled").eq("shop_id", shopId).eq("method", method).maybeSingle();
+      const { data: row } = await supabase().from("shop_payment_methods").select("enabled, config_masked").eq("shop_id", shopId).eq("method", method).maybeSingle();
       const enabled = !(row?.enabled);
+      // Guard: Stars require usd_per_star rate before enabling
+      if (method === "stars" && enabled) {
+        const rate = Number((row?.config_masked as any)?.usd_per_star || 0);
+        if (!(rate > 0)) {
+          await tg.answer(cbId, "Сначала задайте курс Stars").catch(() => null);
+          await setSession(cid, "s_set_stars_rate", shopId, {});
+          await tg.send(cid, "⭐ <b>Установка курса Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n/cancel — отмена");
+          return;
+        }
+      }
       await supabase().from("shop_payment_methods").upsert({
         shop_id: shopId,
         method,
@@ -1655,6 +1707,15 @@ async function handleCallback(tg: ReturnType<typeof TG>, cid: number, mid: numbe
     if (cmd === "setsbp") {
       await setSession(cid, "s_set_sbp_bank", shopId, {});
       return tg.send(cid, "🏦 Введите название банка для СБП:");
+    }
+    if (cmd === "setstars") {
+      await setSession(cid, "s_set_stars_rate", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "⭐ <b>Курс Telegram Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически: <code>звёзды = ceil(сумма_в_$ / курс)</code>.\n\n💡 <i>Stars начисляются вашему боту. Вывод — через @PremiumBot (Stars → TON).</i>\n\n/cancel — отмена",
+        ikb([[btn("❌ Отмена", "s:paym")]])
+      );
     }
     if (cmd === "rql") return paymentRequestsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
     if (cmd === "rqv") return paymentRequestView(tg, cid, mid, shopId, parts[2], botToken);

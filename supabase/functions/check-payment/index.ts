@@ -390,6 +390,11 @@ serve(async (req) => {
 
     if (order.payment_status === "paid") return jsonRes({ status: order.status, paymentStatus: "paid" });
     if (!order.invoice_id) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+    // Stars orders are settled by the seller-bot webhook (`successful_payment`). 
+    // Don't poll CryptoBot for them — just return the current DB state.
+    if (order.payment_method === "stars") {
+      return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+    }
     if (!tokens.cryptobotToken) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
 
     // Poll CryptoBot

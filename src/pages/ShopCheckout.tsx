@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import sbpLogo from '@/assets/sbp-logo.png';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X } from 'lucide-react';
+import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet, AlertTriangle, Upload, Copy, Check, X, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/contexts/ShopContext';
 import { useTelegram } from '@/contexts/TelegramContext';
@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useExchangeRate, formatRub } from '@/hooks/useExchangeRate';
 import { useQuery } from '@tanstack/react-query';
 
-type PaymentMethod = 'cryptobot' | 'sbp';
+type PaymentMethod = 'cryptobot' | 'sbp' | 'stars';
 
 type SbpDetails = {
   bankName: string;
@@ -24,7 +24,7 @@ type SbpDetails = {
 
 const ShopCheckout = () => {
   const { cart, clearCart, cartTotal, shop, discount, totalAfterDiscount, promoResult } = useShop();
-  const { user, isInTelegram, openTelegramLink, haptic, initData } = useTelegram();
+  const { user, isInTelegram, openTelegramLink, openInvoice, haptic, initData } = useTelegram();
   const navigate = useNavigate();
   const buildPath = useStorefrontPath();
   const shopId = shop?.id;
@@ -45,6 +45,27 @@ const ShopCheckout = () => {
   const balance = Number(profile?.balance || 0);
   const balanceUsed = Math.min(balance, totalAfterDiscount);
   const toPay = Math.max(0, totalAfterDiscount - balanceUsed);
+
+  // Available payment methods for this shop (from shop_payment_methods)
+  const { data: paymentMethods } = useQuery({
+    queryKey: ['shop-payment-methods', shopId],
+    queryFn: async () => {
+      if (!shopId) return [] as Array<{ method: string; enabled: boolean; config_masked: any }>;
+      const { data, error } = await supabase
+        .from('shop_payment_methods')
+        .select('method, enabled, config_masked')
+        .eq('shop_id', shopId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!shopId,
+    staleTime: 60_000,
+  });
+
+  const starsMethod = paymentMethods?.find(m => m.method === 'stars' && m.enabled);
+  const usdPerStar = Number((starsMethod?.config_masked as any)?.usd_per_star || 0);
+  const starsAvailable = Boolean(starsMethod) && usdPerStar > 0;
+  const starsAmount = starsAvailable && toPay > 0 ? Math.max(1, Math.ceil(toPay / usdPerStar)) : 0;
 
   const { data: sbpDetails, isLoading: sbpDetailsLoading } = useQuery<SbpDetails | null>({
     queryKey: ['shop-sbp-details', shopId],
@@ -198,6 +219,41 @@ const ShopCheckout = () => {
         haptic.notification('success');
         clearCart();
         navigate(`${buildPath('/order-success')}?order=${data?.orderNumber || orderNumber}`);
+      } else if (paymentMethod === 'stars') {
+        // ── Telegram Stars ─────────────────────────────────────
+        if (!isInTelegram) {
+          throw new Error('Оплата Stars доступна только в Telegram Mini App');
+        }
+        const starsOrderNumber = `ST-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-stars-invoice', {
+          body: {
+            initData,
+            shopId,
+            orderNumber: starsOrderNumber,
+            items: itemsPayload,
+            balanceUsed,
+            promoCode: promoResult?.code || null,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!data?.invoiceLink) throw new Error('Не удалось создать инвойс Stars');
+
+        const finalOrderNumber = data.orderNumber || starsOrderNumber;
+        // Open native Telegram Stars invoice
+        openInvoice(data.invoiceLink, (status: string) => {
+          if (status === 'paid') {
+            haptic.notification('success');
+            clearCart();
+            navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+          } else if (status === 'cancelled' || status === 'failed') {
+            haptic.notification('error');
+            setError(status === 'failed' ? 'Оплата Stars не прошла' : 'Оплата отменена');
+          } else {
+            // pending — just go to status page
+            navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+          }
+        });
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: { initData, amount: toPay.toFixed(2), currency: 'USD', description, orderNumber, items: itemsPayload, shopId, balanceUsed, promoCode: promoResult?.code || null },
@@ -377,7 +433,7 @@ const ShopCheckout = () => {
           </div>
 
           {toPay > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${starsAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {/* CryptoBot */}
               <button
                 onClick={() => { setPaymentMethod('cryptobot'); setSbpStep('details'); }}
@@ -405,6 +461,24 @@ const ShopCheckout = () => {
                 <div className={`text-sm font-medium ${paymentMethod === 'sbp' ? 'text-primary' : 'text-foreground'}`}>СБП</div>
                 <div className="text-[10px] text-muted-foreground mt-0.5">Перевод по карте</div>
               </button>
+
+              {/* Telegram Stars */}
+              {starsAvailable && (
+                <button
+                  onClick={() => { setPaymentMethod('stars'); setSbpStep('details'); }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    paymentMethod === 'stars'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                      : 'border-border/30 bg-secondary/30 hover:border-primary/30'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg mx-auto mb-1 flex items-center justify-center bg-primary/10">
+                    <Star className="w-5 h-5 text-primary fill-primary" />
+                  </div>
+                  <div className={`text-sm font-medium ${paymentMethod === 'stars' ? 'text-primary' : 'text-foreground'}`}>Stars</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{starsAmount} ⭐</div>
+                </button>
+              )}
             </div>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
@@ -417,7 +491,13 @@ const ShopCheckout = () => {
           {/* Подпись под выбранным методом */}
           {toPay > 0 && balanceUsed > 0 && (
             <div className="text-[10px] text-muted-foreground text-center mt-2">
-              ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} через {paymentMethod === 'cryptobot' ? 'CryptoBot' : 'СБП'}
+              ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} через {paymentMethod === 'cryptobot' ? 'CryptoBot' : paymentMethod === 'sbp' ? 'СБП' : `Stars (${starsAmount} ⭐)`}
+            </div>
+          )}
+
+          {paymentMethod === 'stars' && toPay > 0 && (
+            <div className="text-[10px] text-muted-foreground text-center mt-2">
+              К оплате: <span className="text-primary font-semibold">{starsAmount} ⭐</span> · курс 1 ⭐ = ${usdPerStar.toFixed(4)}
             </div>
           )}
         </div>
@@ -538,10 +618,12 @@ const ShopCheckout = () => {
               size="lg"
               className="w-full"
               onClick={handleCheckout}
-              disabled={processing || (toPay > 0 && paymentMethod === 'cryptobot' && shop?.paymentsConfigured === false)}
+              disabled={processing || (toPay > 0 && paymentMethod === 'cryptobot' && shop?.paymentsConfigured === false) || (toPay > 0 && paymentMethod === 'stars' && !starsAvailable)}
             >
               {processing ? (
                 <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Создание заказа...</span>
+              ) : toPay > 0 && paymentMethod === 'stars' ? (
+                <><Star className="w-4 h-4 mr-1 fill-current" /> Оплатить — {starsAmount} ⭐</>
               ) : toPay > 0 ? (
                 <><Lock className="w-4 h-4 mr-1" /> Оплатить — ${toPay.toFixed(2)} {rubRate && <span className="opacity-80 text-sm ml-1">≈{formatRub(toPay, rubRate)}</span>}</>
               ) : (
