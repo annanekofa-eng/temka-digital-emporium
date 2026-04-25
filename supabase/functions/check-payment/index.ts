@@ -7,6 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const CRYPTOBOT_API_URL = "https://pay.crypt.bot/api";
+const XROCKET_API_URL = "https://pay.xrocket.tg/";
 const TOPUP_COMMENT_PREFIX = "Пополнение через CryptoBot";
 
 const jsonRes = (data: unknown, status = 200) =>
@@ -394,6 +395,136 @@ serve(async (req) => {
     // Don't poll CryptoBot for them — just return the current DB state.
     if (order.payment_method === "stars") {
       return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+    }
+    // ── xRocket Pay polling (shop orders only) ────────────────
+    if (isShop && order.payment_method === "xrocket") {
+      try {
+        const ek = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+        if (!ek) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        const { data: xrMethod } = await supabase
+          .from("shop_payment_methods")
+          .select("config_encrypted")
+          .eq("shop_id", shopId)
+          .eq("method", "xrocket")
+          .maybeSingle();
+        if (!xrMethod?.config_encrypted) {
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
+        const { data: xrToken } = await supabase.rpc("decrypt_token", { p_encrypted: xrMethod.config_encrypted, p_key: ek });
+        if (!xrToken) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+
+        const xrRes = await fetch(`${XROCKET_API_URL}tg-invoices/${encodeURIComponent(order.invoice_id)}`, {
+          headers: { "Rocket-Pay-Key": xrToken },
+        });
+        const xrData = await xrRes.json().catch(() => ({}));
+        if (!xrRes.ok || xrData?.success !== true || !xrData?.data) {
+          return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+        }
+        const inv = xrData.data;
+        // status: 'active' | 'paid' | 'expired'
+        const xrStatus = String(inv.status || "").toLowerCase();
+        const isPaid = xrStatus === "paid" || (Array.isArray(inv.payments) && inv.payments.length > 0);
+
+        if (isPaid && order.payment_status !== "paid") {
+          const telegramId = order.buyer_telegram_id;
+          const resolvedShopId = tokens.resolvedShopId || shopId;
+
+          // Idempotency
+          const { error: dedupError } = await supabase.from("processed_invoices").insert({
+            invoice_id: `xr:${order.invoice_id}`, type: "payment", order_id: orderId,
+            telegram_id: telegramId, amount: Number(order.total_amount) || 0,
+          });
+          if (dedupError) return jsonRes({ status: "paid", paymentStatus: "paid" });
+
+          const { data: updatedRows } = await supabase.from("shop_orders")
+            .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
+            .eq("id", orderId).neq("payment_status", "paid").select("id");
+          if (!updatedRows?.length) return jsonRes({ status: "paid", paymentStatus: "paid" });
+
+          // Promo increment
+          if (order.promo_code) {
+            await supabase.rpc("increment_shop_promo_usage", { p_shop_id: resolvedShopId, p_code: order.promo_code });
+          }
+
+          // Balance deduction
+          const balanceUsed = Number(order.balance_used || 0);
+          if (balanceUsed > 0) {
+            const { data: nb, error: be } = await supabase.rpc("shop_deduct_balance", {
+              p_shop_id: resolvedShopId, p_telegram_id: telegramId, p_amount: balanceUsed,
+            });
+            if (!be) {
+              const promoInfo = order.promo_code ? ` (промо ${order.promo_code}, скидка $${Number(order.discount_amount || 0).toFixed(2)})` : "";
+              await supabase.from("shop_balance_history").insert({
+                shop_id: resolvedShopId, telegram_id: telegramId, amount: -balanceUsed, balance_after: nb,
+                type: "purchase", comment: `Заказ ${order.order_number}${promoInfo}`, admin_telegram_id: telegramId,
+              });
+            }
+          }
+
+          // Inventory reservation
+          const { data: orderItems } = await supabase.from("shop_order_items")
+            .select("product_id, quantity, product_name").eq("order_id", orderId);
+          const deliveredContent: string[] = [];
+          let allDelivered = true;
+          if (orderItems) {
+            for (const item of orderItems) {
+              const { data: reserved } = await supabase.rpc("reserve_shop_inventory", {
+                p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
+              });
+              if (reserved?.length) {
+                deliveredContent.push(`📦 <b>${item.product_name}</b> (×${reserved.length}):\n${reserved.map((i: any) => `<code>${i.content}</code>`).join("\n")}`);
+                const { count: remaining } = await supabase.from("shop_inventory").select("id", { count: "exact", head: true })
+                  .eq("product_id", item.product_id).eq("status", "available");
+                await supabase.from("shop_products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
+                if (reserved.length < item.quantity) allDelivered = false;
+              } else { allDelivered = false; }
+            }
+          }
+
+          const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
+          if (finalStatus !== "paid") {
+            await supabase.from("shop_orders").update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("id", orderId);
+          }
+
+          // Referral credit (USD-based)
+          try {
+            const refAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
+            if (refAmount > 0) {
+              await supabase.rpc("shop_credit_referral_for_order", {
+                p_shop_id: resolvedShopId,
+                p_order_id: orderId,
+                p_referred_telegram_id: telegramId,
+                p_order_amount: refAmount,
+              });
+            }
+          } catch (e) { console.error("xrocket referral credit error:", e); }
+
+          // TG notification
+          if (tokens.botToken) {
+            let message = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)} (через xRocket)\n`;
+            if (balanceUsed > 0) message += `💳 С баланса: $${balanceUsed.toFixed(2)}\n`;
+            if (deliveredContent.length > 0) {
+              message += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;
+            } else { message += `\nВаш товар будет доставлен в ближайшее время.`; }
+            message += `\n\nСпасибо за покупку!`;
+            await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: telegramId, text: message, parse_mode: "HTML" }),
+            });
+          }
+
+          return jsonRes({ status: finalStatus, paymentStatus: "paid" });
+        }
+
+        if (xrStatus === "expired") {
+          await supabase.from("shop_orders").update({ status: "cancelled", payment_status: "expired", updated_at: new Date().toISOString() }).eq("id", orderId);
+          return jsonRes({ status: "cancelled", paymentStatus: "expired" });
+        }
+        return jsonRes({ status: order.status, paymentStatus: order.payment_status, invoiceStatus: xrStatus });
+      } catch (e) {
+        console.error("xrocket check error:", e);
+        return jsonRes({ status: order.status, paymentStatus: order.payment_status });
+      }
     }
     if (!tokens.cryptobotToken) return jsonRes({ status: order.status, paymentStatus: order.payment_status });
 

@@ -870,12 +870,22 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const starsEnabled = Boolean(stars?.enabled);
   const starsCfg = (stars?.config_masked || {}) as Record<string, any>;
   const starsRate = Number(starsCfg.usd_per_star || 0);
+  const xr = byMethod.get("xrocket");
+  const xrEnabled = Boolean(xr?.enabled);
+  const xrCfg = (xr?.config_masked || {}) as Record<string, any>;
+  const xrCurrencies: string[] = Array.isArray(xrCfg.currencies) && xrCfg.currencies.length > 0
+    ? xrCfg.currencies.map((s: any) => String(s).toUpperCase())
+    : ["USDT", "TONCOIN", "BTC"];
+  const xrTokenSet = Boolean((xr as any)?.config_encrypted) || Boolean(xrCfg.token_set);
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Карта/СБП: <b>${sbpEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Telegram Stars: <b>${starsEnabled ? "✅ включён" : "❌ выключен"}</b>`;
   if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
+  t += `\n`;
+  t += `• xRocket Pay: <b>${xrEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (xrTokenSet) t += ` · валюты: <code>${xrCurrencies.join(", ")}</code>`;
   t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
@@ -887,6 +897,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (starsEnabled || starsRate > 0) {
     t += `\n<i>💡 Stars зачисляются на баланс вашего бота. Вывести их можно через @PremiumBot (Stars → TON).</i>\n`;
   }
+  if (xrTokenSet || xrEnabled) {
+    t += `\n<i>💡 xRocket Pay: средства поступают на счёт вашего приложения в @xRocket. Курс к USD считается автоматически на момент оплаты.</i>\n`;
+  }
 
   return tg.edit(
     cid,
@@ -896,9 +909,12 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
       [btn(cbEnabled ? "🟢 CryptoBot ON" : "⚪️ CryptoBot OFF", "s:paytoggle:cryptobot")],
       [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
       [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
+      [btn(xrEnabled ? "🟢 xRocket ON" : "⚪️ xRocket OFF", "s:paytoggle:xrocket")],
       [btn("✏️ Реквизиты СБП", "s:setsbp")],
       [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
       [btn("🔑 Токен CryptoBot", "s:setcb")],
+      [btn(`🚀 Токен xRocket${xrTokenSet ? " ✅" : ""}`, "s:setxr")],
+      [btn("🪙 Валюты xRocket", "s:setxrcur")],
       [btn("◀️ К настройкам", "s:se")],
     ]),
   );
@@ -1766,6 +1782,82 @@ async function handleFSM(
     return true;
   }
 
+  // ─── Set xRocket Pay API token ──────────────────
+  if (state === "s_set_xrocket_token") {
+    const token = val.trim();
+    if (token.length < 16 || /\s/.test(token)) {
+      await tg.send(cid, "❌ Похоже, это не API-ключ. Попробуйте снова или /cancel.");
+      return true;
+    }
+    const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+    if (!encKey) { await tg.send(cid, "❌ Ошибка конфигурации."); return true; }
+    const { data: enc } = await supabase().rpc("encrypt_token", { p_token: token, p_key: encKey });
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled")
+      .eq("shop_id", shopId)
+      .eq("method", "xrocket")
+      .maybeSingle();
+    const cfg = {
+      ...((existing?.config_masked as any) || {}),
+      token_set: true,
+      currencies: (existing?.config_masked as any)?.currencies || ["USDT", "TONCOIN", "BTC"],
+    };
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "xrocket",
+        enabled: existing?.enabled ?? true,
+        config_encrypted: enc, config_masked: cfg,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_xrocket_token", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Токен xRocket сохранён!\n\nВалюты по умолчанию: <code>${(cfg.currencies as string[]).join(", ")}</code>\nИзменить — кнопка «🪙 Валюты xRocket».`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
+  // ─── Set xRocket Pay accepted currencies ──────────────────
+  if (state === "s_set_xrocket_currencies") {
+    const allowed = ["USDT","TONCOIN","BTC","ETH","BNB","TRX","SOL","NOT","HMSTR","DOGS","CATI","MAJOR","PX"];
+    const list = val.toUpperCase().split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    const filtered = Array.from(new Set(list.filter((c) => allowed.includes(c))));
+    if (filtered.length === 0) {
+      await tg.send(cid, `❌ Не распознано ни одной валюты. Допустимы: ${allowed.join(", ")}.`);
+      return true;
+    }
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("config_masked, enabled, config_encrypted")
+      .eq("shop_id", shopId)
+      .eq("method", "xrocket")
+      .maybeSingle();
+    const cfg = { ...((existing?.config_masked as any) || {}), currencies: filtered };
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "xrocket",
+        enabled: existing?.enabled ?? false,
+        config_masked: cfg,
+        ...(existing?.config_encrypted ? {} : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_xrocket_currencies", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Валюты xRocket обновлены: <code>${filtered.join(", ")}</code>`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
@@ -2531,6 +2623,25 @@ async function handleCallback(
           return;
         }
       }
+      // Guard: xRocket requires API token before enabling
+      if (method === "xrocket" && enabled) {
+        const { data: full } = await supabase()
+          .from("shop_payment_methods")
+          .select("config_encrypted")
+          .eq("shop_id", shopId)
+          .eq("method", "xrocket")
+          .maybeSingle();
+        if (!full?.config_encrypted) {
+          await tg.answer(cbId, "Сначала укажите токен xRocket Pay").catch(() => null);
+          await setSession(cid, "s_set_xrocket_token", shopId, {});
+          await tg.send(
+            cid,
+            "🚀 <b>Подключение xRocket Pay</b>\n\nОтправьте API-ключ от вашего <b>xRocket Pay</b>-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → My Apps\n2. Создайте приложение (или выберите своё) → API Keys → Create\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
+            ikb([[btn("❌ Отмена", "s:paym")]]),
+          );
+          return;
+        }
+      }
       await supabase().from("shop_payment_methods").upsert(
         {
           shop_id: shopId,
@@ -2553,6 +2664,24 @@ async function handleCallback(
       return tg.send(
         cid,
         "⭐ <b>Курс Telegram Stars</b>\n\nСколько <b>USD стоит 1 звезда</b>?\nПример: <code>0.013</code>\n\nЦена товара в $ будет конвертирована автоматически.\n\n💡 <i>Stars начисляются вашему боту. <a href=\"https://vc.ru/telegram/2729012-vydvod-telegram-stars\">Инструкция по выводу Stars</a>.</i>\n\n/cancel — отмена.",
+        ikb([[btn("❌ Отмена", "s:paym")]]),
+      );
+    }
+    if (cmd === "setxr") {
+      await setSession(cid, "s_set_xrocket_token", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "🚀 <b>Токен xRocket Pay</b>\n\nОтправьте API-ключ от вашего xRocket Pay-приложения.\n\n<b>Где взять:</b>\n1. Откройте <a href=\"https://t.me/xrocket\">@xRocket</a> → Pay → My Apps\n2. Создайте приложение → API Keys → Create\n3. Скопируйте ключ и пришлите сюда.\n\n💡 Курс к USD рассчитывается автоматически на момент оплаты.\n\n/cancel — отмена.",
+        ikb([[btn("❌ Отмена", "s:paym")]]),
+      );
+    }
+    if (cmd === "setxrcur") {
+      await setSession(cid, "s_set_xrocket_currencies", shopId, {});
+      await tg.deleteMessage(cid, mid).catch(() => null);
+      return tg.send(
+        cid,
+        "🪙 <b>Валюты xRocket</b>\n\nПеречислите тикеры через запятую — какие валюты предлагать покупателю.\n\nПример: <code>USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT</code>\n\nДоступны: USDT, TONCOIN, BTC, ETH, BNB, TRX, SOL, NOT, HMSTR, DOGS, CATI, MAJOR, PX.\n\n/cancel — отмена.",
         ikb([[btn("❌ Отмена", "s:paym")]]),
       );
     }
