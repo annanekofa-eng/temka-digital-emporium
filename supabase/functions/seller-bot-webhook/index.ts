@@ -589,10 +589,17 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const sbp = byMethod.get("sbp_card");
   const sbpEnabled = Boolean(sbp?.enabled);
   const sbpCfg = (sbp?.config_masked || {}) as Record<string, string>;
+  const stars = byMethod.get("stars");
+  const starsEnabled = Boolean(stars?.enabled);
+  const starsCfg = (stars?.config_masked || {}) as Record<string, any>;
+  const starsRate = Number(starsCfg.usd_per_star || 0);
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
   t += `• Карта/СБП: <b>${sbpEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
+  t += `• Telegram Stars: <b>${starsEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
+  t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
     t += `Банк: ${esc(sbpCfg.bankName || "—")}\n`;
@@ -600,11 +607,16 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
     t += `Получатель: ${esc(sbpCfg.recipientName || "—")}\n`;
     t += `Телефон: ${esc(sbpCfg.phone || "—")}\n`;
   }
+  if (starsEnabled || starsRate > 0) {
+    t += `\n<i>💡 Stars зачисляются на баланс вашего бота. Вывести их можно через @PremiumBot (Stars → TON).</i>\n`;
+  }
 
   return tg.edit(cid, mid, t, ikb([
     [btn(cbEnabled ? "🟢 CryptoBot ON" : "⚪️ CryptoBot OFF", "s:paytoggle:cryptobot")],
     [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
+    [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
     [btn("✏️ Реквизиты СБП", "s:setsbp")],
+    [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
     [btn("🔑 Токен CryptoBot", "s:setcb")],
     [btn("◀️ К настройкам", "s:se")],
   ]));
