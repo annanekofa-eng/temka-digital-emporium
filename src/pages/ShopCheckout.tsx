@@ -473,11 +473,9 @@ const ShopCheckout = () => {
                       : 'border-border/30 bg-secondary/30 hover:border-primary/30'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-lg mx-auto mb-1 flex items-center justify-center bg-primary/10">
-                    <Star className="w-5 h-5 text-primary fill-primary" />
-                  </div>
+                  <img src={starsLogo} alt="Telegram Stars" className="w-8 h-8 rounded-lg mx-auto mb-1 object-cover" loading="lazy" />
                   <div className={`text-sm font-medium ${paymentMethod === 'stars' ? 'text-primary' : 'text-foreground'}`}>Stars</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{starsAmount} ⭐</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">Telegram Stars</div>
                 </button>
               )}
             </div>
