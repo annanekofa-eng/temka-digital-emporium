@@ -1866,6 +1866,49 @@ async function handleFSM(
     return true;
   }
 
+  // ─── Set TON wallet address ──────────────────
+  if (state === "s_set_ton_wallet") {
+    const wallet = val.trim();
+    // Tonkeeper / TON wallet — base64url 48 chars (UQ/EQ/0Q/kQ...) OR raw 0:hex
+    const isFriendly = /^[A-Za-z0-9_-]{48}$/.test(wallet);
+    const isRaw = /^-?[01]:[0-9a-fA-F]{64}$/.test(wallet);
+    if (!isFriendly && !isRaw) {
+      await tg.send(
+        cid,
+        "❌ Не похоже на TON-адрес. Пример: <code>UQABcDeFgHiJkLmNoPqRsTuVwXyZ0123456789AbCdEfGhIj</code>\nИли используйте raw-формат: <code>0:abcdef...</code>",
+      );
+      return true;
+    }
+    const encKey = Deno.env.get("TOKEN_ENCRYPTION_KEY");
+    if (!encKey) { await tg.send(cid, "❌ Ошибка конфигурации."); return true; }
+    const { data: enc } = await supabase().rpc("encrypt_token", { p_token: wallet, p_key: encKey });
+    const masked = wallet.length > 12 ? `${wallet.slice(0, 6)}…${wallet.slice(-6)}` : wallet;
+    const { data: existing } = await supabase()
+      .from("shop_payment_methods")
+      .select("enabled")
+      .eq("shop_id", shopId)
+      .eq("method", "ton")
+      .maybeSingle();
+    await supabase().from("shop_payment_methods").upsert(
+      {
+        shop_id: shopId, method: "ton",
+        enabled: existing?.enabled ?? true,
+        config_encrypted: enc,
+        config_masked: { wallet_set: true, wallet_masked: masked },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "shop_id,method" },
+    );
+    await logAction(shopId, cid, "set_ton_wallet", "shop", shopId);
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ TON-кошелёк сохранён: <code>${esc(masked)}</code>\n\n💎 Покупатели смогут оплачивать заказы переводом TON напрямую на ваш кошелёк через Tonkeeper.`,
+      ikb([[btn("◀️ К оплатам", "s:paym")]]),
+    );
+    return true;
+  }
+
   if (state === "s_set_sbp_bank") {
     await setSession(cid, "s_set_sbp_card", shopId, { ...sData, bankName: val.trim() });
     await tg.send(cid, "💳 Введите номер карты:");
