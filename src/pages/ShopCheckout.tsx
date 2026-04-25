@@ -433,7 +433,7 @@ const ShopCheckout = () => {
           </div>
 
           {toPay > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${starsAvailable ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {/* CryptoBot */}
               <button
                 onClick={() => { setPaymentMethod('cryptobot'); setSbpStep('details'); }}
@@ -461,6 +461,24 @@ const ShopCheckout = () => {
                 <div className={`text-sm font-medium ${paymentMethod === 'sbp' ? 'text-primary' : 'text-foreground'}`}>СБП</div>
                 <div className="text-[10px] text-muted-foreground mt-0.5">Перевод по карте</div>
               </button>
+
+              {/* Telegram Stars */}
+              {starsAvailable && (
+                <button
+                  onClick={() => { setPaymentMethod('stars'); setSbpStep('details'); }}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    paymentMethod === 'stars'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                      : 'border-border/30 bg-secondary/30 hover:border-primary/30'
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg mx-auto mb-1 flex items-center justify-center bg-primary/10">
+                    <Star className="w-5 h-5 text-primary fill-primary" />
+                  </div>
+                  <div className={`text-sm font-medium ${paymentMethod === 'stars' ? 'text-primary' : 'text-foreground'}`}>Stars</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{starsAmount} ⭐</div>
+                </button>
+              )}
             </div>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
@@ -473,7 +491,13 @@ const ShopCheckout = () => {
           {/* Подпись под выбранным методом */}
           {toPay > 0 && balanceUsed > 0 && (
             <div className="text-[10px] text-muted-foreground text-center mt-2">
-              ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} через {paymentMethod === 'cryptobot' ? 'CryptoBot' : 'СБП'}
+              ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} через {paymentMethod === 'cryptobot' ? 'CryptoBot' : paymentMethod === 'sbp' ? 'СБП' : `Stars (${starsAmount} ⭐)`}
+            </div>
+          )}
+
+          {paymentMethod === 'stars' && toPay > 0 && (
+            <div className="text-[10px] text-muted-foreground text-center mt-2">
+              К оплате: <span className="text-primary font-semibold">{starsAmount} ⭐</span> · курс 1 ⭐ = ${usdPerStar.toFixed(4)}
             </div>
           )}
         </div>
