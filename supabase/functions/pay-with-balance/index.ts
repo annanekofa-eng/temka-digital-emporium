@@ -286,6 +286,23 @@ serve(async (req) => {
       await supabase.from(orderTable).update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("id", order.id);
     }
 
+    // Referral reward (idempotent via UNIQUE order_id)
+    if (isShop) {
+      try {
+        const finalAmount = Math.max(0, Number(serverTotal) - Number(discountAmount));
+        if (finalAmount > 0) {
+          await supabase.rpc("shop_credit_referral_for_order", {
+            p_shop_id: shopId,
+            p_order_id: order.id,
+            p_referred_telegram_id: telegramUserId,
+            p_order_amount: finalAmount,
+          });
+        }
+      } catch (e) {
+        console.error("Referral credit error:", e);
+      }
+    }
+
     // TG notification
     const notifyBotToken = tokens.botToken;
     if (notifyBotToken) {
