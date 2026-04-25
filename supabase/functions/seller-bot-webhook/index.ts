@@ -547,6 +547,7 @@ async function settingsView(tg: ReturnType<typeof TG>, cid: number, mid: number,
     [btn("👋 Приветствие", "s:edit:welcome"), btn("🔗 Поддержка", "s:edit:support")],
     [btn("💳 Способы оплаты", "s:paym")],
     [btn(`📢 ОП ${shop.is_subscription_required ? "✅" : "❌"}`, "s:opsettings")],
+    [btn("🎁 Реф. система", "s:ref")],
     [btn("◀️ Меню", "s:m")],
   ]));
 }
