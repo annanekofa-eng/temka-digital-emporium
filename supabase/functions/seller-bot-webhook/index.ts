@@ -873,9 +873,6 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const xr = byMethod.get("xrocket");
   const xrEnabled = Boolean(xr?.enabled);
   const xrCfg = (xr?.config_masked || {}) as Record<string, any>;
-  const xrCurrencies: string[] = Array.isArray(xrCfg.currencies) && xrCfg.currencies.length > 0
-    ? xrCfg.currencies.map((s: any) => String(s).toUpperCase())
-    : ["USDT", "TONCOIN", "BTC"];
   const xrTokenSet = Boolean((xr as any)?.config_encrypted) || Boolean(xrCfg.token_set);
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
