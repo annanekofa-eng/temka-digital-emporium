@@ -885,7 +885,6 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
   t += `\n`;
   t += `• xRocket Pay: <b>${xrEnabled ? "✅ включён" : "❌ выключен"}</b>`;
-  if (xrTokenSet) t += ` · валюты: <code>${xrCurrencies.join(", ")}</code>`;
   t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
@@ -914,7 +913,6 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
       [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
       [btn("🔑 Токен CryptoBot", "s:setcb")],
       [btn(`🚀 Токен xRocket${xrTokenSet ? " ✅" : ""}`, "s:setxr")],
-      [btn("🪙 Валюты xRocket", "s:setxrcur")],
       [btn("◀️ К настройкам", "s:se")],
     ]),
   );
