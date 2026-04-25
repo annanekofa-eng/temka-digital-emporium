@@ -16,6 +16,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@
 import { Input } from '@/components/ui/input';
 import OrderDetailSheet from '@/components/OrderDetailSheet';
 import BalanceDetailSheet from '@/components/BalanceDetailSheet';
+import ReferralCard from '@/components/ReferralCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -396,6 +397,9 @@ const Account = () => {
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </div>
       </a>
+
+      {/* Referral System */}
+      <ReferralCard shopId={shopId} />
 
       {/* "All" Drawer */}
       <Drawer open={showAll} onOpenChange={setShowAll}>

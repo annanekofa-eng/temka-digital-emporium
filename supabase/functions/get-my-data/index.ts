@@ -280,6 +280,51 @@ serve(async (req) => {
         return jsonRes({ valid: true, code: r.code, discount_type: r.discount_type, discount_value: r.discount_value });
       }
 
+      case "referral-stats": {
+        if (!isShop) return jsonRes({ error: "Shop required" }, 400);
+
+        // Settings (whether enabled, percent)
+        const { data: settings } = await supabase.from("shop_referral_settings")
+          .select("is_enabled, reward_percent").eq("shop_id", shopId).maybeSingle();
+        const isEnabled = settings?.is_enabled ?? true;
+        const rewardPercent = Number(settings?.reward_percent ?? 10);
+
+        // Bot username for referral link
+        const { data: shopRow } = await supabase.from("shops")
+          .select("bot_username, support_link").eq("id", shopId).maybeSingle();
+
+        // Count of referred users
+        const { count: referredCount } = await supabase.from("shop_referrals")
+          .select("id", { count: "exact", head: true })
+          .eq("shop_id", shopId).eq("referrer_telegram_id", telegramId);
+
+        // Earnings sums
+        const { data: earnings } = await supabase.from("shop_referral_earnings")
+          .select("reward_amount, status")
+          .eq("shop_id", shopId).eq("referrer_telegram_id", telegramId);
+        const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+        const pendingPayout = (earnings || [])
+          .filter((e: any) => e.status === "pending")
+          .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+        const botUsername = shopRow?.bot_username || "";
+        const referralLink = botUsername
+          ? `https://t.me/${botUsername}?start=ref_${telegramId}`
+          : "";
+
+        return jsonRes({
+          stats: {
+            isEnabled,
+            rewardPercent,
+            referredCount: referredCount || 0,
+            totalEarned,
+            pendingPayout,
+            referralLink,
+            supportLink: shopRow?.support_link || "",
+          },
+        });
+      }
+
       default:
         return jsonRes({ error: "Unknown action" }, 400);
     }

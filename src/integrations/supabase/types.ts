@@ -1459,6 +1459,96 @@ export type Database = {
           },
         ]
       }
+      shop_referral_earnings: {
+        Row: {
+          created_at: string
+          id: string
+          order_amount: number
+          order_id: string
+          paid_at: string | null
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          reward_amount: number
+          reward_percent: number
+          shop_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_amount?: number
+          order_id: string
+          paid_at?: string | null
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          reward_amount?: number
+          reward_percent?: number
+          shop_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_amount?: number
+          order_id?: string
+          paid_at?: string | null
+          referred_telegram_id?: number
+          referrer_telegram_id?: number
+          reward_amount?: number
+          reward_percent?: number
+          shop_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      shop_referral_settings: {
+        Row: {
+          created_at: string
+          is_enabled: boolean
+          reward_percent: number
+          shop_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          is_enabled?: boolean
+          reward_percent?: number
+          shop_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          is_enabled?: boolean
+          reward_percent?: number
+          shop_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shop_referrals: {
+        Row: {
+          created_at: string
+          id: string
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          shop_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          shop_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referred_telegram_id?: number
+          referrer_telegram_id?: number
+          shop_id?: string
+        }
+        Relationships: []
+      }
       shop_reviews: {
         Row: {
           author: string
@@ -1951,6 +2041,15 @@ export type Database = {
       shop_credit_balance: {
         Args: { p_amount: number; p_shop_id: string; p_telegram_id: number }
         Returns: number
+      }
+      shop_credit_referral_for_order: {
+        Args: {
+          p_order_amount: number
+          p_order_id: string
+          p_referred_telegram_id: number
+          p_shop_id: string
+        }
+        Returns: string
       }
       shop_deduct_balance: {
         Args: { p_amount: number; p_shop_id: string; p_telegram_id: number }
