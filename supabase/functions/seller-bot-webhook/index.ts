@@ -874,6 +874,11 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   const xrEnabled = Boolean(xr?.enabled);
   const xrCfg = (xr?.config_masked || {}) as Record<string, any>;
   const xrTokenSet = Boolean((xr as any)?.config_encrypted) || Boolean(xrCfg.token_set);
+  const ton = byMethod.get("ton");
+  const tonEnabled = Boolean(ton?.enabled);
+  const tonCfg = (ton?.config_masked || {}) as Record<string, any>;
+  const tonWalletSet = Boolean((ton as any)?.config_encrypted) || Boolean(tonCfg.wallet_set);
+  const tonWalletMasked = String(tonCfg.wallet_masked || "");
 
   let t = `💳 <b>Способы оплаты</b>\n\n`;
   t += `• CryptoBot: <b>${cbEnabled ? "✅ включён" : "❌ выключен"}</b>\n`;
@@ -882,6 +887,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (starsRate > 0) t += ` · курс: <code>1⭐ = $${starsRate.toFixed(4)}</code>`;
   t += `\n`;
   t += `• xRocket Pay: <b>${xrEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  t += `\n`;
+  t += `• TON / Tonkeeper: <b>${tonEnabled ? "✅ включён" : "❌ выключен"}</b>`;
+  if (tonWalletMasked) t += ` · <code>${esc(tonWalletMasked)}</code>`;
   t += `\n`;
   if (sbpCfg.cardNumber || sbpCfg.phone) {
     t += `\n<b>Реквизиты СБП:</b>\n`;
@@ -896,6 +904,9 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
   if (xrTokenSet || xrEnabled) {
     t += `\n<i>💡 xRocket Pay: средства поступают на счёт вашего приложения в @xRocket. Курс к USD считается автоматически на момент оплаты.</i>\n`;
   }
+  if (tonWalletSet || tonEnabled) {
+    t += `\n<i>💎 TON / Tonkeeper: переводы поступают напрямую на ваш кошелёк. Сумма в USD конвертируется в TON по актуальному курсу.</i>\n`;
+  }
 
   return tg.edit(
     cid,
@@ -906,10 +917,12 @@ async function paymentMethodsView(tg: ReturnType<typeof TG>, cid: number, mid: n
       [btn(sbpEnabled ? "🟢 СБП ON" : "⚪️ СБП OFF", "s:paytoggle:sbp_card")],
       [btn(starsEnabled ? "🟢 Stars ON" : "⚪️ Stars OFF", "s:paytoggle:stars")],
       [btn(xrEnabled ? "🟢 xRocket ON" : "⚪️ xRocket OFF", "s:paytoggle:xrocket")],
+      [btn(tonEnabled ? "🟢 TON ON" : "⚪️ TON OFF", "s:paytoggle:ton")],
       [btn("✏️ Реквизиты СБП", "s:setsbp")],
       [btn(`⭐ Курс Stars${starsRate > 0 ? ` (1⭐=$${starsRate.toFixed(4)})` : ""}`, "s:setstars")],
       [btn("🔑 Токен CryptoBot", "s:setcb")],
       [btn(`🚀 Токен xRocket${xrTokenSet ? " ✅" : ""}`, "s:setxr")],
+      [btn(`💎 TON-кошелёк${tonWalletSet ? " ✅" : ""}`, "s:setton")],
       [btn("◀️ К настройкам", "s:se")],
     ]),
   );
