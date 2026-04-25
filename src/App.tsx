@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { Outlet } from "react-router-dom";
 import React, { Suspense } from "react";
+import ScrollToTop from "@/components/ScrollToTop";
 
 // Lazy load all pages
 const Index = React.lazy(() => import("./pages/Index"));
@@ -86,6 +87,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Platform pages — standalone, no layout */}
