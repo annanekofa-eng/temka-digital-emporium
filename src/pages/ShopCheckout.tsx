@@ -245,7 +245,7 @@ const ShopCheckout = () => {
           if (status === 'paid') {
             haptic.notification('success');
             clearCart();
-            navigate(`${buildPath('/order-status')}?order=${finalOrderNumber}`);
+            navigate(`${buildPath('/order-success')}?order=${finalOrderNumber}`, { replace: true });
           } else if (status === 'cancelled' || status === 'failed') {
             haptic.notification('error');
             setError(status === 'failed' ? 'Оплата Stars не прошла' : 'Оплата отменена');
