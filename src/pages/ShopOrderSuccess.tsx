@@ -5,6 +5,8 @@ import { CheckCircle2, Package, MessageCircle, ShoppingCart } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { useOrders } from '@/hooks/useOrders';
 import { useShop } from '@/contexts/ShopContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const ShopOrderSuccess = () => {
   const buildPath = useStorefrontPath();
@@ -16,7 +18,24 @@ const ShopOrderSuccess = () => {
   const orderNumber = searchParams.get('order');
   const { data: orders } = useOrders(shopId);
 
-  const order = orders?.find(o => o.order_number === orderNumber);
+  const cachedOrder = orders?.find(o => o.order_number === orderNumber);
+  // Если заказ ещё не подгружен в общий список, подтянем напрямую по номеру.
+  const { data: fetchedOrder } = useQuery({
+    queryKey: ['shop-order-by-number', shopId, orderNumber],
+    enabled: !!shopId && !!orderNumber && !cachedOrder,
+    refetchInterval: 3000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_orders')
+        .select('*')
+        .eq('shop_id', shopId!)
+        .eq('order_number', orderNumber!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const order: any = cachedOrder || fetchedOrder;
   const isPaid = order?.payment_status === 'paid';
   const isDelivered = order?.status === 'delivered' || order?.status === 'completed';
 
