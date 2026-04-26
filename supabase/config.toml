@@ -1,4 +1,4 @@
-project_id = "nrwkriquwmjpdirihwrz"
+project_id = "tpcnmeerhxmdvbaenfvm"
 
 [functions.admin-reset-webhooks]
 verify_jwt = false
