@@ -853,6 +853,136 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
 // ═══════════════════════════════════════════════
 // PROFILE
 // ═══════════════════════════════════════════════
+
+// Cache the platform bot username for referral links
+let _platformBotUsername: string | null = null;
+async function getPlatformBotUsername(): Promise<string> {
+  if (_platformBotUsername) return _platformBotUsername;
+  try {
+    const token = Deno.env.get("PLATFORM_BOT_TOKEN");
+    if (!token) return "";
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`).then((r) => r.json());
+    if (res?.ok && res.result?.username) {
+      _platformBotUsername = res.result.username;
+      return _platformBotUsername;
+    }
+  } catch {}
+  return "";
+}
+
+// ─── Referral system (platform-level) ─────────
+async function showReferral(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
+  const { data: settings } = await db()
+    .from("platform_referral_settings")
+    .select("is_enabled, reward_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  const isEnabled = settings?.is_enabled ?? true;
+  const rewardPercent = Number(settings?.reward_percent ?? 10);
+
+  if (!isEnabled) {
+    const text = `🎁 <b>Реферальная система</b>\n\n❌ Программа временно отключена.\n\nЗайдите позже — мы скоро её включим!`;
+    const kb = ikb([[btn("◀️ Назад", "p:profile")]]);
+    if (msgId) return tg.edit(chatId, msgId, text, kb);
+    return tg.send(chatId, text, kb);
+  }
+
+  const { count: referredCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", chatId);
+
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", chatId);
+
+  const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const pendingPayout = (earnings || [])
+    .filter((e: any) => e.status === "pending")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  const botUsername = await getPlatformBotUsername();
+  const referralLink = botUsername ? `https://t.me/${botUsername}?start=ref_${chatId}` : "";
+
+  let text =
+    `🎁 <b>Реферальная система TeleStore</b>\n\n` +
+    `Приглашайте друзей и получайте <b>${rewardPercent}%</b> с каждой их оплаты подписки!\n\n` +
+    `👥 Приглашено: <b>${referredCount || 0}</b>\n` +
+    `💰 Всего заработано: <b>$${totalEarned.toFixed(2)}</b>\n` +
+    `⏳ К выплате: <b>$${pendingPayout.toFixed(2)}</b>\n\n`;
+
+  if (referralLink) {
+    text += `🔗 <b>Ваша ссылка:</b>\n<code>${esc(referralLink)}</code>\n\n`;
+    text += `<i>Нажмите на ссылку, чтобы скопировать.</i>`;
+  } else {
+    text += `<i>Ссылка временно недоступна, попробуйте позже.</i>`;
+  }
+
+  const rows: Btn[][] = [];
+  if (referralLink) {
+    rows.push([urlBtn("📤 Поделиться", `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Создавай свой Telegram-магазин на TeleStore — это просто!")}`)]);
+  }
+  if (pendingPayout > 0) {
+    rows.push([btn("💸 Запросить выплату", "p:refpayout")]);
+  }
+  rows.push([btn("◀️ Назад", "p:profile")]);
+
+  const kb = ikb(rows);
+  if (msgId) return tg.edit(chatId, msgId, text, kb);
+  return tg.send(chatId, text, kb);
+}
+
+async function handleReferralPayout(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { count: referredCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", chatId);
+
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", chatId)
+    .eq("status", "pending");
+
+  const pendingPayout = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  if (pendingPayout <= 0) {
+    return tg.edit(
+      chatId,
+      msgId,
+      `ℹ️ Сейчас нет средств к выплате.\n\nКак только ваши приглашённые оформят подписку — здесь появится сумма.`,
+      ikb([[btn("◀️ Назад", "p:ref")]]),
+    );
+  }
+
+  const supportLink = await getSupportLink();
+  // Extract username from t.me link or @form
+  const m = supportLink.match(/(?:t\.me\/|@)([A-Za-z0-9_]+)/);
+  const username = m ? m[1] : "";
+
+  const message = `Здравствуйте, у меня ${referredCount || 0} рефералов, сумма к выплате ${pendingPayout.toFixed(2)}$`;
+  const supportUrl = username
+    ? `https://t.me/${username}?text=${encodeURIComponent(message)}`
+    : supportLink;
+
+  const text =
+    `💸 <b>Запрос выплаты</b>\n\n` +
+    `👥 Рефералов: <b>${referredCount || 0}</b>\n` +
+    `💰 Сумма к выплате: <b>$${pendingPayout.toFixed(2)}</b>\n\n` +
+    `Нажмите кнопку ниже — откроется чат с поддержкой\nс готовым сообщением. Просто отправьте его нам.`;
+
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [urlBtn("✉️ Написать в поддержку", supportUrl)],
+      [btn("◀️ Назад", "p:ref")],
+    ]),
+  );
+}
+
 async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
   const { data: user } = await db().from("platform_users").select("*").eq("telegram_id", chatId).maybeSingle();
   if (!user) return;
