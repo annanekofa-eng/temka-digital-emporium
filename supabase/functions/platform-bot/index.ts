@@ -3358,13 +3358,17 @@ async function admUserCard(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     .from("platform_referral_earnings")
     .select("reward_amount, status")
     .eq("referrer_telegram_id", tgId);
-  const refTotal = (refEarn || []).reduce((s, r) => s + Number(r.reward_amount || 0), 0);
-  const refPaid = (refEarn || [])
-    .filter((r) => r.status === "paid")
-    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
-  const refPending = (refEarn || [])
-    .filter((r) => r.status !== "paid")
-    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const { data: refPayouts } = await db()
+    .from("platform_referral_payouts")
+    .select("amount, status")
+    .eq("referrer_telegram_id", tgId);
+  const refTotal = (refEarn || [])
+    .filter((r: any) => r.status === "pending" || r.status === "paid")
+    .reduce((s, r: any) => s + Number(r.reward_amount || 0), 0);
+  const refPaid = (refPayouts || [])
+    .filter((p: any) => p.status === "paid")
+    .reduce((s, p: any) => s + Number(p.amount || 0), 0);
+  const refPending = Math.max(0, refTotal - refPaid);
   const { data: refBy } = await db()
     .from("platform_referrals")
     .select("referrer_telegram_id")
