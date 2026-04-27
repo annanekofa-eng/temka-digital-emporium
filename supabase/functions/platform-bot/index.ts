@@ -5326,6 +5326,35 @@ async function handleAdmText(
   state: string,
   sData: Record<string, unknown>,
 ) {
+  if (state === "adm_ref_percent") {
+    const num = Number(String(val).replace(",", ".").trim());
+    if (!Number.isFinite(num) || num < 0 || num > 100) {
+      await tg.send(chatId, "❌ Введите число от 0 до 100. Пример: <code>15</code>");
+      return;
+    }
+    await db()
+      .from("platform_referral_settings")
+      .upsert(
+        {
+          id: 1,
+          is_enabled: true,
+          reward_percent: num,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    await admLog(chatId, "set_platform_referral_percent", "settings", "referral", { percent: num });
+    await clearSession(chatId);
+    const resp = await tg.send(chatId, `✅ Процент обновлён: <b>${num}%</b>`);
+    const respMid = resp?.result?.message_id;
+    if (respMid) {
+      try {
+        await admReferral(tg, chatId, respMid);
+      } catch {}
+    }
+    return;
+  }
+
   if (state === "adm_search_user") {
     await clearSession(chatId);
     // Search by TG ID, username, or name
