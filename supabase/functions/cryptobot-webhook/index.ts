@@ -529,15 +529,14 @@ async function handleAutoOrderPayment(supabase: any, invoice: any, orderData: an
     }).catch((e) => console.error("[auto-order] notify buyer error:", e));
   }
 
-  // Notify shop owner via platform bot
+  // Notify shop owner via the SHOP bot (so owner sees alerts in their store bot, not the platform bot)
   try {
     const { data: shop } = await supabase.from("shops")
       .select("name, owner_id").eq("id", shopId).maybeSingle();
     if (shop?.owner_id) {
       const { data: owner } = await supabase.from("platform_users")
         .select("telegram_id").eq("id", shop.owner_id).maybeSingle();
-      const platformToken = Deno.env.get("PLATFORM_BOT_TOKEN");
-      if (owner?.telegram_id && platformToken) {
+      if (owner?.telegram_id && botToken) {
         const ownerMsg =
           `🆕 <b>Новый авто-заказ</b>\n\n` +
           `🏪 Магазин: <b>${shop.name || ""}</b>\n` +
@@ -546,7 +545,7 @@ async function handleAutoOrderPayment(supabase: any, invoice: any, orderData: an
           `👤 Получатель: <code>${order.target_user}</code>\n` +
           `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
           `⚙️ Откройте раздел «Авто-заказы» в админке магазина, чтобы выдать товар.`;
-        await fetch(`https://api.telegram.org/bot${platformToken}/sendMessage`, {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
         }).catch((e) => console.error("[auto-order] notify owner error:", e));
