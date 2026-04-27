@@ -264,6 +264,7 @@ const ShopAutoPremium = () => {
               balance={balance}
               totalPrice={price}
               cryptoAvailable={cryptoConfigured}
+              sbpAvailable={sbpAvailable}
             />
           </div>
 
@@ -277,13 +278,20 @@ const ShopAutoPremium = () => {
             <Button
               variant="hero" size="xl" className="w-full"
               onClick={handleSubmit}
-              disabled={submitting || (paymentMethod === 'balance' && balance < price) || (paymentMethod === 'cryptobot' && !cryptoConfigured)}
+              disabled={
+                submitting
+                || (paymentMethod === 'balance' && balance < price)
+                || (paymentMethod === 'cryptobot' && !cryptoConfigured)
+                || (paymentMethod === 'sbp' && !sbpAvailable)
+              }
             >
               {submitting
                 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</>
                 : paymentMethod === 'balance'
                   ? <>Оплатить с баланса ${price.toFixed(2)}</>
-                  : <>Купить за ${price.toFixed(2)}</>}
+                  : paymentMethod === 'sbp'
+                    ? <>Оплатить по СБП — ${price.toFixed(2)}</>
+                    : <>Купить за ${price.toFixed(2)}</>}
             </Button>
           </div>
 
