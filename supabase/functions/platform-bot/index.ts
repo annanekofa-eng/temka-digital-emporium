@@ -2663,6 +2663,7 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("🚨 Риски/блокировки", "adm:risks"), btn("📋 Логи", "adm:logs:0")],
     [btn("📋 Подписка (policy)", "adm:subconfig"), btn("⚙️ Настройки", "adm:settings")],
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
+    [btn("🎁 Рефералка", "adm:ref"), btn("◀️ Главное меню", "p:home")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
   return tg.send(chatId, text, kb);
