@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Crown, Loader2, Shield, Zap, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Loader2, Shield, Zap, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShop } from '@/contexts/ShopContext';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
@@ -14,6 +14,7 @@ import AutoSbpPaymentSheet from '@/components/storefront/AutoSbpPaymentSheet';
 import TelegramAccountPreview from '@/components/storefront/TelegramAccountPreview';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import telegramPremiumImg from '@/assets/telegram-premium.jpg';
 
 type Duration = '3m' | '6m' | '12m';
 const DURATIONS: { value: Duration; label: string; months: number }[] = [
@@ -186,11 +187,12 @@ const ShopAutoPremium = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        <div className="bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 rounded-2xl p-8 sm:p-12 flex items-center justify-center min-h-[280px] sm:min-h-[400px]">
-          <div className="text-center">
-            <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-primary mx-auto mb-3" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Telegram Premium</span>
-          </div>
+        <div className="border border-primary/20 rounded-2xl overflow-hidden min-h-[280px] sm:min-h-[400px]">
+          <img
+            src={telegramPremiumImg}
+            alt="Telegram Premium"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <div>

@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Crown, Star, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import PriceRub from '@/components/PriceRub';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import type { ShopAutoProduct } from '@/hooks/useShopAutoProducts';
+import telegramPremiumImg from '@/assets/telegram-premium.jpg';
+import telegramStarsImg from '@/assets/telegram-stars.jpg';
 
 interface Props {
   product: ShopAutoProduct;
@@ -24,21 +26,21 @@ const AutoProductCard = ({ product, view = 'grid' }: Props) => {
     ? 'Официальная подписка с расширенными функциями'
     : 'Внутренняя валюта Telegram для оплаты в ботах';
   const path = isPremium ? '/auto/premium' : '/auto/stars';
-  const Icon = isPremium ? Crown : Star;
-  const iconClass = isPremium ? 'text-primary' : 'fill-amber-400 text-amber-400';
-  const bgClass = isPremium
-    ? 'bg-gradient-to-br from-primary/15 to-primary/5 border-primary/20'
-    : 'bg-gradient-to-br from-amber-500/15 to-amber-500/5 border-amber-500/20';
+  const imageSrc = isPremium ? telegramPremiumImg : telegramStarsImg;
+  const borderClass = isPremium ? 'border-primary/20' : 'border-amber-500/20';
 
   if (view === 'list') {
     return (
       <Link
         to={buildPath(path)}
-        className={`flex items-center gap-3 p-3 rounded-xl border ${bgClass} hover:shadow-md transition-all`}
+        className={`flex items-center gap-3 p-3 rounded-xl border bg-card ${borderClass} hover:shadow-md transition-all`}
       >
-        <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-background/40 shrink-0">
-          <Icon className={`w-8 h-8 ${iconClass}`} />
-        </div>
+        <img
+          src={imageSrc}
+          alt={title}
+          loading="lazy"
+          className="w-16 h-16 rounded-lg object-cover shrink-0"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground inline-flex items-center gap-1">
@@ -59,10 +61,15 @@ const AutoProductCard = ({ product, view = 'grid' }: Props) => {
   return (
     <Link
       to={buildPath(path)}
-      className={`group flex flex-col rounded-xl border ${bgClass} overflow-hidden hover:shadow-md transition-all`}
+      className={`group flex flex-col rounded-xl border bg-card ${borderClass} overflow-hidden hover:shadow-md transition-all`}
     >
-      <div className="aspect-[4/3] flex items-center justify-center bg-background/30">
-        <Icon className={`w-16 h-16 sm:w-20 sm:h-20 ${iconClass} transition-transform group-hover:scale-110`} />
+      <div className="aspect-[4/3] overflow-hidden">
+        <img
+          src={imageSrc}
+          alt={title}
+          loading="lazy"
+          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+        />
       </div>
       <div className="p-3 sm:p-4 flex flex-col flex-1">
         <div className="flex items-center gap-1.5 mb-1.5">
