@@ -4258,7 +4258,43 @@ async function handleAdmCallback(
 
   // ─── Referral admin ───────────────────────
   if (cmd === "ref") return admReferral(tg, chatId, msgId);
-  if (cmd === "refusers") return admReferralUsers(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  if (cmd === "refusers") {
+    // adm:refusers:<sortKey>:<page>:<urlencoded search>
+    const sortKey = parts[2] || "earned";
+    const page = parseInt(parts[3]) || 0;
+    const search = parts[4] ? decodeURIComponent(parts[4]) : "";
+    return admReferralUsers(tg, chatId, msgId, sortKey, page, search);
+  }
+  if (cmd === "refsearch") {
+    await setSession(chatId, "adm_ref_search", {});
+    return tg.edit(
+      chatId,
+      msgId,
+      "🔍 Введите Telegram ID, @username или имя реферера:",
+      ikb([[btn("❌ Отмена", "adm:refusers:earned:0:")]]),
+    );
+  }
+  if (cmd === "refcard") {
+    return admReferralCard(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  }
+  if (cmd === "refpay") {
+    const tgId = parseInt(parts[2]) || 0;
+    await setSession(chatId, "adm_ref_payout_amount", { target_tg_id: tgId });
+    return tg.edit(
+      chatId,
+      msgId,
+      `💸 <b>Новая выплата</b>\n\nВведите сумму в USD (например, <code>12.50</code>).\n\nСумма должна быть больше 0 и не превышать доступного остатка.`,
+      ikb([[btn("❌ Отмена", `adm:refcard:${tgId}`)]]),
+    );
+  }
+  if (cmd === "refpayskipcomment") {
+    // skip comment in payout flow
+    return admRefPayoutFinalize(tg, chatId, msgId, adminTgId, "");
+  }
+  if (cmd === "refpayconfirm") {
+    // adm:refpayconfirm
+    return admRefPayoutConfirm(tg, chatId, msgId, adminTgId);
+  }
   if (cmd === "reftog") {
     const { data: rs } = await db()
       .from("platform_referral_settings")
