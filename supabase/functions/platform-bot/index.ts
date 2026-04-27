@@ -2917,58 +2917,122 @@ async function admReferral(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     ikb([
       [btn(enabled ? "❌ Выключить" : "✅ Включить", "adm:reftog")],
       [btn("✏️ Изменить %", "adm:refset")],
-      [btn("👥 Топ рефереров", "adm:refusers:0")],
+      [btn("👥 Все рефереры", "adm:refusers:earned:0:")],
+      [btn("🔍 Поиск реферера", "adm:refsearch")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
 }
 
-async function admReferralUsers(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
-  const perPage = 10;
-  // Aggregate referrers via SQL — fallback to JS aggregation since we have no rpc helper
+// Aggregate referrer stats. Optional search filter (by tg id, username, first/last name).
+async function aggregateReferrers(search?: string) {
   const { data: refs } = await db()
     .from("platform_referrals")
-    .select("referrer_telegram_id");
+    .select("referrer_telegram_id, created_at");
   const { data: earnings } = await db()
     .from("platform_referral_earnings")
-    .select("referrer_telegram_id, reward_amount, status");
+    .select("referrer_telegram_id, reward_amount, created_at");
+  const { data: payouts } = await db()
+    .from("platform_referral_payouts")
+    .select("referrer_telegram_id, amount, status, created_at");
 
-  // Aggregate per referrer
-  const agg = new Map<number, { count: number; earned: number; pending: number }>();
+  type Agg = { tgId: number; count: number; earned: number; paid: number; available: number; lastActivity: number };
+  const agg = new Map<number, Agg>();
+  const get = (k: number): Agg => {
+    let cur = agg.get(k);
+    if (!cur) {
+      cur = { tgId: k, count: 0, earned: 0, paid: 0, available: 0, lastActivity: 0 };
+      agg.set(k, cur);
+    }
+    return cur;
+  };
   for (const r of refs || []) {
     const k = Number(r.referrer_telegram_id);
-    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
-    cur.count += 1;
-    agg.set(k, cur);
+    const a = get(k);
+    a.count += 1;
+    const t = new Date(r.created_at).getTime();
+    if (t > a.lastActivity) a.lastActivity = t;
   }
   for (const e of earnings || []) {
     const k = Number(e.referrer_telegram_id);
-    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
-    cur.earned += Number(e.reward_amount);
-    if (e.status === "pending") cur.pending += Number(e.reward_amount);
-    agg.set(k, cur);
+    const a = get(k);
+    a.earned += Number(e.reward_amount || 0);
+    const t = new Date(e.created_at).getTime();
+    if (t > a.lastActivity) a.lastActivity = t;
+  }
+  for (const p of payouts || []) {
+    if (p.status !== "paid") continue;
+    const k = Number(p.referrer_telegram_id);
+    const a = get(k);
+    a.paid += Number(p.amount || 0);
+    const t = new Date(p.created_at).getTime();
+    if (t > a.lastActivity) a.lastActivity = t;
+  }
+  for (const a of agg.values()) {
+    a.available = Math.max(0, a.earned - a.paid);
   }
 
-  // Sort by earned desc, then count desc
-  const sorted = Array.from(agg.entries())
-    .map(([tgId, v]) => ({ tgId, ...v }))
-    .sort((a, b) => (b.earned - a.earned) || (b.count - a.count));
+  let list = Array.from(agg.values()).filter((a) => a.count > 0);
 
-  const total = sorted.length;
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    const tgIds = list.map((a) => a.tgId);
+    const { data: users } = await db()
+      .from("platform_users")
+      .select("telegram_id, first_name, last_name, username")
+      .in("telegram_id", tgIds);
+    const um = new Map<number, any>();
+    for (const u of users || []) um.set(Number(u.telegram_id), u);
+    list = list.filter((a) => {
+      if (String(a.tgId).includes(q)) return true;
+      const u = um.get(a.tgId);
+      if (!u) return false;
+      const hay = `${u.first_name || ""} ${u.last_name || ""} ${u.username || ""}`.toLowerCase();
+      return hay.includes(q.replace(/^@/, ""));
+    });
+  }
+
+  return list;
+}
+
+// sortKey: earned | count | available | activity
+async function admReferralUsers(
+  tg: ReturnType<typeof TG>,
+  chatId: number,
+  msgId: number,
+  sortKey: string,
+  page: number,
+  search: string,
+) {
+  const perPage = 8;
+  const list = await aggregateReferrers(search);
+
+  const sortFns: Record<string, (a: any, b: any) => number> = {
+    earned: (a, b) => b.earned - a.earned || b.count - a.count,
+    count: (a, b) => b.count - a.count || b.earned - a.earned,
+    available: (a, b) => b.available - a.available || b.earned - a.earned,
+    activity: (a, b) => b.lastActivity - a.lastActivity,
+  };
+  const sortFn = sortFns[sortKey] || sortFns.earned;
+  list.sort(sortFn);
+
+  const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   const p = Math.max(0, Math.min(page, totalPages - 1));
-  const slice = sorted.slice(p * perPage, p * perPage + perPage);
+  const slice = list.slice(p * perPage, p * perPage + perPage);
 
   if (total === 0) {
     return tg.edit(
       chatId,
       msgId,
-      `👥 <b>Топ рефереров</b>\n\nПока никто никого не пригласил.`,
-      ikb([[btn("◀️ Назад", "adm:ref")]]),
+      `👥 <b>Рефереры</b>\n\n${search ? `🔍 По запросу «<code>${esc(search)}</code>»: ничего не найдено.` : "Пока никто никого не пригласил."}`,
+      ikb([
+        ...(search ? [[btn("🔄 Сбросить поиск", "adm:refusers:earned:0:")]] : []),
+        [btn("◀️ Назад", "adm:ref")],
+      ]),
     );
   }
 
-  // Fetch user info
   const tgIds = slice.map((s) => s.tgId);
   const { data: users } = await db()
     .from("platform_users")
@@ -2977,27 +3041,118 @@ async function admReferralUsers(tg: ReturnType<typeof TG>, chatId: number, msgId
   const userMap = new Map<number, any>();
   for (const u of users || []) userMap.set(Number(u.telegram_id), u);
 
-  let text = `👥 <b>Топ рефереров</b> (${total})\n\n`;
+  const sortLabel: Record<string, string> = {
+    earned: "💰 По начислено",
+    count: "👥 По приглашённым",
+    available: "💸 По доступно",
+    activity: "📅 По активности",
+  };
+
+  let text = `👥 <b>Рефереры</b> — ${total}${search ? ` (поиск: <code>${esc(search)}</code>)` : ""}\nСортировка: <b>${sortLabel[sortKey] || sortLabel.earned}</b>\n\n`;
   const rows: Btn[][] = [];
   for (const s of slice) {
     const u = userMap.get(s.tgId);
-    const name = u
-      ? esc((u.first_name || "") + (u.last_name ? " " + u.last_name : "")) + (u.username ? ` (@${esc(u.username)})` : "")
+    const nameRaw = u
+      ? (u.first_name || "") + (u.last_name ? " " + u.last_name : "") + (u.username ? ` (@${u.username})` : "")
       : `ID ${s.tgId}`;
+    const name = esc(nameRaw || `ID ${s.tgId}`);
+    const dt = s.lastActivity ? new Date(s.lastActivity).toLocaleDateString("ru") : "—";
     text +=
-      `• <b>${name}</b> [${s.tgId}]\n` +
-      `   👥 ${s.count} | 💰 $${s.earned.toFixed(2)} | ⏳ $${s.pending.toFixed(2)}\n`;
-    rows.push([btn(`👤 ${name.slice(0, 40)}`, `adm:ucard:${s.tgId}`)]);
+      `• <b>${name}</b> [<code>${s.tgId}</code>]\n` +
+      `   👥 ${s.count} | 💰 $${s.earned.toFixed(2)} | ✅ $${s.paid.toFixed(2)} | 💸 $${s.available.toFixed(2)} | 📅 ${dt}\n`;
+    rows.push([btn(`👤 ${safeSlice(nameRaw || `ID ${s.tgId}`, 30)} • $${s.available.toFixed(2)}`, `adm:refcard:${s.tgId}`)]);
   }
 
+  // Sort row
+  const baseQ = encodeURIComponent(search || "");
+  rows.push([
+    btn(sortKey === "earned" ? "✅ 💰" : "💰", `adm:refusers:earned:0:${baseQ}`),
+    btn(sortKey === "count" ? "✅ 👥" : "👥", `adm:refusers:count:0:${baseQ}`),
+    btn(sortKey === "available" ? "✅ 💸" : "💸", `adm:refusers:available:0:${baseQ}`),
+    btn(sortKey === "activity" ? "✅ 📅" : "📅", `adm:refusers:activity:0:${baseQ}`),
+  ]);
+
   // Pagination
-  const nav: Btn[] = [];
-  if (p > 0) nav.push(btn("◀️", `adm:refusers:${p - 1}`));
-  nav.push(btn(`${p + 1}/${totalPages}`, "adm:noop"));
-  if (p < totalPages - 1) nav.push(btn("▶️", `adm:refusers:${p + 1}`));
-  if (nav.length > 0) rows.push(nav);
+  if (totalPages > 1) {
+    const nav: Btn[] = [];
+    if (p > 0) nav.push(btn("◀️", `adm:refusers:${sortKey}:${p - 1}:${baseQ}`));
+    nav.push(btn(`${p + 1}/${totalPages}`, "adm:noop"));
+    if (p < totalPages - 1) nav.push(btn("▶️", `adm:refusers:${sortKey}:${p + 1}:${baseQ}`));
+    rows.push(nav);
+  }
+
+  rows.push([btn("🔍 Поиск", "adm:refsearch"), ...(search ? [btn("✖️ Сброс", `adm:refusers:${sortKey}:0:`)] : [])]);
   rows.push([btn("◀️ Назад", "adm:ref")]);
 
+  return tg.edit(chatId, msgId, text, ikb(rows));
+}
+
+// Карточка реферера
+async function admReferralCard(tg: ReturnType<typeof TG>, chatId: number, msgId: number, tgId: number) {
+  const { data: u } = await db()
+    .from("platform_users")
+    .select("telegram_id, first_name, last_name, username, created_at")
+    .eq("telegram_id", tgId)
+    .maybeSingle();
+
+  const { count: invitedCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", tgId);
+
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, created_at")
+    .eq("referrer_telegram_id", tgId);
+  const totalEarned = (earnings || []).reduce((s, e: any) => s + Number(e.reward_amount || 0), 0);
+
+  const { data: payouts } = await db()
+    .from("platform_referral_payouts")
+    .select("id, amount, status, comment, provider_ref, created_at, created_by_admin_telegram_id")
+    .eq("referrer_telegram_id", tgId)
+    .order("created_at", { ascending: false });
+  const totalPaid = (payouts || [])
+    .filter((p: any) => p.status === "paid")
+    .reduce((s, p: any) => s + Number(p.amount || 0), 0);
+  const available = Math.max(0, totalEarned - totalPaid);
+
+  const name = u
+    ? esc((u.first_name || "") + (u.last_name ? " " + u.last_name : ""))
+    : `ID ${tgId}`;
+  const uname = u?.username ? ` @${esc(u.username)}` : "";
+
+  let text =
+    `🎁 <b>Реферер: ${name}</b>${uname}\n` +
+    `🆔 <code>${tgId}</code>\n` +
+    (u?.created_at ? `📅 Регистрация: ${new Date(u.created_at).toLocaleDateString("ru")}\n` : "") +
+    `\n` +
+    `👥 Приглашено: <b>${invitedCount || 0}</b>\n` +
+    `💰 Всего начислено: <b>$${totalEarned.toFixed(2)}</b>\n` +
+    `✅ Уже выплачено: <b>$${totalPaid.toFixed(2)}</b>\n` +
+    `💸 Доступно к выплате: <b>$${available.toFixed(2)}</b>\n\n`;
+
+  const recent = (payouts || []).slice(0, 8);
+  if (recent.length) {
+    text += `<b>📜 История выплат (${(payouts || []).length}):</b>\n`;
+    for (const p of recent) {
+      const d = new Date(p.created_at).toLocaleDateString("ru");
+      const st = p.status === "paid" ? "✅" : p.status === "canceled" ? "❌" : "⏳";
+      const cm = p.comment ? ` — <i>${esc(String(p.comment))}</i>` : "";
+      const pr = p.provider_ref ? ` [${esc(String(p.provider_ref))}]` : "";
+      text += `${st} ${d} — <b>$${Number(p.amount).toFixed(2)}</b>${pr}${cm}\n`;
+    }
+  } else {
+    text += `<i>Выплат ещё не было.</i>\n`;
+  }
+
+  const rows: Btn[][] = [];
+  if (available > 0) {
+    rows.push([btn(`💸 Выплатить (до $${available.toFixed(2)})`, `adm:refpay:${tgId}`)]);
+  } else {
+    rows.push([btn("💸 Нет средств к выплате", "adm:noop")]);
+  }
+  rows.push([btn("👤 Карточка пользователя", `adm:ucard:${tgId}`)]);
+  rows.push([btn("◀️ К списку", "adm:refusers:earned:0:")]);
   return tg.edit(chatId, msgId, text, ikb(rows));
 }
 
