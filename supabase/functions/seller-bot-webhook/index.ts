@@ -257,6 +257,7 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     [btn("🗃 Склад", "s:sk:0"), btn("📋 Логи", "s:lg:0")],
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
     [btn("⭐ Отзывы", "s:rvl:0")],
+    [btn("🤖 Авто-товары", "s:ap"), btn("📲 Авто-заказы", "s:ao:0")],
   ]);
 
   if (msgId) return tg.edit(chatId, msgId, text, kb);
