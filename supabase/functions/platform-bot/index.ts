@@ -3060,7 +3060,8 @@ async function admReferralUsers(
     text +=
       `• <b>${name}</b> [<code>${s.tgId}</code>]\n` +
       `   👥 ${s.count} | 💰 $${s.earned.toFixed(2)} | ✅ $${s.paid.toFixed(2)} | 💸 $${s.available.toFixed(2)} | 📅 ${dt}\n`;
-    rows.push([btn(`👤 ${safeSlice(nameRaw || `ID ${s.tgId}`, 30)} • $${s.available.toFixed(2)}`, `adm:refcard:${s.tgId}`)]);
+    const labelName = (nameRaw || `ID ${s.tgId}`).slice(0, 28);
+    rows.push([btn(`👤 ${labelName} • $${s.available.toFixed(2)}`, `adm:refcard:${s.tgId}`)]);
   }
 
   // Sort row
