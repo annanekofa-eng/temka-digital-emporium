@@ -9,6 +9,9 @@ const corsHeaders = {
 const CRYPTOBOT_API_URL = "https://pay.crypt.bot/api";
 const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+// Business errors are returned with 200 so supabase.functions.invoke surfaces the error message
+// instead of the generic "non-2xx status code".
+const errRes = (message: string) => jsonRes({ error: message }, 200);
 
 function verifyTg(initData: string, botToken: string): { id: number; first_name?: string; username?: string } | null {
   const params = new URLSearchParams(initData);
@@ -40,23 +43,23 @@ serve(async (req) => {
     const body = await req.json();
     const { initData, shopId, productType, targetUser, premiumDuration, starsAmount } = body || {};
 
-    if (!shopId || !initData) return jsonRes({ error: "Missing required fields" }, 400);
+    if (!shopId || !initData) return errRes("Missing required fields");
     if (productType !== "telegram_premium" && productType !== "telegram_stars") {
-      return jsonRes({ error: "Invalid product type" }, 400);
+      return errRes("Invalid product type");
     }
     const target = validateTarget(targetUser);
-    if (!target) return jsonRes({ error: "Введите корректный username или ID" }, 400);
+    if (!target) return errRes("Введите корректный username или ID");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Load shop and decrypt tokens
     const ek = Deno.env.get("TOKEN_ENCRYPTION_KEY");
-    if (!ek) return jsonRes({ error: "Server config error" }, 500);
+    if (!ek) return errRes("Server config error");
     const { data: shop } = await supabase
       .from("shops").select("id, status, owner_id, bot_username, bot_token_encrypted, cryptobot_token_encrypted")
       .eq("id", shopId).maybeSingle();
-    if (!shop) return jsonRes({ error: "Shop not found" }, 404);
-    if (shop.status !== "active") return jsonRes({ error: "Магазин временно недоступен" }, 400);
+    if (!shop) return errRes("Shop not found");
+    if (shop.status !== "active") return errRes("Магазин временно недоступен");
 
     const decrypt = async (enc: string | null) => {
       if (!enc) return null;
@@ -65,11 +68,11 @@ serve(async (req) => {
     };
     const botToken = await decrypt(shop.bot_token_encrypted);
     const cryptoToken = await decrypt(shop.cryptobot_token_encrypted);
-    if (!botToken) return jsonRes({ error: "Магазин не сконфигурирован" }, 500);
-    if (!cryptoToken) return jsonRes({ error: "Платежи не настроены" }, 500);
+    if (!botToken) return errRes("Магазин не сконфигурирован");
+    if (!cryptoToken) return errRes("Оплата картой/криптой временно недоступна. Владелец магазина не настроил CryptoBot.");
 
     const tgUser = verifyTg(initData, botToken);
-    if (!tgUser) return jsonRes({ error: "Invalid authentication" }, 401);
+    if (!tgUser) return errRes("Invalid authentication");
     const buyerId = tgUser.id;
 
     // Owner subscription check
@@ -77,27 +80,27 @@ serve(async (req) => {
       const { data: owner } = await supabase.from("platform_users")
         .select("subscription_status, subscription_expires_at").eq("id", shop.owner_id).maybeSingle();
       if (owner && !["active", "trial", "grace_period"].includes(owner.subscription_status)) {
-        return jsonRes({ error: "Магазин временно недоступен" }, 400);
+        return errRes("Магазин временно недоступен");
       }
     }
 
     // Block check
     const { data: customer } = await supabase.from("shop_customers")
       .select("is_blocked").eq("shop_id", shopId).eq("telegram_id", buyerId).maybeSingle();
-    if (customer?.is_blocked) return jsonRes({ error: "Account blocked" }, 403);
+    if (customer?.is_blocked) return errRes("Account blocked");
 
     // Rate limit
     await supabase.from("rate_limits").delete().lt("created_at", new Date(Date.now() - 3600000).toISOString());
     const { count: recent } = await supabase.from("rate_limits").select("id", { count: "exact", head: true })
       .eq("identifier", String(buyerId)).eq("action", "create_auto_order")
       .gte("created_at", new Date(Date.now() - 3600000).toISOString());
-    if (recent && recent >= 15) return jsonRes({ error: "Too many requests" }, 429);
+    if (recent && recent >= 15) return errRes("Слишком много запросов, попробуйте позже");
     await supabase.from("rate_limits").insert({ identifier: String(buyerId), action: "create_auto_order" });
 
     // Load auto product config
     const { data: ap } = await supabase.from("shop_auto_products" as any)
       .select("*").eq("shop_id", shopId).eq("product_type", productType).eq("is_enabled", true).maybeSingle();
-    if (!ap) return jsonRes({ error: "Товар недоступен" }, 400);
+    if (!ap) return errRes("Товар недоступен");
 
     // Compute amount
     let amount = 0;
@@ -106,9 +109,9 @@ serve(async (req) => {
 
     if (productType === "telegram_premium") {
       const dur = ["3m", "6m", "12m"].includes(premiumDuration) ? premiumDuration : null;
-      if (!dur) return jsonRes({ error: "Выберите срок подписки" }, 400);
+      if (!dur) return errRes("Выберите срок подписки");
       amount = Number((ap as any)[`price_${dur}`] || 0);
-      if (amount <= 0) return jsonRes({ error: "Срок недоступен" }, 400);
+      if (amount <= 0) return errRes("Срок недоступен");
       extra.premium_duration = dur;
       const label = dur === "3m" ? "3 мес" : dur === "6m" ? "6 мес" : "12 мес";
       description = `Telegram Premium (${label}) для ${target}`;
@@ -117,16 +120,16 @@ serve(async (req) => {
       const min = Number((ap as any).min_stars || 50);
       const max = Number((ap as any).max_stars || 100000);
       if (!Number.isInteger(stars) || stars < min || stars > max) {
-        return jsonRes({ error: `Количество от ${min} до ${max}` }, 400);
+        return errRes(`Количество от ${min} до ${max}`);
       }
       const perStar = Number((ap as any).price_per_star || 0);
-      if (perStar <= 0) return jsonRes({ error: "Товар недоступен" }, 400);
+      if (perStar <= 0) return errRes("Товар недоступен");
       amount = Math.round(stars * perStar * 100) / 100;
       extra.stars_amount = stars;
       description = `${stars} Telegram Stars для ${target}`;
     }
 
-    if (amount <= 0) return jsonRes({ error: "Некорректная сумма" }, 400);
+    if (amount <= 0) return errRes("Некорректная сумма");
 
     // Order number
     const orderNumber = `A-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
@@ -157,7 +160,7 @@ serve(async (req) => {
 
     if (orderErr || !order) {
       console.error("[create-auto-order] order insert error:", orderErr);
-      return jsonRes({ error: "Failed to create order" }, 500);
+      return errRes("Failed to create order");
     }
 
     // Create CryptoBot invoice
@@ -178,7 +181,7 @@ serve(async (req) => {
     if (!data.ok) {
       await supabase.from("shop_orders").update({ status: "error" }).eq("id", order.id);
       console.error("[create-auto-order] CryptoBot error:", data);
-      return jsonRes({ error: data.error?.name || "Failed to create invoice" }, 400);
+      return errRes(data.error?.name || "Failed to create invoice");
     }
 
     await supabase.from("shop_orders").update({
