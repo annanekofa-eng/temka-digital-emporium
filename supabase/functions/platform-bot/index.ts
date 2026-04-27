@@ -2645,6 +2645,59 @@ async function admLog(
     });
 }
 
+// ─── Referral credit on admin grants ─────────
+// Creates a synthetic paid subscription_payment row and credits the referrer
+// (idempotent via UNIQUE on platform_referral_earnings.subscription_payment_id).
+async function admGrantReferralCredit(
+  targetTgId: number,
+  amountUsd: number,
+  source: "admin_activate" | "admin_extend",
+  meta: Record<string, unknown> = {},
+) {
+  try {
+    if (!amountUsd || amountUsd <= 0) return;
+    // Need user_id (uuid) for subscription_payments.user_id
+    const { data: pu } = await db()
+      .from("platform_users")
+      .select("id")
+      .eq("telegram_id", targetTgId)
+      .maybeSingle();
+    if (!pu?.id) return;
+    // Skip if no referrer at all (saves a write)
+    const { data: refRow } = await db()
+      .from("platform_referrals")
+      .select("referrer_telegram_id")
+      .eq("referred_telegram_id", targetTgId)
+      .maybeSingle();
+    if (!refRow?.referrer_telegram_id) return;
+    // Insert synthetic paid payment
+    const { data: payment, error: payErr } = await db()
+      .from("subscription_payments")
+      .insert({
+        user_id: pu.id,
+        amount: amountUsd,
+        final_amount: amountUsd,
+        currency: "USD",
+        status: "paid",
+        promo_code: `admin:${source}`,
+      })
+      .select("id")
+      .single();
+    if (payErr || !payment?.id) {
+      console.error("admGrantReferralCredit: payment insert failed", payErr);
+      return;
+    }
+    await db().rpc("platform_credit_referral_for_subscription", {
+      p_subscription_payment_id: payment.id,
+      p_referred_telegram_id: targetTgId,
+      p_payment_amount: amountUsd,
+    });
+    console.log("admGrantReferralCredit: ok", { targetTgId, amountUsd, source, ...meta });
+  } catch (e) {
+    console.error("admGrantReferralCredit error:", e);
+  }
+}
+
 // ─── Blocked User Check ──────────────────────
 async function isUserBlocked(telegramId: number): Promise<boolean> {
   const { data } = await db().from("user_profiles").select("is_blocked").eq("telegram_id", telegramId).maybeSingle();
@@ -2989,6 +3042,39 @@ async function admUserCard(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     .from("shop_customers")
     .select("id", { count: "exact", head: true })
     .eq("telegram_id", tgId);
+  // ─── Referral stats ─────────────────────────
+  const { count: invitedCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", tgId);
+  const { data: refEarn } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", tgId);
+  const refTotal = (refEarn || []).reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const refPaid = (refEarn || [])
+    .filter((r) => r.status === "paid")
+    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const refPending = (refEarn || [])
+    .filter((r) => r.status !== "paid")
+    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const { data: refBy } = await db()
+    .from("platform_referrals")
+    .select("referrer_telegram_id")
+    .eq("referred_telegram_id", tgId)
+    .maybeSingle();
+  let invitedByLabel = "—";
+  if (refBy?.referrer_telegram_id) {
+    const { data: refByUser } = await db()
+      .from("platform_users")
+      .select("first_name, username")
+      .eq("telegram_id", refBy.referrer_telegram_id)
+      .maybeSingle();
+    const nm = refByUser?.username
+      ? `@${refByUser.username}`
+      : refByUser?.first_name || String(refBy.referrer_telegram_id);
+    invitedByLabel = `${esc(nm)} [<code>${refBy.referrer_telegram_id}</code>]`;
+  }
   const blocked = up?.is_blocked ? "🚫 ЗАБЛОКИРОВАН" : "✅ Активен";
   const name = pu.first_name + (pu.last_name ? ` ${pu.last_name}` : "");
   // Subscription details
@@ -3018,7 +3104,12 @@ async function admUserCard(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     `\n🏪 Магазинов: ${shopCount || 0}\n` +
     `🛍 Заказов: ${(platformOrders || 0) + (shopOrders || 0)}\n` +
     `💵 Потрачено: $${totalSpent.toFixed(2)}\n` +
-    `🛒 Профилей покупателя: ${shopCustCount || 0}`;
+    `🛒 Профилей покупателя: ${shopCustCount || 0}\n` +
+    `\n🎁 <b>Реферальная программа</b>\n` +
+    `👥 Приглашено: <b>${invitedCount || 0}</b>\n` +
+    `💎 Заработано всего: <b>$${refTotal.toFixed(2)}</b>\n` +
+    `💸 Выплачено: $${refPaid.toFixed(2)} | ⏳ К выплате: $${refPending.toFixed(2)}\n` +
+    `🔗 Приглашён: ${invitedByLabel}`;
   const rows: Btn[][] = [
     [btn("🏪 Магазины", `adm:ushops:${pu.id}:0`), btn("🧾 Заказы", `adm:uorders:${tgId}:0`)],
     [btn(up?.is_blocked ? "✅ Разблокировать" : "🚫 Заблокировать", `adm:ublock:${tgId}`)],
@@ -4143,6 +4234,11 @@ async function handleAdmCallback(
     await admLog(adminTgId, "activate_subscription", "user", String(tgId), {
       expires_at: expiresAt,
       price: priceInfo.price,
+    });
+    // Referral credit for admin-granted activation (1 month at user's price)
+    await admGrantReferralCredit(tgId, priceInfo.price, "admin_activate", {
+      months: 1,
+      expires_at: expiresAt,
     });
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
@@ -5628,6 +5724,17 @@ async function handleAdmText(
       }
     }
     await admLog(chatId, "extend_subscription", "user", String(targetTgId), { days, new_expires: newExpiry });
+    // Referral credit proportional to extension length at user's current price
+    try {
+      const priceInfo = await getSubscriptionPrice(targetTgId);
+      const amount = Math.round(((priceInfo.price * days) / 30) * 100) / 100;
+      await admGrantReferralCredit(targetTgId, amount, "admin_extend", {
+        days,
+        new_expires: newExpiry,
+      });
+    } catch (e) {
+      console.error("Referral credit on extend failed:", e);
+    }
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
