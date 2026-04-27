@@ -2883,21 +2883,22 @@ async function admReferral(tg: ReturnType<typeof TG>, chatId: number, msgId: num
   const enabled = settings?.is_enabled ?? true;
   const pct = Number(settings?.reward_percent ?? 10);
 
-  const [{ count: totalLinks }, { data: earnings }, { count: totalReferrers }] = await Promise.all([
+  const [{ count: totalLinks }, { data: earnings }, { count: totalReferrers }, { data: payouts }] = await Promise.all([
     db().from("platform_referrals").select("id", { count: "exact", head: true }),
     db().from("platform_referral_earnings").select("reward_amount, status"),
     db()
       .from("platform_referrals")
       .select("referrer_telegram_id", { count: "exact", head: true }),
+    db().from("platform_referral_payouts").select("amount, status"),
   ]);
 
-  const totalAccrued = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
-  const totalPending = (earnings || [])
-    .filter((e: any) => e.status === "pending")
+  const totalAccrued = (earnings || [])
+    .filter((e: any) => e.status === "pending" || e.status === "paid")
     .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
-  const totalPaid = (earnings || [])
-    .filter((e: any) => e.status === "paid")
-    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const totalPaid = (payouts || [])
+    .filter((p: any) => p.status === "paid")
+    .reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const totalPending = Math.max(0, totalAccrued - totalPaid);
 
   const text =
     `🎁 <b>Реферальная система платформы</b>\n\n` +
