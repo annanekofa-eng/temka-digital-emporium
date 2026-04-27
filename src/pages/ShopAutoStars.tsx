@@ -278,6 +278,7 @@ const ShopAutoStars = () => {
               balance={balance}
               totalPrice={totalPrice}
               cryptoAvailable={cryptoConfigured}
+              sbpAvailable={sbpAvailable}
             />
           </div>
 
@@ -291,13 +292,21 @@ const ShopAutoStars = () => {
             <Button
               variant="hero" size="xl" className="w-full"
               onClick={handleSubmit}
-              disabled={submitting || !isAmountValid || (paymentMethod === 'balance' && balance < totalPrice) || (paymentMethod === 'cryptobot' && !cryptoConfigured)}
+              disabled={
+                submitting
+                || !isAmountValid
+                || (paymentMethod === 'balance' && balance < totalPrice)
+                || (paymentMethod === 'cryptobot' && !cryptoConfigured)
+                || (paymentMethod === 'sbp' && !sbpAvailable)
+              }
             >
               {submitting
                 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</>
                 : paymentMethod === 'balance'
                   ? <>Оплатить с баланса ${totalPrice.toFixed(2)}</>
-                  : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
+                  : paymentMethod === 'sbp'
+                    ? <>Оплатить по СБП — ${totalPrice.toFixed(2)}</>
+                    : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
             </Button>
           </div>
 
