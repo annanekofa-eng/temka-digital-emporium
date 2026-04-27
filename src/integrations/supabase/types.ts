@@ -978,6 +978,54 @@ export type Database = {
           },
         ]
       }
+      shop_auto_products: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          label: string | null
+          max_stars: number | null
+          min_stars: number | null
+          price_12m: number | null
+          price_3m: number | null
+          price_6m: number | null
+          price_per_star: number | null
+          product_type: string
+          shop_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          label?: string | null
+          max_stars?: number | null
+          min_stars?: number | null
+          price_12m?: number | null
+          price_3m?: number | null
+          price_6m?: number | null
+          price_per_star?: number | null
+          product_type: string
+          shop_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          label?: string | null
+          max_stars?: number | null
+          min_stars?: number | null
+          price_12m?: number | null
+          price_3m?: number | null
+          price_6m?: number | null
+          price_per_star?: number | null
+          product_type?: string
+          shop_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shop_balance_history: {
         Row: {
           admin_telegram_id: number
@@ -1233,15 +1281,23 @@ export type Database = {
           created_at: string
           currency: string
           discount_amount: number
+          fulfilled_at: string | null
+          fulfilled_by_telegram_id: number | null
+          fulfillment_comment: string | null
+          fulfillment_status: string | null
           id: string
           invoice_id: string | null
           order_number: string
           pay_url: string | null
           payment_method: string
           payment_status: string
+          premium_duration: string | null
+          product_type: string | null
           promo_code: string | null
           shop_id: string
+          stars_amount: number | null
           status: string
+          target_user: string | null
           total_amount: number
           updated_at: string
         }
@@ -1251,15 +1307,23 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_amount?: number
+          fulfilled_at?: string | null
+          fulfilled_by_telegram_id?: number | null
+          fulfillment_comment?: string | null
+          fulfillment_status?: string | null
           id?: string
           invoice_id?: string | null
           order_number: string
           pay_url?: string | null
           payment_method?: string
           payment_status?: string
+          premium_duration?: string | null
+          product_type?: string | null
           promo_code?: string | null
           shop_id: string
+          stars_amount?: number | null
           status?: string
+          target_user?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -1269,15 +1333,23 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_amount?: number
+          fulfilled_at?: string | null
+          fulfilled_by_telegram_id?: number | null
+          fulfillment_comment?: string | null
+          fulfillment_status?: string | null
           id?: string
           invoice_id?: string | null
           order_number?: string
           pay_url?: string | null
           payment_method?: string
           payment_status?: string
+          premium_duration?: string | null
+          product_type?: string | null
           promo_code?: string | null
           shop_id?: string
+          stars_amount?: number | null
           status?: string
+          target_user?: string | null
           total_amount?: number
           updated_at?: string
         }

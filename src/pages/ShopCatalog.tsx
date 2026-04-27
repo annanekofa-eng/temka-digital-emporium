@@ -6,6 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ShopProductCard from '@/components/ShopProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import { useShop } from '@/contexts/ShopContext';
+import { useShopAutoProducts } from '@/hooks/useShopAutoProducts';
+import AutoProductCard from '@/components/storefront/AutoProductCard';
 
 const sortOptions = [
   { value: 'default', label: 'По умолчанию' },
@@ -17,6 +19,7 @@ const sortOptions = [
 const ShopCatalog = () => {
   const { products, productsLoading, searchQuery, setSearchQuery, shop, categories } = useShop();
   const shopId = shop?.id || '';
+  const { data: autoProducts = [] } = useShopAutoProducts(shopId);
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') || '';
   
@@ -183,6 +186,9 @@ const ShopCatalog = () => {
             <>
               <p className="text-xs sm:text-sm text-muted-foreground mb-4">Найдено товаров: {filtered.length}</p>
               <div className={viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4'}>
+                {!selectedCategory && !q.trim() && autoProducts.map(ap => (
+                  <AutoProductCard key={ap.id} product={ap} view={viewMode} />
+                ))}
                 {filtered.map(product => (
                   <ShopProductCard key={product.id} product={product} shopId={shopId} view={viewMode} />
                 ))}

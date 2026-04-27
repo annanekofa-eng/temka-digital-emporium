@@ -45,6 +45,8 @@ const ShopCart = React.lazy(() => import("./pages/ShopCart"));
 const ShopCheckout = React.lazy(() => import("./pages/ShopCheckout"));
 const ShopOrderSuccess = React.lazy(() => import("./pages/ShopOrderSuccess"));
 const ShopOrderStatus = React.lazy(() => import("./pages/ShopOrderStatus"));
+const ShopAutoPremium = React.lazy(() => import("./pages/ShopAutoPremium"));
+const ShopAutoStars = React.lazy(() => import("./pages/ShopAutoStars"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -110,6 +112,8 @@ const App = () => (
                   <Route path="checkout" element={<ShopCheckout />} />
                   <Route path="order-success" element={<ShopOrderSuccess />} />
                   <Route path="order-status" element={<ShopOrderStatus />} />
+                  <Route path="auto/premium" element={<ShopAutoPremium />} />
+                  <Route path="auto/stars" element={<ShopAutoStars />} />
                   <Route path="account" element={<Account />} />
                   <Route path="faq" element={<FAQ />} />
                   <Route path="about" element={<About />} />
