@@ -882,6 +882,7 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   const kb = ikb([
     [webAppBtn("🌐 Открыть профиль", `${WEBAPP_DOMAIN}/platform/profile`)],
     [btn("💳 Подписка", "p:sub")],
+    [btn("🎁 Реферальная система", "p:ref")],
     [btn("◀️ Назад", "p:home")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
