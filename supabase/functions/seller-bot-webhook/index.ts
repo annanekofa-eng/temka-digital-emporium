@@ -1077,8 +1077,9 @@ async function approvePaymentRequest(
     .select("product_id, quantity, product_name")
     .eq("order_id", order.id);
   const deliveredContent: string[] = [];
+  const isAutoOrder = order.product_type === "telegram_premium" || order.product_type === "telegram_stars";
   let allDelivered = true;
-  for (const item of orderItems || []) {
+  for (const item of (isAutoOrder ? [] : (orderItems || []))) {
     const { data: reserved } = await supabase().rpc("reserve_shop_inventory", {
       p_product_id: item.product_id,
       p_quantity: item.quantity,
@@ -1103,20 +1104,47 @@ async function approvePaymentRequest(
     }
   }
 
-  const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
+  const finalStatus = isAutoOrder
+    ? "processing"
+    : (allDelivered && deliveredContent.length > 0 ? "delivered" : "paid");
   await supabase()
     .from("shop_orders")
     .update({
       payment_status: "paid",
       status: finalStatus,
+      fulfillment_status: isAutoOrder ? "pending" : (order.fulfillment_status ?? null),
       updated_at: new Date().toISOString(),
     })
     .eq("id", order.id);
 
+  // Referral reward for auto-orders is credited at approval (cryptobot path credits in webhook;
+  // SBP path credits here, after manual confirmation).
+  if (isAutoOrder) {
+    try {
+      await supabase().rpc("shop_credit_referral_for_order", {
+        p_shop_id: shopId,
+        p_order_id: order.id,
+        p_referred_telegram_id: order.buyer_telegram_id,
+        p_order_amount: Number(order.total_amount || 0),
+      });
+    } catch (e) {
+      console.error("[approvePaymentRequest] auto referral error", e);
+    }
+  }
+
   await logAction(shopId, adminId, "approve_payment_request", "payment_request", requestId, { order_id: order.id });
 
   let userMsg = `✅ <b>Оплата подтверждена!</b>\n\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(req.amount_usd).toFixed(2)}\n`;
-  if (deliveredContent.length > 0) {
+  if (isAutoOrder) {
+    const isPrem = order.product_type === "telegram_premium";
+    const dur = order.premium_duration === "3m" ? "3 месяца"
+      : order.premium_duration === "6m" ? "6 месяцев"
+      : order.premium_duration === "12m" ? "12 месяцев" : "";
+    const productLine = isPrem
+      ? `⭐ <b>Telegram Premium</b> (${dur})`
+      : `⭐ <b>${order.stars_amount} Telegram Stars</b>`;
+    userMsg += `\n${productLine}\n👤 Получатель: <code>${order.target_user || ""}</code>\n\n⏳ Заказ передан продавцу для исполнения. Мы уведомим вас, как только товар будет выдан.`;
+  } else if (deliveredContent.length > 0) {
     userMsg += `\n🎁 <b>Ваши товары:</b>\n\n${deliveredContent.join("\n\n")}\n\n⚠️ Сохраните данные!`;
   } else {
     userMsg += `\nВаш товар будет доставлен в ближайшее время.`;
