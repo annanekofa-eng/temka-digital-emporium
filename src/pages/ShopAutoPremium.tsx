@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import PriceRub from '@/components/PriceRub';
 import AutoPaymentMethodSelector, { type AutoPaymentMethod } from '@/components/storefront/AutoPaymentMethodSelector';
 import AutoSbpPaymentSheet from '@/components/storefront/AutoSbpPaymentSheet';
+import TelegramAccountPreview from '@/components/storefront/TelegramAccountPreview';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -227,6 +228,7 @@ const ShopAutoPremium = () => {
               className="w-full h-11 px-3 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoComplete="off"
             />
+            <TelegramAccountPreview shopId={shop?.id} query={target} />
             <p className="text-xs text-muted-foreground">Укажите аккаунт Telegram, на который будет активирована подписка.</p>
           </div>
 
