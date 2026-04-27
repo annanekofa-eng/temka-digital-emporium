@@ -5724,6 +5724,17 @@ async function handleAdmText(
       }
     }
     await admLog(chatId, "extend_subscription", "user", String(targetTgId), { days, new_expires: newExpiry });
+    // Referral credit proportional to extension length at user's current price
+    try {
+      const priceInfo = await getSubscriptionPrice(targetTgId);
+      const amount = Math.round(((priceInfo.price * days) / 30) * 100) / 100;
+      await admGrantReferralCredit(targetTgId, amount, "admin_extend", {
+        days,
+        new_expires: newExpiry,
+      });
+    } catch (e) {
+      console.error("Referral credit on extend failed:", e);
+    }
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
