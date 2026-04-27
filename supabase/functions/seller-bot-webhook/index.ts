@@ -3283,6 +3283,83 @@ async function handleCallback(
       await logAction(shopId, adminId, "delete_review", "review", rid);
       return reviewsList(tg, cid, mid, shopId, 0);
     }
+
+    // ─── Auto-products ──────────────────────
+    if (cmd === "ap") return autoProductsHome(tg, cid, mid, shopId);
+    if (cmd === "apv") return autoProductView(tg, cid, mid, shopId, parts[2]);
+    if (cmd === "apt") {
+      const type = parts[2];
+      if (!AUTO_TYPES.includes(type as AutoType)) return;
+      await ensureAutoProduct(shopId, type as AutoType);
+      const { data: r } = await supabase().from("shop_auto_products")
+        .select("is_enabled, price_3m, price_6m, price_12m, price_per_star")
+        .eq("shop_id", shopId).eq("product_type", type).maybeSingle();
+      if (!r) return;
+      // Validate: cannot enable without prices
+      if (!r.is_enabled) {
+        const ok = type === "telegram_premium"
+          ? Number(r.price_3m) > 0 || Number(r.price_6m) > 0 || Number(r.price_12m) > 0
+          : Number(r.price_per_star) > 0;
+        if (!ok) {
+          await tg.answer(cbId, "❌ Сначала задайте цену", true).catch(() => {});
+          return autoProductView(tg, cid, mid, shopId, type);
+        }
+      }
+      await supabase().from("shop_auto_products")
+        .update({ is_enabled: !r.is_enabled, updated_at: new Date().toISOString() })
+        .eq("shop_id", shopId).eq("product_type", type);
+      await logAction(shopId, adminId, "toggle_auto_product", "auto_product", type, { is_enabled: !r.is_enabled });
+      return autoProductView(tg, cid, mid, shopId, type);
+    }
+    if (cmd === "ape") {
+      const type = parts[2];
+      const field = parts[3];
+      if (!AUTO_TYPES.includes(type as AutoType)) return;
+      const labels: Record<string, string> = {
+        "3m": "цену за 3 месяца (USD)",
+        "6m": "цену за 6 месяцев (USD)",
+        "12m": "цену за 12 месяцев (USD)",
+        per: "цену за 1 звезду (USD, до 4 знаков)",
+        min: "минимальное количество звёзд (целое)",
+        max: "максимальное количество звёзд (целое)",
+      };
+      if (!labels[field]) return;
+      await setSession(cid, `aap:${type}:${field}`, shopId);
+      return tg.send(cid, `✏️ Введите <b>${labels[field]}</b>:\n\n0 — снять значение\n/cancel — отмена`);
+    }
+
+    // ─── Auto-orders ────────────────────────
+    if (cmd === "ao") return autoOrdersList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
+    if (cmd === "aov") return autoOrderView(tg, cid, mid, shopId, parts[2]);
+    if (cmd === "aoc") {
+      const oid = parts[2];
+      const { data: o } = await supabase().from("shop_orders").select("*").eq("id", oid).eq("shop_id", shopId).maybeSingle();
+      if (!o) return;
+      await supabase().from("shop_orders").update({
+        fulfillment_status: "completed",
+        status: "completed",
+        fulfilled_at: new Date().toISOString(),
+        fulfilled_by_telegram_id: adminId,
+        updated_at: new Date().toISOString(),
+      }).eq("id", oid);
+      await logAction(shopId, adminId, "fulfill_auto_order", "shop_order", oid, { result: "completed" });
+      await notifyBuyerAutoFulfilled(shopId, botToken || null, o, true, null);
+      return autoOrderView(tg, cid, mid, shopId, oid);
+    }
+    if (cmd === "aof") {
+      const oid = parts[2];
+      const { data: o } = await supabase().from("shop_orders").select("*").eq("id", oid).eq("shop_id", shopId).maybeSingle();
+      if (!o) return;
+      await supabase().from("shop_orders").update({
+        fulfillment_status: "failed",
+        fulfillment_comment: "Помечено продавцом как ошибка",
+        fulfilled_by_telegram_id: adminId,
+        updated_at: new Date().toISOString(),
+      }).eq("id", oid);
+      await logAction(shopId, adminId, "fulfill_auto_order", "shop_order", oid, { result: "failed" });
+      await notifyBuyerAutoFulfilled(shopId, botToken || null, o, false, "Свяжитесь с продавцом");
+      return autoOrderView(tg, cid, mid, shopId, oid);
+    }
   } catch (e) {
     console.error("Callback error:", e);
   }
