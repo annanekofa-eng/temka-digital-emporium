@@ -468,3 +468,93 @@ async function deliverInventory(
     });
   }
 }
+
+// ─── Auto-product order payment (Telegram Premium / Stars) ──────
+async function handleAutoOrderPayment(supabase: any, invoice: any, orderData: any, shopId: string): Promise<boolean> {
+  const { data: order } = await supabase.from("shop_orders")
+    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, product_type, target_user, premium_duration, stars_amount, total_amount")
+    .eq("id", orderData.orderId).single();
+  if (!order) return false;
+  if (order.payment_status === "paid") return true;
+
+  const { data: updatedRows } = await supabase.from("shop_orders")
+    .update({
+      status: "processing",
+      payment_status: "paid",
+      fulfillment_status: "pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderData.orderId).neq("payment_status", "paid").select("id");
+  if (!updatedRows?.length) return true;
+
+  // Referral reward (idempotent)
+  try {
+    const finalAmount = Math.max(0, Number(invoice.amount || 0) + Number(order.balance_used || 0));
+    if (finalAmount > 0) {
+      await supabase.rpc("shop_credit_referral_for_order", {
+        p_shop_id: shopId,
+        p_order_id: orderData.orderId,
+        p_referred_telegram_id: order.buyer_telegram_id,
+        p_order_amount: finalAmount,
+      });
+    }
+  } catch (e) {
+    console.error("[auto-order] referral credit error:", e);
+  }
+
+  const botToken = await decryptShopToken(supabase, shopId, "bot_token_encrypted");
+
+  // Compose product description
+  const isPremium = order.product_type === "telegram_premium";
+  const durLabel = order.premium_duration === "3m" ? "3 месяца"
+    : order.premium_duration === "6m" ? "6 месяцев"
+    : order.premium_duration === "12m" ? "12 месяцев" : "";
+  const productLine = isPremium
+    ? `⭐ <b>Telegram Premium</b> (${durLabel})`
+    : `⭐ <b>${order.stars_amount} Telegram Stars</b>`;
+
+  // Notify buyer
+  if (botToken) {
+    const buyerMsg =
+      `✅ <b>Оплата подтверждена!</b>\n\n` +
+      `📦 Заказ: <code>${order.order_number}</code>\n` +
+      `${productLine}\n` +
+      `👤 Получатель: <code>${order.target_user}</code>\n` +
+      `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
+      `⏳ Заказ передан продавцу для исполнения. Обычно занимает несколько минут.\n` +
+      `Мы уведомим вас, как только товар будет выдан.`;
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: order.buyer_telegram_id, text: buyerMsg, parse_mode: "HTML" }),
+    }).catch((e) => console.error("[auto-order] notify buyer error:", e));
+  }
+
+  // Notify shop owner via platform bot
+  try {
+    const { data: shop } = await supabase.from("shops")
+      .select("name, owner_id").eq("id", shopId).maybeSingle();
+    if (shop?.owner_id) {
+      const { data: owner } = await supabase.from("platform_users")
+        .select("telegram_id").eq("id", shop.owner_id).maybeSingle();
+      const platformToken = Deno.env.get("PLATFORM_BOT_TOKEN");
+      if (owner?.telegram_id && platformToken) {
+        const ownerMsg =
+          `🆕 <b>Новый авто-заказ</b>\n\n` +
+          `🏪 Магазин: <b>${shop.name || ""}</b>\n` +
+          `📦 Заказ: <code>${order.order_number}</code>\n` +
+          `${productLine}\n` +
+          `👤 Получатель: <code>${order.target_user}</code>\n` +
+          `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
+          `⚙️ Откройте раздел «Авто-заказы» в админке магазина, чтобы выдать товар.`;
+        await fetch(`https://api.telegram.org/bot${platformToken}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
+        }).catch((e) => console.error("[auto-order] notify owner error:", e));
+      }
+    }
+  } catch (e) {
+    console.error("[auto-order] owner notification error:", e);
+  }
+
+  return true;
+}
