@@ -6007,6 +6007,30 @@ serve(async (req) => {
           await tg.send(chatId, "🚫 Ваш аккаунт заблокирован. Обратитесь в поддержку.");
           return new Response("ok");
         }
+        // ─── Capture referral (start payload "ref_<telegram_id>") ─────
+        const startPayload = text.startsWith("/start ") ? text.slice(7).trim() : "";
+        if (startPayload.startsWith("ref_")) {
+          const refIdRaw = startPayload.slice(4);
+          const refId = Number(refIdRaw);
+          if (Number.isFinite(refId) && refId > 0 && refId !== from.id) {
+            try {
+              // Only link if referrer exists as a platform user, and this user is not already linked
+              const { data: refUser } = await db()
+                .from("platform_users")
+                .select("telegram_id")
+                .eq("telegram_id", refId)
+                .maybeSingle();
+              if (refUser) {
+                await db().from("platform_referrals").insert({
+                  referrer_telegram_id: refId,
+                  referred_telegram_id: from.id,
+                });
+              }
+            } catch {
+              // Ignore unique-violation (already linked) and any other errors silently
+            }
+          }
+        }
         await sendWelcome(tg, chatId, from.first_name || "друг");
         return new Response("ok");
       }
