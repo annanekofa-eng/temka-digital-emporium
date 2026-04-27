@@ -738,8 +738,21 @@ serve(async (req) => {
         .select("invoice_id").eq("invoice_id", String(invoice.invoice_id)).maybeSingle();
       if (alreadyProcessed) return jsonRes({ status: "paid", paymentStatus: "paid" });
 
+      // Auto-orders (telegram_premium / telegram_stars) follow a different
+      // fulfillment flow: they have no inventory rows, the seller delivers
+      // them manually from the admin panel. Mark them as `processing` /
+      // `fulfillment_status: pending` so they show up in the auto-orders queue.
+      const isAutoOrder = isShop && (order.product_type === "telegram_premium" || order.product_type === "telegram_stars");
+
+      const updatePayload: Record<string, unknown> = {
+        status: isAutoOrder ? "processing" : "paid",
+        payment_status: "paid",
+        updated_at: new Date().toISOString(),
+      };
+      if (isAutoOrder) updatePayload.fulfillment_status = "pending";
+
       const { data: updatedRows } = await supabase.from(orderTable)
-        .update({ status: "paid", payment_status: "paid", updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq("id", orderId).neq("payment_status", "paid").select("id");
       if (!updatedRows?.length) return jsonRes({ status: "paid", paymentStatus: "paid" });
 
@@ -777,6 +790,74 @@ serve(async (req) => {
             });
           }
         }
+      }
+
+      // Auto-order: skip inventory reservation, send buyer + owner notifications
+      // and credit referral. Then return early.
+      if (isAutoOrder) {
+        try {
+          const refAmount = Number(order.total_amount || 0);
+          if (refAmount > 0) {
+            await supabase.rpc("shop_credit_referral_for_order", {
+              p_shop_id: resolvedShopId, p_order_id: orderId,
+              p_referred_telegram_id: telegramId, p_order_amount: refAmount,
+            });
+          }
+        } catch (e) { console.error("[auto-order polling] referral error:", e); }
+
+        const isPremium = order.product_type === "telegram_premium";
+        const durLabel = order.premium_duration === "3m" ? "3 месяца"
+          : order.premium_duration === "6m" ? "6 месяцев"
+          : order.premium_duration === "12m" ? "12 месяцев" : "";
+        const productLine = isPremium
+          ? `⭐ <b>Telegram Premium</b> (${durLabel})`
+          : `⭐ <b>${order.stars_amount} Telegram Stars</b>`;
+
+        if (tokens.botToken) {
+          const buyerMsg =
+            `✅ <b>Оплата подтверждена!</b>\n\n` +
+            `📦 Заказ: <code>${order.order_number}</code>\n` +
+            `${productLine}\n` +
+            `👤 Получатель: <code>${order.target_user}</code>\n` +
+            `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
+            `⏳ Заказ передан продавцу для исполнения.\n` +
+            `Мы уведомим вас, как только товар будет выдан.`;
+          await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: telegramId, text: buyerMsg, parse_mode: "HTML" }),
+          }).catch((e) => console.error("[auto-order polling] notify buyer:", e));
+        }
+
+        // Notify shop owner via the SHOP bot
+        try {
+          const { data: shop } = await supabase.from("shops")
+            .select("name, owner_id").eq("id", resolvedShopId).maybeSingle();
+          if (shop?.owner_id && tokens.botToken) {
+            const { data: owner } = await supabase.from("platform_users")
+              .select("telegram_id").eq("id", shop.owner_id).maybeSingle();
+            if (owner?.telegram_id) {
+              const ownerMsg =
+                `🆕 <b>Новый авто-заказ</b>\n\n` +
+                `🏪 Магазин: <b>${shop.name || ""}</b>\n` +
+                `📦 Заказ: <code>${order.order_number}</code>\n` +
+                `${productLine}\n` +
+                `👤 Получатель: <code>${order.target_user}</code>\n` +
+                `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
+                `⚙️ Откройте раздел «Авто-заказы» в админке магазина, чтобы выдать товар.`;
+              await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
+              }).catch((e) => console.error("[auto-order polling] notify owner:", e));
+            }
+          }
+        } catch (e) { console.error("[auto-order polling] owner notify err:", e); }
+
+        await supabase.from("processed_invoices").insert({
+          invoice_id: String(invoice.invoice_id), type: "payment", order_id: orderId,
+          telegram_id: telegramId, amount: Number(invoice.amount) || 0,
+        });
+
+        return jsonRes({ status: "processing", paymentStatus: "paid" });
       }
 
       // Inventory reservation
