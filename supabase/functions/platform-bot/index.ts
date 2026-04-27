@@ -2373,6 +2373,19 @@ async function handleCallback(
           p_discount_amount: discountAmount,
         });
       }
+      // Platform referral reward (idempotent via UNIQUE subscription_payment_id)
+      try {
+        const refAmount = Math.max(0, SUBSCRIPTION_PRICE);
+        if (refAmount > 0) {
+          await db().rpc("platform_credit_referral_for_subscription", {
+            p_subscription_payment_id: payment.id,
+            p_referred_telegram_id: telegramId,
+            p_payment_amount: refAmount,
+          });
+        }
+      } catch (e) {
+        console.error("Platform referral credit error:", e);
+      }
       await clearSession(chatId);
       let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
