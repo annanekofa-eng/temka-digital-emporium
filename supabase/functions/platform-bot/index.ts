@@ -898,9 +898,17 @@ async function showReferral(tg: ReturnType<typeof TG>, chatId: number, msgId?: n
     .eq("referrer_telegram_id", chatId);
 
   const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
-  const pendingPayout = (earnings || [])
-    .filter((e: any) => e.status === "pending")
-    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  // Total paid via admin payouts
+  const { data: payouts } = await db()
+    .from("platform_referral_payouts")
+    .select("amount, status, comment, created_at")
+    .eq("referrer_telegram_id", chatId)
+    .order("created_at", { ascending: false });
+  const totalPaid = (payouts || [])
+    .filter((p: any) => p.status === "paid")
+    .reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const available = Math.max(0, totalEarned - totalPaid);
 
   const botUsername = await getPlatformBotUsername();
   const referralLink = botUsername ? `https://t.me/${botUsername}?start=ref_${chatId}` : "";
@@ -910,7 +918,21 @@ async function showReferral(tg: ReturnType<typeof TG>, chatId: number, msgId?: n
     `Приглашайте друзей и получайте <b>${rewardPercent}%</b> с каждой их оплаты подписки!\n\n` +
     `👥 Приглашено: <b>${referredCount || 0}</b>\n` +
     `💰 Всего заработано: <b>$${totalEarned.toFixed(2)}</b>\n` +
-    `⏳ К выплате: <b>$${pendingPayout.toFixed(2)}</b>\n\n`;
+    `✅ Выплачено: <b>$${totalPaid.toFixed(2)}</b>\n` +
+    `💸 Доступно к выплате: <b>$${available.toFixed(2)}</b>\n\n`;
+
+  // History of payouts (last 5)
+  const recent = (payouts || []).slice(0, 5);
+  if (recent.length) {
+    text += `<b>📜 История выплат:</b>\n`;
+    for (const p of recent) {
+      const d = new Date(p.created_at).toLocaleDateString("ru");
+      const st = p.status === "paid" ? "✅" : p.status === "canceled" ? "❌" : "⏳";
+      const cm = p.comment ? ` — <i>${esc(String(p.comment))}</i>` : "";
+      text += `${st} ${d} — <b>$${Number(p.amount).toFixed(2)}</b>${cm}\n`;
+    }
+    text += `\n`;
+  }
 
   if (referralLink) {
     text += `🔗 <b>Ваша ссылка:</b>\n<code>${esc(referralLink)}</code>\n\n`;
@@ -923,7 +945,7 @@ async function showReferral(tg: ReturnType<typeof TG>, chatId: number, msgId?: n
   if (referralLink) {
     rows.push([urlBtn("📤 Поделиться", `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Создавай свой Telegram-магазин на TeleStore — это просто!")}`)]);
   }
-  if (pendingPayout > 0) {
+  if (available > 0) {
     rows.push([btn("💸 Запросить выплату", "p:refpayout")]);
   }
   rows.push([btn("◀️ Назад", "p:profile")]);
@@ -941,11 +963,16 @@ async function handleReferralPayout(tg: ReturnType<typeof TG>, chatId: number, m
 
   const { data: earnings } = await db()
     .from("platform_referral_earnings")
-    .select("reward_amount, status")
+    .select("reward_amount")
+    .eq("referrer_telegram_id", chatId);
+  const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const { data: payouts } = await db()
+    .from("platform_referral_payouts")
+    .select("amount, status")
     .eq("referrer_telegram_id", chatId)
-    .eq("status", "pending");
-
-  const pendingPayout = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+    .eq("status", "paid");
+  const totalPaid = (payouts || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const pendingPayout = Math.max(0, totalEarned - totalPaid);
 
   if (pendingPayout <= 0) {
     return tg.edit(
