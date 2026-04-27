@@ -14,6 +14,7 @@ import AutoSbpPaymentSheet from '@/components/storefront/AutoSbpPaymentSheet';
 import TelegramAccountPreview from '@/components/storefront/TelegramAccountPreview';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import telegramStarsImg from '@/assets/telegram-stars.jpg';
 
 const PRESETS = [50, 100, 250, 500, 1000, 2500];
 
@@ -181,11 +182,12 @@ const ShopAutoStars = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        <div className="bg-gradient-to-br from-amber-500/15 to-amber-500/5 border border-amber-500/20 rounded-2xl p-8 sm:p-12 flex items-center justify-center min-h-[280px] sm:min-h-[400px]">
-          <div className="text-center">
-            <Star className="w-24 h-24 sm:w-32 sm:h-32 fill-amber-400 text-amber-400 mx-auto mb-3" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Telegram Stars</span>
-          </div>
+        <div className="border border-amber-500/20 rounded-2xl overflow-hidden min-h-[280px] sm:min-h-[400px]">
+          <img
+            src={telegramStarsImg}
+            alt="Telegram Stars"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <div>
