@@ -10,6 +10,7 @@ import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import PriceRub from '@/components/PriceRub';
 import AutoPaymentMethodSelector, { type AutoPaymentMethod } from '@/components/storefront/AutoPaymentMethodSelector';
+import AutoSbpPaymentSheet from '@/components/storefront/AutoSbpPaymentSheet';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -41,11 +42,28 @@ const ShopAutoPremium = () => {
     },
   });
 
+  // Detect if shop has SBP enabled
+  const { data: sbpAvailable = false } = useQuery({
+    queryKey: ['shop-sbp-enabled', shop?.id],
+    enabled: !!shop?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_payment_methods')
+        .select('enabled')
+        .eq('shop_id', shop!.id)
+        .eq('method', 'sbp_card')
+        .maybeSingle();
+      if (error) return false;
+      return !!data?.enabled;
+    },
+  });
+
   const [target, setTarget] = useState('');
   const [duration, setDuration] = useState<Duration>('3m');
   const [paymentMethod, setPaymentMethod] = useState<AutoPaymentMethod>('cryptobot');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [sbpStarted, setSbpStarted] = useState(false);
 
   const availableDurations = useMemo(() => {
     if (!autoProduct) return [];
@@ -74,6 +92,11 @@ const ShopAutoPremium = () => {
     if (!initData) { setError('Откройте магазин через Telegram'); return; }
     if (paymentMethod === 'balance' && balance < price) {
       setError('Недостаточно средств на балансе');
+      return;
+    }
+
+    if (paymentMethod === 'sbp') {
+      setSbpStarted(true);
       return;
     }
 
@@ -127,6 +150,25 @@ const ShopAutoPremium = () => {
         <Link to={buildPath('/catalog')}>
           <Button variant="outline" className="mt-4"><ArrowLeft className="w-4 h-4 mr-1" /> Назад в каталог</Button>
         </Link>
+      </div>
+    );
+  }
+
+  // SBP flow takes over the page once user has confirmed inputs
+  if (sbpStarted && shop?.id) {
+    const valid = validateTelegramTarget(target);
+    return (
+      <div className="container-main mx-auto px-4 py-6 sm:py-8 max-w-xl">
+        <h1 className="font-display text-xl font-bold mb-4">Оплата по СБП — Telegram Premium</h1>
+        <AutoSbpPaymentSheet
+          shopId={shop.id}
+          amountUsd={price}
+          productType="telegram_premium"
+          targetUser={valid.value || target}
+          premiumDuration={effectiveDuration}
+          supportLink={supportLink}
+          onBack={() => setSbpStarted(false)}
+        />
       </div>
     );
   }
@@ -222,6 +264,7 @@ const ShopAutoPremium = () => {
               balance={balance}
               totalPrice={price}
               cryptoAvailable={cryptoConfigured}
+              sbpAvailable={sbpAvailable}
             />
           </div>
 
@@ -235,13 +278,20 @@ const ShopAutoPremium = () => {
             <Button
               variant="hero" size="xl" className="w-full"
               onClick={handleSubmit}
-              disabled={submitting || (paymentMethod === 'balance' && balance < price) || (paymentMethod === 'cryptobot' && !cryptoConfigured)}
+              disabled={
+                submitting
+                || (paymentMethod === 'balance' && balance < price)
+                || (paymentMethod === 'cryptobot' && !cryptoConfigured)
+                || (paymentMethod === 'sbp' && !sbpAvailable)
+              }
             >
               {submitting
                 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</>
                 : paymentMethod === 'balance'
                   ? <>Оплатить с баланса ${price.toFixed(2)}</>
-                  : <>Купить за ${price.toFixed(2)}</>}
+                  : paymentMethod === 'sbp'
+                    ? <>Оплатить по СБП — ${price.toFixed(2)}</>
+                    : <>Купить за ${price.toFixed(2)}</>}
             </Button>
           </div>
 

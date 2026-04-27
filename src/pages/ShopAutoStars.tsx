@@ -10,6 +10,7 @@ import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import PriceRub from '@/components/PriceRub';
 import AutoPaymentMethodSelector, { type AutoPaymentMethod } from '@/components/storefront/AutoPaymentMethodSelector';
+import AutoSbpPaymentSheet from '@/components/storefront/AutoSbpPaymentSheet';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -35,11 +36,27 @@ const ShopAutoStars = () => {
     },
   });
 
+  const { data: sbpAvailable = false } = useQuery({
+    queryKey: ['shop-sbp-enabled', shop?.id],
+    enabled: !!shop?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shop_payment_methods')
+        .select('enabled')
+        .eq('shop_id', shop!.id)
+        .eq('method', 'sbp_card')
+        .maybeSingle();
+      if (error) return false;
+      return !!data?.enabled;
+    },
+  });
+
   const [target, setTarget] = useState('');
   const [amount, setAmount] = useState<number>(50);
   const [paymentMethod, setPaymentMethod] = useState<AutoPaymentMethod>('cryptobot');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [sbpStarted, setSbpStarted] = useState(false);
 
   const minStars = autoProduct?.min_stars ?? 50;
   const maxStars = autoProduct?.max_stars ?? 100000;
@@ -72,6 +89,11 @@ const ShopAutoStars = () => {
     if (!initData) { setError('Откройте магазин через Telegram'); return; }
     if (paymentMethod === 'balance' && balance < totalPrice) {
       setError('Недостаточно средств на балансе');
+      return;
+    }
+
+    if (paymentMethod === 'sbp') {
+      setSbpStarted(true);
       return;
     }
 
@@ -125,6 +147,24 @@ const ShopAutoStars = () => {
         <Link to={buildPath('/catalog')}>
           <Button variant="outline" className="mt-4"><ArrowLeft className="w-4 h-4 mr-1" /> Назад в каталог</Button>
         </Link>
+      </div>
+    );
+  }
+
+  if (sbpStarted && shop?.id) {
+    const valid = validateTelegramTarget(target);
+    return (
+      <div className="container-main mx-auto px-4 py-6 sm:py-8 max-w-xl">
+        <h1 className="font-display text-xl font-bold mb-4">Оплата по СБП — Telegram Stars</h1>
+        <AutoSbpPaymentSheet
+          shopId={shop.id}
+          amountUsd={totalPrice}
+          productType="telegram_stars"
+          targetUser={valid.value || target}
+          starsAmount={amount}
+          supportLink={supportLink}
+          onBack={() => setSbpStarted(false)}
+        />
       </div>
     );
   }
@@ -238,6 +278,7 @@ const ShopAutoStars = () => {
               balance={balance}
               totalPrice={totalPrice}
               cryptoAvailable={cryptoConfigured}
+              sbpAvailable={sbpAvailable}
             />
           </div>
 
@@ -251,13 +292,21 @@ const ShopAutoStars = () => {
             <Button
               variant="hero" size="xl" className="w-full"
               onClick={handleSubmit}
-              disabled={submitting || !isAmountValid || (paymentMethod === 'balance' && balance < totalPrice) || (paymentMethod === 'cryptobot' && !cryptoConfigured)}
+              disabled={
+                submitting
+                || !isAmountValid
+                || (paymentMethod === 'balance' && balance < totalPrice)
+                || (paymentMethod === 'cryptobot' && !cryptoConfigured)
+                || (paymentMethod === 'sbp' && !sbpAvailable)
+              }
             >
               {submitting
                 ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</>
                 : paymentMethod === 'balance'
                   ? <>Оплатить с баланса ${totalPrice.toFixed(2)}</>
-                  : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
+                  : paymentMethod === 'sbp'
+                    ? <>Оплатить по СБП — ${totalPrice.toFixed(2)}</>
+                    : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
             </Button>
           </div>
 
