@@ -853,6 +853,136 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
 // ═══════════════════════════════════════════════
 // PROFILE
 // ═══════════════════════════════════════════════
+
+// Cache the platform bot username for referral links
+let _platformBotUsername: string | null = null;
+async function getPlatformBotUsername(): Promise<string> {
+  if (_platformBotUsername) return _platformBotUsername;
+  try {
+    const token = Deno.env.get("PLATFORM_BOT_TOKEN");
+    if (!token) return "";
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`).then((r) => r.json());
+    if (res?.ok && res.result?.username) {
+      _platformBotUsername = res.result.username;
+      return _platformBotUsername;
+    }
+  } catch {}
+  return "";
+}
+
+// ─── Referral system (platform-level) ─────────
+async function showReferral(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
+  const { data: settings } = await db()
+    .from("platform_referral_settings")
+    .select("is_enabled, reward_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  const isEnabled = settings?.is_enabled ?? true;
+  const rewardPercent = Number(settings?.reward_percent ?? 10);
+
+  if (!isEnabled) {
+    const text = `🎁 <b>Реферальная система</b>\n\n❌ Программа временно отключена.\n\nЗайдите позже — мы скоро её включим!`;
+    const kb = ikb([[btn("◀️ Назад", "p:profile")]]);
+    if (msgId) return tg.edit(chatId, msgId, text, kb);
+    return tg.send(chatId, text, kb);
+  }
+
+  const { count: referredCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", chatId);
+
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", chatId);
+
+  const totalEarned = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const pendingPayout = (earnings || [])
+    .filter((e: any) => e.status === "pending")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  const botUsername = await getPlatformBotUsername();
+  const referralLink = botUsername ? `https://t.me/${botUsername}?start=ref_${chatId}` : "";
+
+  let text =
+    `🎁 <b>Реферальная система TeleStore</b>\n\n` +
+    `Приглашайте друзей и получайте <b>${rewardPercent}%</b> с каждой их оплаты подписки!\n\n` +
+    `👥 Приглашено: <b>${referredCount || 0}</b>\n` +
+    `💰 Всего заработано: <b>$${totalEarned.toFixed(2)}</b>\n` +
+    `⏳ К выплате: <b>$${pendingPayout.toFixed(2)}</b>\n\n`;
+
+  if (referralLink) {
+    text += `🔗 <b>Ваша ссылка:</b>\n<code>${esc(referralLink)}</code>\n\n`;
+    text += `<i>Нажмите на ссылку, чтобы скопировать.</i>`;
+  } else {
+    text += `<i>Ссылка временно недоступна, попробуйте позже.</i>`;
+  }
+
+  const rows: Btn[][] = [];
+  if (referralLink) {
+    rows.push([urlBtn("📤 Поделиться", `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Создавай свой Telegram-магазин на TeleStore — это просто!")}`)]);
+  }
+  if (pendingPayout > 0) {
+    rows.push([btn("💸 Запросить выплату", "p:refpayout")]);
+  }
+  rows.push([btn("◀️ Назад", "p:profile")]);
+
+  const kb = ikb(rows);
+  if (msgId) return tg.edit(chatId, msgId, text, kb);
+  return tg.send(chatId, text, kb);
+}
+
+async function handleReferralPayout(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { count: referredCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", chatId);
+
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", chatId)
+    .eq("status", "pending");
+
+  const pendingPayout = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  if (pendingPayout <= 0) {
+    return tg.edit(
+      chatId,
+      msgId,
+      `ℹ️ Сейчас нет средств к выплате.\n\nКак только ваши приглашённые оформят подписку — здесь появится сумма.`,
+      ikb([[btn("◀️ Назад", "p:ref")]]),
+    );
+  }
+
+  const supportLink = await getSupportLink();
+  // Extract username from t.me link or @form
+  const m = supportLink.match(/(?:t\.me\/|@)([A-Za-z0-9_]+)/);
+  const username = m ? m[1] : "";
+
+  const message = `Здравствуйте, у меня ${referredCount || 0} рефералов, сумма к выплате ${pendingPayout.toFixed(2)}$`;
+  const supportUrl = username
+    ? `https://t.me/${username}?text=${encodeURIComponent(message)}`
+    : supportLink;
+
+  const text =
+    `💸 <b>Запрос выплаты</b>\n\n` +
+    `👥 Рефералов: <b>${referredCount || 0}</b>\n` +
+    `💰 Сумма к выплате: <b>$${pendingPayout.toFixed(2)}</b>\n\n` +
+    `Нажмите кнопку ниже — откроется чат с поддержкой\nс готовым сообщением. Просто отправьте его нам.`;
+
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [urlBtn("✉️ Написать в поддержку", supportUrl)],
+      [btn("◀️ Назад", "p:ref")],
+    ]),
+  );
+}
+
 async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
   const { data: user } = await db().from("platform_users").select("*").eq("telegram_id", chatId).maybeSingle();
   if (!user) return;
@@ -882,6 +1012,7 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   const kb = ikb([
     [webAppBtn("🌐 Открыть профиль", `${WEBAPP_DOMAIN}/platform/profile`)],
     [btn("💳 Подписка", "p:sub")],
+    [btn("🎁 Реферальная система", "p:ref")],
     [btn("◀️ Назад", "p:home")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
@@ -1989,6 +2120,8 @@ async function handleCallback(
   if (cmd === "noop") return;
   if (cmd === "howitworks") return howItWorks(tg, chatId, msgId);
   if (cmd === "profile") return showProfile(tg, chatId, msgId);
+  if (cmd === "ref") return showReferral(tg, chatId, msgId);
+  if (cmd === "refpayout") return handleReferralPayout(tg, chatId, msgId);
   if (cmd === "sub") return showSubscription(tg, chatId, msgId);
   if (cmd === "sub_renew") return showRenewOptions(tg, chatId, msgId);
   // p:pay_sub and p:sub_promo are handled below (after shop management callbacks)
@@ -2373,6 +2506,19 @@ async function handleCallback(
           p_discount_amount: discountAmount,
         });
       }
+      // Platform referral reward (idempotent via UNIQUE subscription_payment_id)
+      try {
+        const refAmount = Math.max(0, SUBSCRIPTION_PRICE);
+        if (refAmount > 0) {
+          await db().rpc("platform_credit_referral_for_subscription", {
+            p_subscription_payment_id: payment.id,
+            p_referred_telegram_id: telegramId,
+            p_payment_amount: refAmount,
+          });
+        }
+      } catch (e) {
+        console.error("Platform referral credit error:", e);
+      }
       await clearSession(chatId);
       let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
@@ -2517,6 +2663,7 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("🚨 Риски/блокировки", "adm:risks"), btn("📋 Логи", "adm:logs:0")],
     [btn("📋 Подписка (policy)", "adm:subconfig"), btn("⚙️ Настройки", "adm:settings")],
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
+    [btn("🎁 Рефералка", "adm:ref")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
   return tg.send(chatId, text, kb);
@@ -2644,6 +2791,134 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     text,
     ikb([[btn("🔄 Обновить", "adm:stats")], [btn("🚨 Риски", "adm:risks")], [btn("◀️ Меню", "adm:home")]]),
   );
+}
+
+// ─── REFERRAL ADMIN ───────────────────────────
+async function admReferral(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { data: settings } = await db()
+    .from("platform_referral_settings")
+    .select("is_enabled, reward_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  const enabled = settings?.is_enabled ?? true;
+  const pct = Number(settings?.reward_percent ?? 10);
+
+  const [{ count: totalLinks }, { data: earnings }, { count: totalReferrers }] = await Promise.all([
+    db().from("platform_referrals").select("id", { count: "exact", head: true }),
+    db().from("platform_referral_earnings").select("reward_amount, status"),
+    db()
+      .from("platform_referrals")
+      .select("referrer_telegram_id", { count: "exact", head: true }),
+  ]);
+
+  const totalAccrued = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const totalPending = (earnings || [])
+    .filter((e: any) => e.status === "pending")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const totalPaid = (earnings || [])
+    .filter((e: any) => e.status === "paid")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  const text =
+    `🎁 <b>Реферальная система платформы</b>\n\n` +
+    `Статус: <b>${enabled ? "✅ включена" : "❌ выключена"}</b>\n` +
+    `Процент вознаграждения: <b>${pct}%</b>\n\n` +
+    `👥 Связей: <b>${totalLinks || 0}</b>\n` +
+    `🧑‍🤝‍🧑 Активных рефереров: <b>${totalReferrers || 0}</b>\n` +
+    `💰 Всего начислено: <b>$${totalAccrued.toFixed(2)}</b>\n` +
+    `⏳ К выплате: <b>$${totalPending.toFixed(2)}</b>\n` +
+    `✅ Выплачено: <b>$${totalPaid.toFixed(2)}</b>\n\n` +
+    `<i>Начисление идёт автоматически после оплаты подписки приглашённого. Считается от полной суммы оплаты.</i>`;
+
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn(enabled ? "❌ Выключить" : "✅ Включить", "adm:reftog")],
+      [btn("✏️ Изменить %", "adm:refset")],
+      [btn("👥 Топ рефереров", "adm:refusers:0")],
+      [btn("◀️ Меню", "adm:home")],
+    ]),
+  );
+}
+
+async function admReferralUsers(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
+  const perPage = 10;
+  // Aggregate referrers via SQL — fallback to JS aggregation since we have no rpc helper
+  const { data: refs } = await db()
+    .from("platform_referrals")
+    .select("referrer_telegram_id");
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("referrer_telegram_id, reward_amount, status");
+
+  // Aggregate per referrer
+  const agg = new Map<number, { count: number; earned: number; pending: number }>();
+  for (const r of refs || []) {
+    const k = Number(r.referrer_telegram_id);
+    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
+    cur.count += 1;
+    agg.set(k, cur);
+  }
+  for (const e of earnings || []) {
+    const k = Number(e.referrer_telegram_id);
+    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
+    cur.earned += Number(e.reward_amount);
+    if (e.status === "pending") cur.pending += Number(e.reward_amount);
+    agg.set(k, cur);
+  }
+
+  // Sort by earned desc, then count desc
+  const sorted = Array.from(agg.entries())
+    .map(([tgId, v]) => ({ tgId, ...v }))
+    .sort((a, b) => (b.earned - a.earned) || (b.count - a.count));
+
+  const total = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const p = Math.max(0, Math.min(page, totalPages - 1));
+  const slice = sorted.slice(p * perPage, p * perPage + perPage);
+
+  if (total === 0) {
+    return tg.edit(
+      chatId,
+      msgId,
+      `👥 <b>Топ рефереров</b>\n\nПока никто никого не пригласил.`,
+      ikb([[btn("◀️ Назад", "adm:ref")]]),
+    );
+  }
+
+  // Fetch user info
+  const tgIds = slice.map((s) => s.tgId);
+  const { data: users } = await db()
+    .from("platform_users")
+    .select("telegram_id, first_name, last_name, username")
+    .in("telegram_id", tgIds);
+  const userMap = new Map<number, any>();
+  for (const u of users || []) userMap.set(Number(u.telegram_id), u);
+
+  let text = `👥 <b>Топ рефереров</b> (${total})\n\n`;
+  const rows: Btn[][] = [];
+  for (const s of slice) {
+    const u = userMap.get(s.tgId);
+    const name = u
+      ? esc((u.first_name || "") + (u.last_name ? " " + u.last_name : "")) + (u.username ? ` (@${esc(u.username)})` : "")
+      : `ID ${s.tgId}`;
+    text +=
+      `• <b>${name}</b> [${s.tgId}]\n` +
+      `   👥 ${s.count} | 💰 $${s.earned.toFixed(2)} | ⏳ $${s.pending.toFixed(2)}\n`;
+    rows.push([btn(`👤 ${name.slice(0, 40)}`, `adm:ucard:${s.tgId}`)]);
+  }
+
+  // Pagination
+  const nav: Btn[] = [];
+  if (p > 0) nav.push(btn("◀️", `adm:refusers:${p - 1}`));
+  nav.push(btn(`${p + 1}/${totalPages}`, "adm:noop"));
+  if (p < totalPages - 1) nav.push(btn("▶️", `adm:refusers:${p + 1}`));
+  if (nav.length > 0) rows.push(nav);
+  rows.push([btn("◀️ Назад", "adm:ref")]);
+
+  return tg.edit(chatId, msgId, text, ikb(rows));
 }
 
 // ─── USERS ────────────────────────────────────
@@ -3707,6 +3982,40 @@ async function handleAdmCallback(
   if (cmd === "home") return admHome(tg, chatId, msgId);
   if (cmd === "noop") return;
   if (cmd === "stats") return admStats(tg, chatId, msgId);
+
+  // ─── Referral admin ───────────────────────
+  if (cmd === "ref") return admReferral(tg, chatId, msgId);
+  if (cmd === "refusers") return admReferralUsers(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  if (cmd === "reftog") {
+    const { data: rs } = await db()
+      .from("platform_referral_settings")
+      .select("is_enabled, reward_percent")
+      .eq("id", 1)
+      .maybeSingle();
+    const newVal = !(rs?.is_enabled ?? true);
+    await db()
+      .from("platform_referral_settings")
+      .upsert(
+        {
+          id: 1,
+          is_enabled: newVal,
+          reward_percent: rs?.reward_percent ?? 10,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    await admLog(adminTgId, newVal ? "enable_platform_referral" : "disable_platform_referral", "settings", "referral");
+    return admReferral(tg, chatId, msgId);
+  }
+  if (cmd === "refset") {
+    await setSession(chatId, "adm_ref_percent", {});
+    return tg.edit(
+      chatId,
+      msgId,
+      "✏️ Введите новый процент вознаграждения (число от 0 до 100):\n\nПример: <code>15</code>",
+      ikb([[btn("❌ Отмена", "adm:ref")]]),
+    );
+  }
 
   // ─── Users ────────────────────────────────
   if (cmd === "users") return admUsersList(tg, chatId, msgId, parseInt(parts[2]) || 0);
@@ -5017,6 +5326,35 @@ async function handleAdmText(
   state: string,
   sData: Record<string, unknown>,
 ) {
+  if (state === "adm_ref_percent") {
+    const num = Number(String(val).replace(",", ".").trim());
+    if (!Number.isFinite(num) || num < 0 || num > 100) {
+      await tg.send(chatId, "❌ Введите число от 0 до 100. Пример: <code>15</code>");
+      return;
+    }
+    await db()
+      .from("platform_referral_settings")
+      .upsert(
+        {
+          id: 1,
+          is_enabled: true,
+          reward_percent: num,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    await admLog(chatId, "set_platform_referral_percent", "settings", "referral", { percent: num });
+    await clearSession(chatId);
+    const resp = await tg.send(chatId, `✅ Процент обновлён: <b>${num}%</b>`);
+    const respMid = resp?.result?.message_id;
+    if (respMid) {
+      try {
+        await admReferral(tg, chatId, respMid);
+      } catch {}
+    }
+    return;
+  }
+
   if (state === "adm_search_user") {
     await clearSession(chatId);
     // Search by TG ID, username, or name
@@ -5993,6 +6331,30 @@ serve(async (req) => {
         if (await isUserBlocked(from.id)) {
           await tg.send(chatId, "🚫 Ваш аккаунт заблокирован. Обратитесь в поддержку.");
           return new Response("ok");
+        }
+        // ─── Capture referral (start payload "ref_<telegram_id>") ─────
+        const startPayload = text.startsWith("/start ") ? text.slice(7).trim() : "";
+        if (startPayload.startsWith("ref_")) {
+          const refIdRaw = startPayload.slice(4);
+          const refId = Number(refIdRaw);
+          if (Number.isFinite(refId) && refId > 0 && refId !== from.id) {
+            try {
+              // Only link if referrer exists as a platform user, and this user is not already linked
+              const { data: refUser } = await db()
+                .from("platform_users")
+                .select("telegram_id")
+                .eq("telegram_id", refId)
+                .maybeSingle();
+              if (refUser) {
+                await db().from("platform_referrals").insert({
+                  referrer_telegram_id: refId,
+                  referred_telegram_id: from.id,
+                });
+              }
+            } catch {
+              // Ignore unique-violation (already linked) and any other errors silently
+            }
+          }
         }
         await sendWelcome(tg, chatId, from.first_name || "друг");
         return new Response("ok");

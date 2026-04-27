@@ -309,6 +309,20 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   // Mark payment as paid
   await supabase.from("subscription_payments").update({ status: "paid" }).eq("id", paymentId);
 
+  // Platform referral reward (idempotent via UNIQUE subscription_payment_id)
+  try {
+    const refAmount = Math.max(0, subscriptionPrice);
+    if (refAmount > 0) {
+      await supabase.rpc("platform_credit_referral_for_subscription", {
+        p_subscription_payment_id: paymentId,
+        p_referred_telegram_id: telegramUserId,
+        p_payment_amount: refAmount,
+      });
+    }
+  } catch (e) {
+    console.error("Platform referral credit error:", e);
+  }
+
   // Notify
   const monthsLabel = months === 1 ? "1 мес" : `${months} мес`;
   const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
