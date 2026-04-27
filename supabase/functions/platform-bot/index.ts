@@ -2645,6 +2645,59 @@ async function admLog(
     });
 }
 
+// ─── Referral credit on admin grants ─────────
+// Creates a synthetic paid subscription_payment row and credits the referrer
+// (idempotent via UNIQUE on platform_referral_earnings.subscription_payment_id).
+async function admGrantReferralCredit(
+  targetTgId: number,
+  amountUsd: number,
+  source: "admin_activate" | "admin_extend",
+  meta: Record<string, unknown> = {},
+) {
+  try {
+    if (!amountUsd || amountUsd <= 0) return;
+    // Need user_id (uuid) for subscription_payments.user_id
+    const { data: pu } = await db()
+      .from("platform_users")
+      .select("id")
+      .eq("telegram_id", targetTgId)
+      .maybeSingle();
+    if (!pu?.id) return;
+    // Skip if no referrer at all (saves a write)
+    const { data: refRow } = await db()
+      .from("platform_referrals")
+      .select("referrer_telegram_id")
+      .eq("referred_telegram_id", targetTgId)
+      .maybeSingle();
+    if (!refRow?.referrer_telegram_id) return;
+    // Insert synthetic paid payment
+    const { data: payment, error: payErr } = await db()
+      .from("subscription_payments")
+      .insert({
+        user_id: pu.id,
+        amount: amountUsd,
+        final_amount: amountUsd,
+        currency: "USD",
+        status: "paid",
+        promo_code: `admin:${source}`,
+      })
+      .select("id")
+      .single();
+    if (payErr || !payment?.id) {
+      console.error("admGrantReferralCredit: payment insert failed", payErr);
+      return;
+    }
+    await db().rpc("platform_credit_referral_for_subscription", {
+      p_subscription_payment_id: payment.id,
+      p_referred_telegram_id: targetTgId,
+      p_payment_amount: amountUsd,
+    });
+    console.log("admGrantReferralCredit: ok", { targetTgId, amountUsd, source, ...meta });
+  } catch (e) {
+    console.error("admGrantReferralCredit error:", e);
+  }
+}
+
 // ─── Blocked User Check ──────────────────────
 async function isUserBlocked(telegramId: number): Promise<boolean> {
   const { data } = await db().from("user_profiles").select("is_blocked").eq("telegram_id", telegramId).maybeSingle();
