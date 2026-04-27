@@ -796,7 +796,7 @@ serve(async (req) => {
       // and credit referral. Then return early.
       if (isAutoOrder) {
         try {
-          const refAmount = Number(order.total_amount || 0);
+          const refAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
           if (refAmount > 0) {
             await supabase.rpc("shop_credit_referral_for_order", {
               p_shop_id: resolvedShopId, p_order_id: orderId,
@@ -896,6 +896,22 @@ serve(async (req) => {
       const finalStatus = allDelivered && deliveredContent.length > 0 ? "delivered" : "paid";
       if (finalStatus !== "paid") {
         await supabase.from(orderTable).update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("id", orderId);
+      }
+
+      // Referral credit (CryptoBot polling — same canonical base as webhook).
+      // Idempotent via UNIQUE(order_id) inside shop_credit_referral_for_order.
+      if (isShop) {
+        try {
+          const refAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
+          if (refAmount > 0) {
+            await supabase.rpc("shop_credit_referral_for_order", {
+              p_shop_id: resolvedShopId,
+              p_order_id: orderId,
+              p_referred_telegram_id: telegramId,
+              p_order_amount: refAmount,
+            });
+          }
+        } catch (e) { console.error("[cryptobot polling] referral credit error:", e); }
       }
 
       // TG notification

@@ -286,7 +286,10 @@ serve(async (req) => {
       await supabase.from(orderTable).update({ status: finalStatus, updated_at: new Date().toISOString() }).eq("id", order.id);
     }
 
-    // Referral reward (idempotent via UNIQUE order_id)
+    // Referral reward — credit referrer the same way as webhook/polling so
+    // pure-balance purchases also generate referral income (idempotent
+    // via UNIQUE(order_id)). Currently only shop-scoped referrals are
+    // implemented; legacy single-store flow has no referrer table.
     if (isShop) {
       try {
         const finalAmount = Math.max(0, Number(serverTotal) - Number(discountAmount));
