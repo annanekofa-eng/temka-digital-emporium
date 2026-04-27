@@ -1117,26 +1117,25 @@ async function approvePaymentRequest(
     })
     .eq("id", order.id);
 
-  // Referral reward for auto-orders is credited at approval (cryptobot path credits in webhook;
-  // SBP path credits here, after manual confirmation).
-  if (isAutoOrder) {
-    try {
-      // Канонично: финальная сумма = total_amount - discount_amount
-      const refAmount = Math.max(
-        0,
-        Number(order.total_amount || 0) - Number(order.discount_amount || 0),
-      );
-      if (refAmount > 0) {
-        await supabase().rpc("shop_credit_referral_for_order", {
-          p_shop_id: shopId,
-          p_order_id: order.id,
-          p_referred_telegram_id: order.buyer_telegram_id,
-          p_order_amount: refAmount,
-        });
-      }
-    } catch (e) {
-      console.error("[approvePaymentRequest] auto referral error", e);
+  // Referral reward credited at SBP approval for ALL order types (auto + regular).
+  // Cryptobot path credits in its own webhook.
+  // Канонично: финальная сумма = total_amount - discount_amount.
+  // Идемпотентно через UNIQUE(order_id) в shop_credit_referral_for_order.
+  try {
+    const refAmount = Math.max(
+      0,
+      Number(order.total_amount || 0) - Number(order.discount_amount || 0),
+    );
+    if (refAmount > 0) {
+      await supabase().rpc("shop_credit_referral_for_order", {
+        p_shop_id: shopId,
+        p_order_id: order.id,
+        p_referred_telegram_id: order.buyer_telegram_id,
+        p_order_amount: refAmount,
+      });
     }
+  } catch (e) {
+    console.error("[approvePaymentRequest] referral error", e);
   }
 
   await logAction(shopId, adminId, "approve_payment_request", "payment_request", requestId, { order_id: order.id });
