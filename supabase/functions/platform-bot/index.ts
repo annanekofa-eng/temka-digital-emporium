@@ -3983,6 +3983,40 @@ async function handleAdmCallback(
   if (cmd === "noop") return;
   if (cmd === "stats") return admStats(tg, chatId, msgId);
 
+  // ─── Referral admin ───────────────────────
+  if (cmd === "ref") return admReferral(tg, chatId, msgId);
+  if (cmd === "refusers") return admReferralUsers(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  if (cmd === "reftog") {
+    const { data: rs } = await db()
+      .from("platform_referral_settings")
+      .select("is_enabled, reward_percent")
+      .eq("id", 1)
+      .maybeSingle();
+    const newVal = !(rs?.is_enabled ?? true);
+    await db()
+      .from("platform_referral_settings")
+      .upsert(
+        {
+          id: 1,
+          is_enabled: newVal,
+          reward_percent: rs?.reward_percent ?? 10,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    await admLog(adminTgId, newVal ? "enable_platform_referral" : "disable_platform_referral", "settings", "referral");
+    return admReferral(tg, chatId, msgId);
+  }
+  if (cmd === "refset") {
+    await setSession(chatId, "adm_ref_percent", {});
+    return tg.edit(
+      chatId,
+      msgId,
+      "✏️ Введите новый процент вознаграждения (число от 0 до 100):\n\nПример: <code>15</code>",
+      ikb([[btn("❌ Отмена", "adm:ref")]]),
+    );
+  }
+
   // ─── Users ────────────────────────────────
   if (cmd === "users") return admUsersList(tg, chatId, msgId, parseInt(parts[2]) || 0);
   if (cmd === "ucard") return admUserCard(tg, chatId, msgId, parseInt(parts[2]) || 0);
