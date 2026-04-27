@@ -4235,6 +4235,11 @@ async function handleAdmCallback(
       expires_at: expiresAt,
       price: priceInfo.price,
     });
+    // Referral credit for admin-granted activation (1 month at user's price)
+    await admGrantReferralCredit(tgId, priceInfo.price, "admin_activate", {
+      months: 1,
+      expires_at: expiresAt,
+    });
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
