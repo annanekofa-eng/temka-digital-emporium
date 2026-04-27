@@ -2276,6 +2276,174 @@ async function handleFSM(
 }
 
 // ═══════════════════════════════════════════════
+// AUTO PRODUCTS (Telegram Premium / Stars)
+// ═══════════════════════════════════════════════
+const AUTO_TYPES = ["telegram_premium", "telegram_stars"] as const;
+type AutoType = typeof AUTO_TYPES[number];
+const autoTypeLabel = (t: string) => (t === "telegram_premium" ? "⭐ Telegram Premium" : t === "telegram_stars" ? "✨ Telegram Stars" : t);
+
+async function ensureAutoProduct(shopId: string, type: AutoType) {
+  const { data: existing } = await supabase()
+    .from("shop_auto_products")
+    .select("id")
+    .eq("shop_id", shopId)
+    .eq("product_type", type)
+    .maybeSingle();
+  if (existing) return;
+  await supabase().from("shop_auto_products").insert({
+    shop_id: shopId,
+    product_type: type,
+    is_enabled: false,
+    ...(type === "telegram_stars" ? { min_stars: 50, max_stars: 100000 } : {}),
+  });
+}
+
+async function autoProductsHome(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string) {
+  for (const t of AUTO_TYPES) await ensureAutoProduct(shopId, t);
+  const { data: rows } = await supabase()
+    .from("shop_auto_products")
+    .select("product_type, is_enabled, price_3m, price_6m, price_12m, price_per_star")
+    .eq("shop_id", shopId);
+  const map = new Map<string, any>();
+  (rows || []).forEach((r: any) => map.set(r.product_type, r));
+
+  let t = `🤖 <b>Авто-товары</b>\n\nГотовые товары с автоматизированной обработкой. Включите, задайте цены — клиенты смогут оформлять заказы. Выдача — вручную через раздел «Авто-заказы».\n\n`;
+  const rowsKb: Btn[][] = [];
+  for (const type of AUTO_TYPES) {
+    const r = map.get(type);
+    const enabled = r?.is_enabled ? "✅" : "❌";
+    let priceLine = "не настроено";
+    if (type === "telegram_premium") {
+      const parts: string[] = [];
+      if (r?.price_3m) parts.push(`3м $${Number(r.price_3m).toFixed(2)}`);
+      if (r?.price_6m) parts.push(`6м $${Number(r.price_6m).toFixed(2)}`);
+      if (r?.price_12m) parts.push(`12м $${Number(r.price_12m).toFixed(2)}`);
+      if (parts.length) priceLine = parts.join(" • ");
+    } else if (type === "telegram_stars" && r?.price_per_star) {
+      priceLine = `$${Number(r.price_per_star).toFixed(4)} / ⭐`;
+    }
+    t += `${enabled} <b>${autoTypeLabel(type)}</b>\n💰 ${priceLine}\n\n`;
+    rowsKb.push([btn(`${enabled} ${autoTypeLabel(type)}`, `s:apv:${type}`)]);
+  }
+  rowsKb.push([btn("◀️ Меню", "s:m")]);
+  return tg.edit(cid, mid, t, ikb(rowsKb));
+}
+
+async function autoProductView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, type: string) {
+  if (!AUTO_TYPES.includes(type as AutoType)) {
+    return tg.edit(cid, mid, "❌ Неизвестный тип", ikb([[btn("◀️ Назад", "s:ap")]]));
+  }
+  await ensureAutoProduct(shopId, type as AutoType);
+  const { data: r } = await supabase()
+    .from("shop_auto_products").select("*")
+    .eq("shop_id", shopId).eq("product_type", type).maybeSingle();
+  if (!r) return tg.edit(cid, mid, "❌ Не найдено", ikb([[btn("◀️ Назад", "s:ap")]]));
+
+  const enabled = r.is_enabled ? "✅ Включён" : "❌ Выключен";
+  let info = `${autoTypeLabel(type)}\n\n📊 Статус: <b>${enabled}</b>\n\n`;
+  const kb: Btn[][] = [];
+
+  if (type === "telegram_premium") {
+    info +=
+      `💰 <b>Цены:</b>\n` +
+      `• 3 месяца: ${r.price_3m ? `$${Number(r.price_3m).toFixed(2)}` : "—"}\n` +
+      `• 6 месяцев: ${r.price_6m ? `$${Number(r.price_6m).toFixed(2)}` : "—"}\n` +
+      `• 12 месяцев: ${r.price_12m ? `$${Number(r.price_12m).toFixed(2)}` : "—"}\n`;
+    kb.push([btn("✏️ Цена 3 мес", `s:ape:${type}:3m`)]);
+    kb.push([btn("✏️ Цена 6 мес", `s:ape:${type}:6m`)]);
+    kb.push([btn("✏️ Цена 12 мес", `s:ape:${type}:12m`)]);
+  } else {
+    info +=
+      `💰 Цена за 1 звезду: ${r.price_per_star ? `$${Number(r.price_per_star).toFixed(4)}` : "—"}\n` +
+      `📉 Минимум: ${r.min_stars || 50} ⭐\n` +
+      `📈 Максимум: ${r.max_stars || 100000} ⭐\n`;
+    kb.push([btn("✏️ Цена за 1 ⭐", `s:ape:${type}:per`)]);
+    kb.push([btn("✏️ Min", `s:ape:${type}:min`), btn("✏️ Max", `s:ape:${type}:max`)]);
+  }
+
+  kb.push([btn(r.is_enabled ? "❌ Выключить" : "✅ Включить", `s:apt:${type}`)]);
+  kb.push([btn("◀️ К авто-товарам", "s:ap"), btn("◀️ Меню", "s:m")]);
+  return tg.edit(cid, mid, info, ikb(kb));
+}
+
+// ═══════════════════════════════════════════════
+// AUTO ORDERS (manual fulfillment)
+// ═══════════════════════════════════════════════
+async function autoOrdersList(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, page: number) {
+  const { data: orders } = await supabase()
+    .from("shop_orders")
+    .select("id, order_number, product_type, target_user, premium_duration, stars_amount, total_amount, fulfillment_status, status, created_at")
+    .eq("shop_id", shopId)
+    .in("product_type", ["telegram_premium", "telegram_stars"])
+    .in("payment_status", ["paid"])
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (!orders?.length) {
+    return tg.edit(cid, mid, "📲 <b>Авто-заказы</b>\n\nПока нет оплаченных авто-заказов.", ikb([[btn("◀️ Меню", "s:m")]]));
+  }
+  const pg = paginate(orders, page, 8);
+  let t = `📲 <b>Авто-заказы</b> (${orders.length})\n\n⏳ — ожидает выдачи\n✅ — выдан\n⚠️ — ошибка выдачи\n\n`;
+  const rows: Btn[][] = pg.items.map((o: any) => {
+    const icon = o.fulfillment_status === "completed" ? "✅" : o.fulfillment_status === "failed" ? "⚠️" : "⏳";
+    const kind = o.product_type === "telegram_premium"
+      ? `Premium ${o.premium_duration || ""}`
+      : `${o.stars_amount || 0}⭐`;
+    return [btn(safeSlice(`${icon} ${o.order_number} • ${kind}`, 56), `s:aov:${o.id}`)];
+  });
+  if (pg.total > 1) rows.push(pgRow("s:ao", pg.page, pg.total));
+  rows.push([btn("◀️ Меню", "s:m")]);
+  return tg.edit(cid, mid, t, ikb(rows));
+}
+
+async function autoOrderView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, oid: string) {
+  const { data: o } = await supabase()
+    .from("shop_orders").select("*").eq("id", oid).eq("shop_id", shopId).maybeSingle();
+  if (!o) return tg.edit(cid, mid, "❌ Заказ не найден", ikb([[btn("◀️ Назад", "s:ao:0")]]));
+
+  const isPremium = o.product_type === "telegram_premium";
+  const dur = o.premium_duration === "3m" ? "3 месяца" : o.premium_duration === "6m" ? "6 месяцев" : o.premium_duration === "12m" ? "12 месяцев" : "—";
+  const fStatus = o.fulfillment_status === "completed" ? "✅ Выдан" : o.fulfillment_status === "failed" ? "⚠️ Ошибка" : o.fulfillment_status === "processing" ? "⏳ В работе" : "⏳ Ожидает";
+  const fComment = o.fulfillment_comment ? `\n💬 ${esc(o.fulfillment_comment)}` : "";
+  const fulfilledAt = o.fulfilled_at ? `\n🕒 Выдано: ${new Date(o.fulfilled_at).toLocaleString("ru-RU")}` : "";
+
+  const t =
+    `📲 <b>Авто-заказ ${esc(o.order_number)}</b>\n\n` +
+    `${isPremium ? `⭐ <b>Telegram Premium</b> (${dur})` : `✨ <b>${o.stars_amount} Telegram Stars</b>`}\n` +
+    `👤 Получатель: <code>${esc(o.target_user || "")}</code>\n` +
+    `💰 Сумма: $${Number(o.total_amount).toFixed(2)}\n` +
+    `🆔 Покупатель: <code>${o.buyer_telegram_id}</code>\n` +
+    `📅 Создан: ${new Date(o.created_at).toLocaleString("ru-RU")}\n\n` +
+    `📊 Статус выдачи: <b>${fStatus}</b>${fulfilledAt}${fComment}`;
+
+  const kb: Btn[][] = [];
+  if (o.fulfillment_status !== "completed") {
+    kb.push([btn("✅ Отметить выданным", `s:aoc:${o.id}`)]);
+  }
+  if (o.fulfillment_status !== "failed" && o.fulfillment_status !== "completed") {
+    kb.push([btn("⚠️ Отметить ошибкой", `s:aof:${o.id}`)]);
+  }
+  kb.push([btn("◀️ К авто-заказам", "s:ao:0"), btn("◀️ Меню", "s:m")]);
+  return tg.edit(cid, mid, t, ikb(kb));
+}
+
+async function notifyBuyerAutoFulfilled(shopId: string, botToken: string | null, order: any, success: boolean, comment: string | null) {
+  if (!botToken) return;
+  const isPremium = order.product_type === "telegram_premium";
+  const product = isPremium
+    ? `⭐ Telegram Premium (${order.premium_duration || ""})`
+    : `✨ ${order.stars_amount} Telegram Stars`;
+  const txt = success
+    ? `✅ <b>Ваш заказ выдан!</b>\n\n📦 ${esc(order.order_number)}\n${product}\n👤 Получатель: <code>${esc(order.target_user || "")}</code>\n\nПроверьте получение в Telegram. Спасибо за покупку!`
+    : `⚠️ <b>Возникла проблема с выдачей</b>\n\n📦 ${esc(order.order_number)}\n${product}\n${comment ? `\n💬 ${esc(comment)}\n` : ""}\nСвяжитесь с поддержкой магазина для возврата средств или повторной попытки.`;
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: order.buyer_telegram_id, text: txt, parse_mode: "HTML" }),
+  }).catch((e) => console.error("[auto-order] buyer notify err:", e));
+}
+
+// ═══════════════════════════════════════════════
 // CALLBACK HANDLER
 // ═══════════════════════════════════════════════
 async function handleCallback(
