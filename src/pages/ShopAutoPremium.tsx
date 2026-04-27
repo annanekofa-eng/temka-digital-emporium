@@ -47,7 +47,10 @@ const ShopAutoPremium = () => {
   const handleSubmit = async () => {
     setError('');
     const valid = validateTelegramTarget(target);
-    if (!valid.ok) { setError(valid.error); return; }
+    if (!valid.ok) {
+      setError(valid.error);
+      return;
+    }
     if (!autoProduct || price <= 0) { setError('Товар временно недоступен'); return; }
     if (!initData) { setError('Откройте магазин через Telegram'); return; }
 
