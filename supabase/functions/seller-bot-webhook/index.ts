@@ -3337,7 +3337,7 @@ async function handleCallback(
           ? Number(r.price_3m) > 0 || Number(r.price_6m) > 0 || Number(r.price_12m) > 0
           : Number(r.price_per_star) > 0;
         if (!ok) {
-          await tg.answer(cbId, "❌ Сначала задайте цену", true).catch(() => {});
+          await tg.answer(cbId, "❌ Сначала задайте цену").catch(() => {});
           return autoProductView(tg, cid, mid, shopId, type);
         }
       }
