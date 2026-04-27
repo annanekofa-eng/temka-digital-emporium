@@ -2989,6 +2989,39 @@ async function admUserCard(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     .from("shop_customers")
     .select("id", { count: "exact", head: true })
     .eq("telegram_id", tgId);
+  // ─── Referral stats ─────────────────────────
+  const { count: invitedCount } = await db()
+    .from("platform_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_telegram_id", tgId);
+  const { data: refEarn } = await db()
+    .from("platform_referral_earnings")
+    .select("reward_amount, status")
+    .eq("referrer_telegram_id", tgId);
+  const refTotal = (refEarn || []).reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const refPaid = (refEarn || [])
+    .filter((r) => r.status === "paid")
+    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const refPending = (refEarn || [])
+    .filter((r) => r.status !== "paid")
+    .reduce((s, r) => s + Number(r.reward_amount || 0), 0);
+  const { data: refBy } = await db()
+    .from("platform_referrals")
+    .select("referrer_telegram_id")
+    .eq("referred_telegram_id", tgId)
+    .maybeSingle();
+  let invitedByLabel = "—";
+  if (refBy?.referrer_telegram_id) {
+    const { data: refByUser } = await db()
+      .from("platform_users")
+      .select("first_name, username")
+      .eq("telegram_id", refBy.referrer_telegram_id)
+      .maybeSingle();
+    const nm = refByUser?.username
+      ? `@${refByUser.username}`
+      : refByUser?.first_name || String(refBy.referrer_telegram_id);
+    invitedByLabel = `${esc(nm)} [<code>${refBy.referrer_telegram_id}</code>]`;
+  }
   const blocked = up?.is_blocked ? "🚫 ЗАБЛОКИРОВАН" : "✅ Активен";
   const name = pu.first_name + (pu.last_name ? ` ${pu.last_name}` : "");
   // Subscription details
@@ -3018,7 +3051,12 @@ async function admUserCard(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     `\n🏪 Магазинов: ${shopCount || 0}\n` +
     `🛍 Заказов: ${(platformOrders || 0) + (shopOrders || 0)}\n` +
     `💵 Потрачено: $${totalSpent.toFixed(2)}\n` +
-    `🛒 Профилей покупателя: ${shopCustCount || 0}`;
+    `🛒 Профилей покупателя: ${shopCustCount || 0}\n` +
+    `\n🎁 <b>Реферальная программа</b>\n` +
+    `👥 Приглашено: <b>${invitedCount || 0}</b>\n` +
+    `💎 Заработано всего: <b>$${refTotal.toFixed(2)}</b>\n` +
+    `💸 Выплачено: $${refPaid.toFixed(2)} | ⏳ К выплате: $${refPending.toFixed(2)}\n` +
+    `🔗 Приглашён: ${invitedByLabel}`;
   const rows: Btn[][] = [
     [btn("🏪 Магазины", `adm:ushops:${pu.id}:0`), btn("🧾 Заказы", `adm:uorders:${tgId}:0`)],
     [btn(up?.is_blocked ? "✅ Разблокировать" : "🚫 Заблокировать", `adm:ublock:${tgId}`)],
