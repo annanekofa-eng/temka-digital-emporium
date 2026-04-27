@@ -3156,6 +3156,129 @@ async function admReferralCard(tg: ReturnType<typeof TG>, chatId: number, msgId:
   return tg.edit(chatId, msgId, text, ikb(rows));
 }
 
+// Show confirmation prompt for the referral payout (after amount + comment collected)
+async function admRefPayoutFinalize(
+  tg: ReturnType<typeof TG>,
+  chatId: number,
+  msgId: number | undefined,
+  _adminTgId: number,
+  comment: string,
+) {
+  const sess = await db()
+    .from("platform_sessions")
+    .select("data")
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  const sd: any = sess.data?.data || {};
+  const targetTgId = Number(sd.target_tg_id || 0);
+  const amount = Number(sd.amount || 0);
+  if (!targetTgId || !(amount > 0)) {
+    await clearSession(chatId);
+    const text = "❌ Сессия выплаты потеряна. Откройте карточку реферера снова.";
+    if (msgId) return tg.edit(chatId, msgId, text, ikb([[btn("◀️ Назад", "adm:ref")]]));
+    return tg.send(chatId, text, ikb([[btn("◀️ Назад", "adm:ref")]]));
+  }
+  await setSession(chatId, "adm_ref_payout_confirm", {
+    target_tg_id: targetTgId,
+    amount,
+    comment,
+  });
+  const text =
+    `💸 <b>Подтверждение выплаты</b>\n\n` +
+    `👤 Получатель: <code>${targetTgId}</code>\n` +
+    `💰 Сумма: <b>$${amount.toFixed(2)}</b>\n` +
+    (comment ? `📝 Комментарий: <i>${esc(comment)}</i>\n` : `📝 Комментарий: <i>—</i>\n`) +
+    `\nПодтвердить выплату?`;
+  const kb = ikb([
+    [btn("✅ Подтвердить", "adm:refpayconfirm")],
+    [btn("❌ Отмена", `adm:refcard:${targetTgId}`)],
+  ]);
+  if (msgId) return tg.edit(chatId, msgId, text, kb);
+  return tg.send(chatId, text, kb);
+}
+
+// Atomically create the payout via RPC
+async function admRefPayoutConfirm(
+  tg: ReturnType<typeof TG>,
+  chatId: number,
+  msgId: number,
+  adminTgId: number,
+) {
+  const sess = await db()
+    .from("platform_sessions")
+    .select("state, data")
+    .eq("telegram_id", chatId)
+    .maybeSingle();
+  const state = sess.data?.state;
+  const sd: any = sess.data?.data || {};
+  const targetTgId = Number(sd.target_tg_id || 0);
+  const amount = Number(sd.amount || 0);
+  const comment = String(sd.comment || "");
+  if (state !== "adm_ref_payout_confirm" || !targetTgId || !(amount > 0)) {
+    await clearSession(chatId);
+    return tg.edit(
+      chatId,
+      msgId,
+      "❌ Сессия выплаты истекла или неактивна.",
+      ikb([[btn("◀️ Назад", "adm:ref")]]),
+    );
+  }
+  // Idempotency-ish: clear session immediately before RPC to prevent double click
+  await clearSession(chatId);
+
+  const { data: rpc, error } = await db().rpc("platform_admin_create_referral_payout", {
+    p_referrer_telegram_id: targetTgId,
+    p_amount: amount,
+    p_admin_telegram_id: adminTgId,
+    p_comment: comment || null,
+    p_provider_ref: null,
+  });
+  if (error) {
+    return tg.edit(
+      chatId,
+      msgId,
+      `❌ Ошибка выплаты: <code>${esc(error.message || String(error))}</code>`,
+      ikb([[btn("◀️ К карточке", `adm:refcard:${targetTgId}`)]]),
+    );
+  }
+  const row: any = Array.isArray(rpc) ? rpc[0] : rpc;
+  const payoutId: string = row?.payout_id || "";
+  const availableAfter: number = Number(row?.available_after || 0);
+
+  await admLog(adminTgId, "create_referral_payout", "referral_payout", payoutId, {
+    referrer_telegram_id: targetTgId,
+    amount,
+    comment,
+  });
+
+  // Notify the referrer
+  try {
+    await tg.send(
+      targetTgId,
+      `💸 <b>Выплата по реферальной программе</b>\n\n` +
+        `Вам отправлена выплата: <b>$${amount.toFixed(2)}</b>\n` +
+        (comment ? `📝 ${esc(comment)}\n` : "") +
+        `\nСпасибо, что приглашаете друзей в TeleStore!`,
+    );
+  } catch (_e) {
+    // ignore notify errors
+  }
+
+  return tg.edit(
+    chatId,
+    msgId,
+    `✅ <b>Выплата создана</b>\n\n` +
+      `👤 Получатель: <code>${targetTgId}</code>\n` +
+      `💰 Сумма: <b>$${amount.toFixed(2)}</b>\n` +
+      (comment ? `📝 ${esc(comment)}\n` : "") +
+      `\n💸 Доступно после выплаты: <b>$${availableAfter.toFixed(2)}</b>`,
+    ikb([
+      [btn("◀️ К карточке реферера", `adm:refcard:${targetTgId}`)],
+      [btn("📋 К списку", "adm:refusers:earned:0:")],
+    ]),
+  );
+}
+
 // ─── USERS ────────────────────────────────────
 async function admUsersList(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
   const perPage = 5;
