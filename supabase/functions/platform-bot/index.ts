@@ -2120,6 +2120,8 @@ async function handleCallback(
   if (cmd === "noop") return;
   if (cmd === "howitworks") return howItWorks(tg, chatId, msgId);
   if (cmd === "profile") return showProfile(tg, chatId, msgId);
+  if (cmd === "ref") return showReferral(tg, chatId, msgId);
+  if (cmd === "refpayout") return handleReferralPayout(tg, chatId, msgId);
   if (cmd === "sub") return showSubscription(tg, chatId, msgId);
   if (cmd === "sub_renew") return showRenewOptions(tg, chatId, msgId);
   // p:pay_sub and p:sub_promo are handled below (after shop management callbacks)
