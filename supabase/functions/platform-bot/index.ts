@@ -2793,6 +2793,134 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
   );
 }
 
+// ─── REFERRAL ADMIN ───────────────────────────
+async function admReferral(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { data: settings } = await db()
+    .from("platform_referral_settings")
+    .select("is_enabled, reward_percent")
+    .eq("id", 1)
+    .maybeSingle();
+  const enabled = settings?.is_enabled ?? true;
+  const pct = Number(settings?.reward_percent ?? 10);
+
+  const [{ count: totalLinks }, { data: earnings }, { count: totalReferrers }] = await Promise.all([
+    db().from("platform_referrals").select("id", { count: "exact", head: true }),
+    db().from("platform_referral_earnings").select("reward_amount, status"),
+    db()
+      .from("platform_referrals")
+      .select("referrer_telegram_id", { count: "exact", head: true }),
+  ]);
+
+  const totalAccrued = (earnings || []).reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const totalPending = (earnings || [])
+    .filter((e: any) => e.status === "pending")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+  const totalPaid = (earnings || [])
+    .filter((e: any) => e.status === "paid")
+    .reduce((s: number, e: any) => s + Number(e.reward_amount), 0);
+
+  const text =
+    `🎁 <b>Реферальная система платформы</b>\n\n` +
+    `Статус: <b>${enabled ? "✅ включена" : "❌ выключена"}</b>\n` +
+    `Процент вознаграждения: <b>${pct}%</b>\n\n` +
+    `👥 Связей: <b>${totalLinks || 0}</b>\n` +
+    `🧑‍🤝‍🧑 Активных рефереров: <b>${totalReferrers || 0}</b>\n` +
+    `💰 Всего начислено: <b>$${totalAccrued.toFixed(2)}</b>\n` +
+    `⏳ К выплате: <b>$${totalPending.toFixed(2)}</b>\n` +
+    `✅ Выплачено: <b>$${totalPaid.toFixed(2)}</b>\n\n` +
+    `<i>Начисление идёт автоматически после оплаты подписки приглашённого. Считается от полной суммы оплаты.</i>`;
+
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn(enabled ? "❌ Выключить" : "✅ Включить", "adm:reftog")],
+      [btn("✏️ Изменить %", "adm:refset")],
+      [btn("👥 Топ рефереров", "adm:refusers:0")],
+      [btn("◀️ Меню", "adm:home")],
+    ]),
+  );
+}
+
+async function admReferralUsers(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
+  const perPage = 10;
+  // Aggregate referrers via SQL — fallback to JS aggregation since we have no rpc helper
+  const { data: refs } = await db()
+    .from("platform_referrals")
+    .select("referrer_telegram_id");
+  const { data: earnings } = await db()
+    .from("platform_referral_earnings")
+    .select("referrer_telegram_id, reward_amount, status");
+
+  // Aggregate per referrer
+  const agg = new Map<number, { count: number; earned: number; pending: number }>();
+  for (const r of refs || []) {
+    const k = Number(r.referrer_telegram_id);
+    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
+    cur.count += 1;
+    agg.set(k, cur);
+  }
+  for (const e of earnings || []) {
+    const k = Number(e.referrer_telegram_id);
+    const cur = agg.get(k) || { count: 0, earned: 0, pending: 0 };
+    cur.earned += Number(e.reward_amount);
+    if (e.status === "pending") cur.pending += Number(e.reward_amount);
+    agg.set(k, cur);
+  }
+
+  // Sort by earned desc, then count desc
+  const sorted = Array.from(agg.entries())
+    .map(([tgId, v]) => ({ tgId, ...v }))
+    .sort((a, b) => (b.earned - a.earned) || (b.count - a.count));
+
+  const total = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const p = Math.max(0, Math.min(page, totalPages - 1));
+  const slice = sorted.slice(p * perPage, p * perPage + perPage);
+
+  if (total === 0) {
+    return tg.edit(
+      chatId,
+      msgId,
+      `👥 <b>Топ рефереров</b>\n\nПока никто никого не пригласил.`,
+      ikb([[btn("◀️ Назад", "adm:ref")]]),
+    );
+  }
+
+  // Fetch user info
+  const tgIds = slice.map((s) => s.tgId);
+  const { data: users } = await db()
+    .from("platform_users")
+    .select("telegram_id, first_name, last_name, username")
+    .in("telegram_id", tgIds);
+  const userMap = new Map<number, any>();
+  for (const u of users || []) userMap.set(Number(u.telegram_id), u);
+
+  let text = `👥 <b>Топ рефереров</b> (${total})\n\n`;
+  const rows: Btn[][] = [];
+  for (const s of slice) {
+    const u = userMap.get(s.tgId);
+    const name = u
+      ? esc((u.first_name || "") + (u.last_name ? " " + u.last_name : "")) + (u.username ? ` (@${esc(u.username)})` : "")
+      : `ID ${s.tgId}`;
+    text +=
+      `• <b>${name}</b> [${s.tgId}]\n` +
+      `   👥 ${s.count} | 💰 $${s.earned.toFixed(2)} | ⏳ $${s.pending.toFixed(2)}\n`;
+    rows.push([btn(`👤 ${name.slice(0, 40)}`, `adm:ucard:${s.tgId}`)]);
+  }
+
+  // Pagination
+  const nav: Btn[] = [];
+  if (p > 0) nav.push(btn("◀️", `adm:refusers:${p - 1}`));
+  nav.push(btn(`${p + 1}/${totalPages}`, "adm:noop"));
+  if (p < totalPages - 1) nav.push(btn("▶️", `adm:refusers:${p + 1}`));
+  if (nav.length > 0) rows.push(nav);
+  rows.push([btn("◀️ Назад", "adm:ref")]);
+
+  return tg.edit(chatId, msgId, text, ikb(rows));
+}
+
 // ─── USERS ────────────────────────────────────
 async function admUsersList(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
   const perPage = 5;
