@@ -428,6 +428,39 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_referral_payouts: {
+        Row: {
+          amount: number
+          comment: string | null
+          created_at: string
+          created_by_admin_telegram_id: number
+          id: string
+          provider_ref: string | null
+          referrer_telegram_id: number
+          status: string
+        }
+        Insert: {
+          amount: number
+          comment?: string | null
+          created_at?: string
+          created_by_admin_telegram_id: number
+          id?: string
+          provider_ref?: string | null
+          referrer_telegram_id: number
+          status?: string
+        }
+        Update: {
+          amount?: number
+          comment?: string | null
+          created_at?: string
+          created_by_admin_telegram_id?: number
+          id?: string
+          provider_ref?: string | null
+          referrer_telegram_id?: number
+          status?: string
+        }
+        Relationships: []
+      }
       platform_referral_settings: {
         Row: {
           created_at: string
@@ -2109,6 +2142,19 @@ export type Database = {
         Returns: undefined
       }
       is_shop_active: { Args: { p_shop_id: string }; Returns: boolean }
+      platform_admin_create_referral_payout: {
+        Args: {
+          p_admin_telegram_id: number
+          p_amount: number
+          p_comment?: string
+          p_provider_ref?: string
+          p_referrer_telegram_id: number
+        }
+        Returns: {
+          available_after: number
+          payout_id: string
+        }[]
+      }
       platform_credit_balance: {
         Args: { p_amount: number; p_telegram_id: number }
         Returns: number
