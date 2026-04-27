@@ -1121,12 +1121,19 @@ async function approvePaymentRequest(
   // SBP path credits here, after manual confirmation).
   if (isAutoOrder) {
     try {
-      await supabase().rpc("shop_credit_referral_for_order", {
-        p_shop_id: shopId,
-        p_order_id: order.id,
-        p_referred_telegram_id: order.buyer_telegram_id,
-        p_order_amount: Number(order.total_amount || 0),
-      });
+      // Канонично: финальная сумма = total_amount - discount_amount
+      const refAmount = Math.max(
+        0,
+        Number(order.total_amount || 0) - Number(order.discount_amount || 0),
+      );
+      if (refAmount > 0) {
+        await supabase().rpc("shop_credit_referral_for_order", {
+          p_shop_id: shopId,
+          p_order_id: order.id,
+          p_referred_telegram_id: order.buyer_telegram_id,
+          p_order_amount: refAmount,
+        });
+      }
     } catch (e) {
       console.error("[approvePaymentRequest] auto referral error", e);
     }
