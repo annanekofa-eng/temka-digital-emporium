@@ -844,10 +844,16 @@ serve(async (req) => {
                 `👤 Получатель: <code>${order.target_user}</code>\n` +
                 `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n\n` +
                 `⚙️ Откройте раздел «Авто-заказы» в админке магазина, чтобы выдать товар.`;
-              await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
-              }).catch((e) => console.error("[auto-order polling] notify owner:", e));
+              try {
+                const r = await fetch(`https://api.telegram.org/bot${tokens.botToken}/sendMessage`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
+                });
+                if (!r.ok) {
+                  const t = await r.text();
+                  console.error("[auto-order polling] notify owner failed:", r.status, t);
+                }
+              } catch (e) { console.error("[auto-order polling] notify owner:", e); }
             }
           }
         } catch (e) { console.error("[auto-order polling] owner notify err:", e); }
