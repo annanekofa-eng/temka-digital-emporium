@@ -53,12 +53,16 @@ export const useShopAutoProduct = (
 };
 
 // Validate Telegram username/id input (shared between Premium and Stars pages)
-export function validateTelegramTarget(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+export type ValidationResult =
+  | { ok: true; value: string; error: null }
+  | { ok: false; value: null; error: string };
+
+export function validateTelegramTarget(raw: string): ValidationResult {
   const trimmed = (raw || '').trim().replace(/^@/, '');
-  if (!trimmed) return { ok: false, error: 'Укажите получателя' };
+  if (!trimmed) return { ok: false, value: null, error: 'Укажите получателя' };
   // Numeric ID
-  if (/^\d{4,15}$/.test(trimmed)) return { ok: true, value: trimmed };
+  if (/^\d{4,15}$/.test(trimmed)) return { ok: true, value: trimmed, error: null };
   // Telegram username
-  if (/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmed)) return { ok: true, value: '@' + trimmed };
-  return { ok: false, error: 'Введите username (5-32 символа) или числовой ID' };
+  if (/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmed)) return { ok: true, value: '@' + trimmed, error: null };
+  return { ok: false, value: null, error: 'Введите username (5-32 символа) или числовой ID' };
 }
