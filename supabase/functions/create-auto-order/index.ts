@@ -41,7 +41,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { initData, shopId, productType, targetUser, premiumDuration, starsAmount } = body || {};
+    const { initData, shopId, productType, targetUser, premiumDuration, starsAmount, paymentMethod } = body || {};
+    const payMethod: "balance" | "cryptobot" = paymentMethod === "balance" ? "balance" : "cryptobot";
 
     if (!shopId || !initData) return errRes("Missing required fields");
     if (productType !== "telegram_premium" && productType !== "telegram_stars") {
@@ -69,7 +70,9 @@ serve(async (req) => {
     const botToken = await decrypt(shop.bot_token_encrypted);
     const cryptoToken = await decrypt(shop.cryptobot_token_encrypted);
     if (!botToken) return errRes("Магазин не сконфигурирован");
-    if (!cryptoToken) return errRes("Оплата картой/криптой временно недоступна. Владелец магазина не настроил CryptoBot.");
+    if (payMethod === "cryptobot" && !cryptoToken) {
+      return errRes("Оплата картой/криптой временно недоступна. Владелец магазина не настроил CryptoBot.");
+    }
 
     const tgUser = verifyTg(initData, botToken);
     if (!tgUser) return errRes("Invalid authentication");
@@ -141,6 +144,122 @@ serve(async (req) => {
       p_username: tgUser.username || null,
     });
 
+    // ===== Branch A: Pay with balance =====
+    if (payMethod === "balance") {
+      // Check balance first (cheap pre-check; final check is atomic in RPC)
+      const { data: cust } = await supabase.from("shop_customers")
+        .select("balance").eq("shop_id", shopId).eq("telegram_id", buyerId).maybeSingle();
+      const currentBalance = Number(cust?.balance || 0);
+      if (currentBalance < amount) {
+        return errRes(`Недостаточно средств на балансе. Доступно: $${currentBalance.toFixed(2)}, нужно: $${amount.toFixed(2)}`);
+      }
+
+      // Create order in paid/processing state
+      const { data: order, error: orderErr } = await supabase.from("shop_orders").insert({
+        order_number: orderNumber,
+        buyer_telegram_id: buyerId,
+        shop_id: shopId,
+        status: "processing",
+        payment_status: "paid",
+        total_amount: amount,
+        currency: "USD",
+        payment_method: "balance",
+        balance_used: amount,
+        product_type: productType,
+        target_user: target,
+        premium_duration: extra.premium_duration || null,
+        stars_amount: extra.stars_amount || null,
+        fulfillment_status: "pending",
+      }).select().single();
+
+      if (orderErr || !order) {
+        console.error("[create-auto-order] balance order insert error:", orderErr);
+        return errRes("Failed to create order");
+      }
+
+      // Atomically deduct balance
+      const { data: newBal, error: balErr } = await supabase.rpc("shop_deduct_balance", {
+        p_shop_id: shopId, p_telegram_id: buyerId, p_amount: amount,
+      });
+      if (balErr) {
+        await supabase.from("shop_orders").delete().eq("id", order.id);
+        console.error("[create-auto-order] balance deduct error:", balErr);
+        return errRes("Недостаточно средств на балансе");
+      }
+
+      await supabase.from("shop_balance_history").insert({
+        shop_id: shopId, telegram_id: buyerId, amount: -amount, balance_after: Number(newBal || 0),
+        type: "purchase", comment: `Заказ ${orderNumber}`, admin_telegram_id: buyerId,
+      });
+
+      // Referral reward (idempotent via UNIQUE order_id)
+      try {
+        await supabase.rpc("shop_credit_referral_for_order", {
+          p_shop_id: shopId, p_order_id: order.id,
+          p_referred_telegram_id: buyerId, p_order_amount: amount,
+        });
+      } catch (e) {
+        console.error("[create-auto-order] referral error:", e);
+      }
+
+      // Compose product line for notifications
+      const isPremium = productType === "telegram_premium";
+      const durLabel = extra.premium_duration === "3m" ? "3 месяца"
+        : extra.premium_duration === "6m" ? "6 месяцев"
+        : extra.premium_duration === "12m" ? "12 месяцев" : "";
+      const productLine = isPremium
+        ? `⭐ <b>Telegram Premium</b> (${durLabel})`
+        : `⭐ <b>${extra.stars_amount} Telegram Stars</b>`;
+
+      // Notify buyer via shop bot
+      try {
+        const buyerMsg =
+          `✅ <b>Оплата с баланса подтверждена!</b>\n\n` +
+          `📦 Заказ: <code>${orderNumber}</code>\n` +
+          `${productLine}\n` +
+          `👤 Получатель: <code>${target}</code>\n` +
+          `💰 Списано с баланса: $${amount.toFixed(2)}\n` +
+          `💳 Остаток: $${Number(newBal || 0).toFixed(2)}\n\n` +
+          `⏳ Заказ передан продавцу для исполнения.\n` +
+          `Мы уведомим вас, как только товар будет выдан.`;
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: buyerId, text: buyerMsg, parse_mode: "HTML" }),
+        }).catch((e) => console.error("[auto-order] notify buyer error:", e));
+      } catch (e) { console.error("[auto-order] buyer notify error:", e); }
+
+      // Notify shop owner via platform bot
+      try {
+        if (shop.owner_id) {
+          const { data: owner } = await supabase.from("platform_users")
+            .select("telegram_id").eq("id", shop.owner_id).maybeSingle();
+          const platformToken = Deno.env.get("PLATFORM_BOT_TOKEN");
+          if (owner?.telegram_id && platformToken) {
+            const ownerMsg =
+              `🆕 <b>Новый авто-заказ (с баланса)</b>\n\n` +
+              `📦 Заказ: <code>${orderNumber}</code>\n` +
+              `${productLine}\n` +
+              `👤 Получатель: <code>${target}</code>\n` +
+              `💰 Сумма: $${amount.toFixed(2)}\n\n` +
+              `⚙️ Откройте раздел «Авто-заказы» в админке магазина, чтобы выдать товар.`;
+            await fetch(`https://api.telegram.org/bot${platformToken}/sendMessage`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: owner.telegram_id, text: ownerMsg, parse_mode: "HTML" }),
+            }).catch((e) => console.error("[auto-order] notify owner error:", e));
+          }
+        }
+      } catch (e) { console.error("[auto-order] owner notify error:", e); }
+
+      return jsonRes({
+        orderId: order.id,
+        orderNumber,
+        paid: true,
+        paymentMethod: "balance",
+        newBalance: Number(newBal || 0),
+      });
+    }
+
+    // ===== Branch B: Pay with CryptoBot (existing flow) =====
     // Create order
     const { data: order, error: orderErr } = await supabase.from("shop_orders").insert({
       order_number: orderNumber,

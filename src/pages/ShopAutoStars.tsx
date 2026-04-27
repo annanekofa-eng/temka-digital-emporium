@@ -6,8 +6,11 @@ import { useShop } from '@/contexts/ShopContext';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useShopAutoProduct, validateTelegramTarget } from '@/hooks/useShopAutoProducts';
+import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 import PriceRub from '@/components/PriceRub';
+import AutoPaymentMethodSelector, { type AutoPaymentMethod } from '@/components/storefront/AutoPaymentMethodSelector';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 const PRESETS = [50, 100, 250, 500, 1000, 2500];
@@ -19,9 +22,22 @@ const ShopAutoStars = () => {
   const navigate = useNavigate();
   const { initData } = useTelegram();
   const { data: autoProduct, isLoading } = useShopAutoProduct(shop?.id, 'telegram_stars');
+  const { data: profile } = useUserProfile(shop?.id);
+  const balance = Number(profile?.balance || 0);
+
+  const { data: cryptoConfigured = false } = useQuery({
+    queryKey: ['shop-payments-configured', shop?.id],
+    enabled: !!shop?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('check_shop_payments_configured', { p_shop_id: shop!.id });
+      if (error) return false;
+      return !!data;
+    },
+  });
 
   const [target, setTarget] = useState('');
   const [amount, setAmount] = useState<number>(50);
+  const [paymentMethod, setPaymentMethod] = useState<AutoPaymentMethod>('cryptobot');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,6 +58,11 @@ const ShopAutoStars = () => {
 
   const isAmountValid = Number.isInteger(amount) && amount >= minStars && amount <= maxStars;
 
+  // Auto-prefer balance if it covers price and crypto is unavailable
+  useMemo(() => {
+    if (totalPrice > 0 && !cryptoConfigured && balance >= totalPrice) setPaymentMethod('balance');
+  }, [cryptoConfigured, balance, totalPrice]);
+
   const handleSubmit = async () => {
     setError('');
     const valid = validateTelegramTarget(target);
@@ -49,6 +70,10 @@ const ShopAutoStars = () => {
     if (!autoProduct || pricePerStar <= 0) { setError('Товар временно недоступен'); return; }
     if (!isAmountValid) { setError(`Количество от ${minStars} до ${maxStars}`); return; }
     if (!initData) { setError('Откройте магазин через Telegram'); return; }
+    if (paymentMethod === 'balance' && balance < totalPrice) {
+      setError('Недостаточно средств на балансе');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -59,12 +84,15 @@ const ShopAutoStars = () => {
           productType: 'telegram_stars',
           targetUser: valid.value!,
           starsAmount: amount,
+          paymentMethod,
         },
       });
       if (fnError) throw new Error(fnError.message || 'Ошибка');
       if ((data as any)?.error) throw new Error((data as any).error);
-      const result = data as { orderNumber: string; payUrl?: string; miniAppUrl?: string };
-      if (result.miniAppUrl) {
+      const result = data as { orderNumber: string; paid?: boolean; payUrl?: string; miniAppUrl?: string };
+      if (result.paid) {
+        toast.success('Заказ оплачен с баланса');
+      } else if (result.miniAppUrl) {
         const tg = (window as any)?.Telegram?.WebApp;
         if (tg?.openTelegramLink) tg.openTelegramLink(result.miniAppUrl);
         else window.open(result.miniAppUrl, '_blank');
@@ -202,6 +230,17 @@ const ShopAutoStars = () => {
             <p className="text-xs text-muted-foreground">Цена за 1 звезду: ${pricePerStar.toFixed(4)}</p>
           </div>
 
+          {/* Payment method */}
+          <div className="mt-5">
+            <AutoPaymentMethodSelector
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              balance={balance}
+              totalPrice={totalPrice}
+              cryptoAvailable={cryptoConfigured}
+            />
+          </div>
+
           {error && (
             <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
               {error}
@@ -209,8 +248,16 @@ const ShopAutoStars = () => {
           )}
 
           <div className="flex flex-col gap-3 mt-6">
-            <Button variant="hero" size="xl" className="w-full" onClick={handleSubmit} disabled={submitting || !isAmountValid}>
-              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</> : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
+            <Button
+              variant="hero" size="xl" className="w-full"
+              onClick={handleSubmit}
+              disabled={submitting || !isAmountValid || (paymentMethod === 'balance' && balance < totalPrice) || (paymentMethod === 'cryptobot' && !cryptoConfigured)}
+            >
+              {submitting
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Создание заказа...</>
+                : paymentMethod === 'balance'
+                  ? <>Оплатить с баланса ${totalPrice.toFixed(2)}</>
+                  : <>Купить {amount} ⭐ за ${totalPrice.toFixed(2)}</>}
             </Button>
           </div>
 
