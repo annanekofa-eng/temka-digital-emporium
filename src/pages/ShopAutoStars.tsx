@@ -45,7 +45,7 @@ const ShopAutoStars = () => {
   const handleSubmit = async () => {
     setError('');
     const valid = validateTelegramTarget(target);
-    if (!valid.ok) { setError(valid.error); return; }
+    if (!valid.ok) { setError(valid.error || 'Некорректный получатель'); return; }
     if (!autoProduct || pricePerStar <= 0) { setError('Товар временно недоступен'); return; }
     if (!isAmountValid) { setError(`Количество от ${minStars} до ${maxStars}`); return; }
     if (!initData) { setError('Откройте магазин через Telegram'); return; }
@@ -57,7 +57,7 @@ const ShopAutoStars = () => {
           initData,
           shopId: shop!.id,
           productType: 'telegram_stars',
-          targetUser: valid.value,
+          targetUser: valid.value!,
           starsAmount: amount,
         },
       });
