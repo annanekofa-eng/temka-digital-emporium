@@ -2272,6 +2272,42 @@ async function handleFSM(
     return true;
   }
 
+  // ─── Auto-product price/limit input ─────────
+  if (state.startsWith("aap:")) {
+    const [, type, field] = state.split(":");
+    if (!["telegram_premium", "telegram_stars"].includes(type)) {
+      await clearSession(cid);
+      return true;
+    }
+    const raw = (val || "").trim().replace(",", ".");
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num < 0) {
+      await tg.send(cid, "❌ Введите неотрицательное число.");
+      return true;
+    }
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (field === "3m") update.price_3m = num > 0 ? num : null;
+    else if (field === "6m") update.price_6m = num > 0 ? num : null;
+    else if (field === "12m") update.price_12m = num > 0 ? num : null;
+    else if (field === "per") update.price_per_star = num > 0 ? num : null;
+    else if (field === "min") update.min_stars = Math.max(1, Math.floor(num));
+    else if (field === "max") update.max_stars = Math.max(1, Math.floor(num));
+    else {
+      await clearSession(cid);
+      return true;
+    }
+    await supabase().from("shop_auto_products")
+      .update(update).eq("shop_id", shopId).eq("product_type", type);
+    await logAction(shopId, adminId, "update_auto_product", "auto_product", type, { field, value: num });
+    await clearSession(cid);
+    await tg.send(
+      cid,
+      `✅ Сохранено.`,
+      ikb([[btn(`◀️ К ${autoTypeLabel(type)}`, `s:apv:${type}`)], [btn("◀️ Меню", "s:m")]]),
+    );
+    return true;
+  }
+
   return false;
 }
 
