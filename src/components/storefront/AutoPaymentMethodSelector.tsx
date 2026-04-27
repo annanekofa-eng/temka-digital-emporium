@@ -1,6 +1,6 @@
-import { Wallet, CreditCard } from 'lucide-react';
+import { Wallet, CreditCard, Banknote } from 'lucide-react';
 
-export type AutoPaymentMethod = 'balance' | 'cryptobot';
+export type AutoPaymentMethod = 'balance' | 'cryptobot' | 'sbp';
 
 interface Props {
   value: AutoPaymentMethod;
@@ -8,15 +8,16 @@ interface Props {
   balance: number;
   totalPrice: number;
   cryptoAvailable: boolean;
+  sbpAvailable?: boolean;
 }
 
-const AutoPaymentMethodSelector = ({ value, onChange, balance, totalPrice, cryptoAvailable }: Props) => {
+const AutoPaymentMethodSelector = ({ value, onChange, balance, totalPrice, cryptoAvailable, sbpAvailable = false }: Props) => {
   const balanceEnough = balance >= totalPrice && totalPrice > 0;
 
   return (
     <div className="space-y-2">
       <span className="text-sm font-medium">Способ оплаты</span>
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid ${sbpAvailable ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
         <button
           type="button"
           onClick={() => balanceEnough && onChange('balance')}
@@ -60,6 +61,26 @@ const AutoPaymentMethodSelector = ({ value, onChange, balance, totalPrice, crypt
             <div className="text-[10px] text-muted-foreground mt-0.5">Не настроено</div>
           )}
         </button>
+
+        {sbpAvailable && (
+          <button
+            type="button"
+            onClick={() => onChange('sbp')}
+            className={`p-3 rounded-xl border text-left transition-colors ${
+              value === 'sbp'
+                ? 'bg-primary/10 border-primary text-foreground'
+                : 'bg-card border-border hover:border-primary/40'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-xs font-semibold">СБП</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Перевод по реквизитам
+            </div>
+          </button>
+        )}
       </div>
     </div>
   );
