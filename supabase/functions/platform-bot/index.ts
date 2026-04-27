@@ -5669,6 +5669,63 @@ async function handleAdmText(
     return;
   }
 
+  if (state === "adm_ref_search") {
+    await clearSession(chatId);
+    const resp = await tg.send(chatId, `🔍 Поиск: <b>${esc(val)}</b>`);
+    const mid = resp?.result?.message_id;
+    if (mid) {
+      try {
+        await admReferralUsers(tg, chatId, mid, "earned", 0, val.trim());
+      } catch {}
+    }
+    return;
+  }
+
+  if (state === "adm_ref_payout_amount") {
+    const targetTgId = Number((sData as any).target_tg_id || 0);
+    const amt = Number(String(val).replace(",", ".").trim());
+    if (!Number.isFinite(amt) || amt <= 0) {
+      await tg.send(chatId, "❌ Введите положительное число. Пример: <code>10.50</code>");
+      return;
+    }
+    // Compute available
+    const { data: earnings } = await db()
+      .from("platform_referral_earnings")
+      .select("reward_amount")
+      .eq("referrer_telegram_id", targetTgId);
+    const totalEarned = (earnings || []).reduce((s, e: any) => s + Number(e.reward_amount || 0), 0);
+    const { data: payouts } = await db()
+      .from("platform_referral_payouts")
+      .select("amount, status")
+      .eq("referrer_telegram_id", targetTgId)
+      .eq("status", "paid");
+    const totalPaid = (payouts || []).reduce((s, p: any) => s + Number(p.amount || 0), 0);
+    const available = Math.max(0, totalEarned - totalPaid);
+    if (amt > available + 1e-9) {
+      await tg.send(
+        chatId,
+        `❌ Сумма превышает доступный остаток.\n\n💸 Доступно: <b>$${available.toFixed(2)}</b>`,
+      );
+      return;
+    }
+    await setSession(chatId, "adm_ref_payout_comment", { target_tg_id: targetTgId, amount: amt });
+    await tg.send(
+      chatId,
+      `✏️ Введите комментарий и/или идентификатор выплаты (например, «USDT TRC20: TXxxxxx»).\n\nИли нажмите «Пропустить».`,
+      ikb([
+        [btn("⏭ Пропустить", "adm:refpayskipcomment")],
+        [btn("❌ Отмена", `adm:refcard:${targetTgId}`)],
+      ]),
+    );
+    return;
+  }
+
+  if (state === "adm_ref_payout_comment") {
+    const text = String(val || "").trim();
+    await admRefPayoutFinalize(tg, chatId, undefined, chatId, text);
+    return;
+  }
+
   if (state === "adm_search_user") {
     await clearSession(chatId);
     // Search by TG ID, username, or name
