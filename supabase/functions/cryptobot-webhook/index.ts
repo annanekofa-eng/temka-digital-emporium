@@ -150,7 +150,11 @@ serve(async (req) => {
 
         let processedOk = false;
         if (shopId && orderData.orderId) {
-          processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+          if (orderData.autoOrder) {
+            processedOk = await handleAutoOrderPayment(supabase, invoice, orderData, shopId);
+          } else {
+            processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+          }
         } else if (orderData.orderId) {
           processedOk = await handleOrderPayment(supabase, invoice, orderData);
         }
