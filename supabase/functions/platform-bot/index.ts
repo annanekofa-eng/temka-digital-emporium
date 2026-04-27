@@ -132,7 +132,7 @@ const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const PLATFORM_NAME = "TeleStore";
-const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://tele-store.lovable.app";
+const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app";
 const SUPPORT_LINK_DEFAULT = "https://t.me/TeleStoreHelp";
 
 async function getSupportLink(): Promise<string> {
