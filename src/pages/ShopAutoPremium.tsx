@@ -119,6 +119,8 @@ const ShopAutoPremium = () => {
       const result = data as { orderNumber: string; paid?: boolean; payUrl?: string; miniAppUrl?: string };
       if (result.paid) {
         toast.success('Заказ оплачен с баланса');
+        navigate(`${buildPath('/order-success')}?order=${result.orderNumber}`);
+        return;
       } else if (result.miniAppUrl) {
         const tg = (window as any)?.Telegram?.WebApp;
         if (tg?.openTelegramLink) tg.openTelegramLink(result.miniAppUrl);
