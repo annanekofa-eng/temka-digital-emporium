@@ -796,7 +796,7 @@ serve(async (req) => {
       // and credit referral. Then return early.
       if (isAutoOrder) {
         try {
-          const refAmount = Number(order.total_amount || 0);
+          const refAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
           if (refAmount > 0) {
             await supabase.rpc("shop_credit_referral_for_order", {
               p_shop_id: resolvedShopId, p_order_id: orderId,
