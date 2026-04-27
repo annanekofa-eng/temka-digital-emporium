@@ -373,7 +373,7 @@ async function handleOrderPayment(supabase: any, invoice: any, orderData: any): 
 // ─── Shop order payment (tenant-scoped balance) ──
 async function handleShopOrderPayment(supabase: any, invoice: any, orderData: any, shopId: string): Promise<boolean> {
   const { data: order } = await supabase.from("shop_orders")
-    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, promo_code, discount_amount")
+    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, promo_code, discount_amount, total_amount")
     .eq("id", orderData.orderId).single();
   if (!order) return false;
   if (order.payment_status === "paid") return true;
@@ -407,7 +407,10 @@ async function handleShopOrderPayment(supabase: any, invoice: any, orderData: an
 
   // Referral reward (idempotent via UNIQUE order_id)
   try {
-    const finalAmount = Math.max(0, Number(invoice.amount || 0) + Number(order.balance_used || 0));
+    // Use the canonical final amount (total - discount) so referrer
+    // earns from what the buyer actually paid, regardless of split
+    // between external invoice and internal balance.
+    const finalAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
     if (finalAmount > 0) {
       await supabase.rpc("shop_credit_referral_for_order", {
         p_shop_id: shopId,
@@ -472,7 +475,7 @@ async function deliverInventory(
 // ─── Auto-product order payment (Telegram Premium / Stars) ──────
 async function handleAutoOrderPayment(supabase: any, invoice: any, orderData: any, shopId: string): Promise<boolean> {
   const { data: order } = await supabase.from("shop_orders")
-    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, product_type, target_user, premium_duration, stars_amount, total_amount")
+    .select("id, status, payment_status, balance_used, buyer_telegram_id, order_number, shop_id, product_type, target_user, premium_duration, stars_amount, total_amount, discount_amount")
     .eq("id", orderData.orderId).single();
   if (!order) return false;
   if (order.payment_status === "paid") return true;
@@ -489,7 +492,7 @@ async function handleAutoOrderPayment(supabase: any, invoice: any, orderData: an
 
   // Referral reward (idempotent)
   try {
-    const finalAmount = Math.max(0, Number(invoice.amount || 0) + Number(order.balance_used || 0));
+    const finalAmount = Math.max(0, Number(order.total_amount || 0) - Number(order.discount_amount || 0));
     if (finalAmount > 0) {
       await supabase.rpc("shop_credit_referral_for_order", {
         p_shop_id: shopId,
