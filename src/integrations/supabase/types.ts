@@ -389,6 +389,90 @@ export type Database = {
           },
         ]
       }
+      platform_referral_earnings: {
+        Row: {
+          created_at: string
+          id: string
+          paid_at: string | null
+          payment_amount: number
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          reward_amount: number
+          reward_percent: number
+          status: string
+          subscription_payment_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          payment_amount?: number
+          referred_telegram_id: number
+          referrer_telegram_id: number
+          reward_amount?: number
+          reward_percent?: number
+          status?: string
+          subscription_payment_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          payment_amount?: number
+          referred_telegram_id?: number
+          referrer_telegram_id?: number
+          reward_amount?: number
+          reward_percent?: number
+          status?: string
+          subscription_payment_id?: string
+        }
+        Relationships: []
+      }
+      platform_referral_settings: {
+        Row: {
+          created_at: string
+          id: number
+          is_enabled: boolean
+          reward_percent: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: number
+          is_enabled?: boolean
+          reward_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_enabled?: boolean
+          reward_percent?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_referrals: {
+        Row: {
+          created_at: string
+          id: string
+          referred_telegram_id: number
+          referrer_telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referred_telegram_id: number
+          referrer_telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referred_telegram_id?: number
+          referrer_telegram_id?: number
+        }
+        Relationships: []
+      }
       platform_retention_log: {
         Row: {
           id: string
@@ -2028,6 +2112,14 @@ export type Database = {
       platform_credit_balance: {
         Args: { p_amount: number; p_telegram_id: number }
         Returns: number
+      }
+      platform_credit_referral_for_subscription: {
+        Args: {
+          p_payment_amount: number
+          p_referred_telegram_id: number
+          p_subscription_payment_id: string
+        }
+        Returns: string
       }
       platform_deduct_balance: {
         Args: { p_amount: number; p_telegram_id: number }
