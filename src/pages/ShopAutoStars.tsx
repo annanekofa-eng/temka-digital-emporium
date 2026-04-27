@@ -224,7 +224,7 @@ const ShopAutoStars = () => {
               className="w-full h-11 px-3 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               autoComplete="off"
             />
-            <TelegramAccountPreview shopId={shop?.id} query={target} />
+            <TelegramAccountPreview query={target} />
           </div>
 
           {/* Presets */}
