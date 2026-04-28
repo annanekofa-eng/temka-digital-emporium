@@ -472,7 +472,7 @@ const PlatformProfile: React.FC = () => {
           <a href="/platform/terms" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Соглашение</a>
           <a href="/platform/rules" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Правила</a>
           <a href="/platform/privacy" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Конфиденциальность</a>
-          <a href="/platform/subscription" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Подписка</a>
+          <a href="/platform/subscription" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Правила подписки</a>
           <a href="/platform/consent" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Согласие на ПД</a>
         </div>
         <p className="text-center text-[10px] text-gray-300 pt-1">
