@@ -270,9 +270,10 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
       p_telegram_id: telegramUserId, p_amount: balanceUsed,
     });
     if (!balErr) {
+      const planLabelComment = plan === 'premium' ? 'Премиум' : plan === 'basic' ? 'Базовый' : 'Старт';
       await supabase.from("platform_balance_history").insert({
         telegram_id: telegramUserId, amount: -balanceUsed, balance_after: newBal,
-        type: "subscription", comment: `Подписка (invoice:${invoiceId})`,
+        type: "subscription", comment: `Подписка ${planLabelComment} (invoice:${invoiceId})`,
       });
     }
   }
@@ -292,7 +293,7 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
     subscription_plan: plan,
     current_period_end: expiresAt,
     billing_price_usd: months === 1 ? subscriptionPrice : Math.round(subscriptionPrice / months * 100) / 100,
-    pricing_tier: tier,
+    pricing_tier: plan,
     first_paid_at: pUser?.first_paid_at || new Date().toISOString(),
     reminder_sent_at: null, expiry_notified_at: null, updated_at: new Date().toISOString(),
   }).eq("telegram_id", telegramUserId);
