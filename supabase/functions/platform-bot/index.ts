@@ -1326,8 +1326,9 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
   const { data: user } = await db().from("platform_users").select("*").eq("telegram_id", chatId).maybeSingle();
   if (!user) return;
   const ss = await getSubSettings();
-  const priceInfo = await getSubscriptionPrice(chatId);
+  const tariffs = await getAllTariffPrices();
   const status = subStatusLabel(user.subscription_status);
+  const currentPlan = (user as any).subscription_plan as PlanKey | null;
   let daysLeftText = "";
   // Don't show days left / expiry for cancelled or blocked statuses
   if (user.subscription_expires_at && !["cancelled", "blocked", "none"].includes(user.subscription_status)) {
@@ -1340,7 +1341,6 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     }
   }
 
-  const tierLabel = priceInfo.tier === "early_3" ? "🎉 Early Bird" : "Стандартный";
   let statusBlock = "";
   if (user.subscription_status === "active") {
     statusBlock = `\n\n✅ <b>Подписка активна</b>\nВы можете продлить её заранее — дни будут добавлены к текущему сроку.`;
@@ -1358,27 +1358,26 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
 
   const supportLink = await getSupportLink();
   const supportUsername = supportLink.replace("https://t.me/", "@");
-  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${daysLeftText}${statusBlock}\n\n──────────────────\n\n💰 Ваша цена: <b>$${priceInfo.price}/мес</b> ${priceInfo.tier === "early_3" ? "🎉" : ""}\n\n<b>Включает:</b>\n• ${ss.max_shops_per_user} магазин\n• Полный функционал магазина\n• Помощь с запуском магазина от ${supportUsername}\n• Бесплатный креатив для оформления товаров\n• Личная настройка под вашу нишу\n\n──────────────────\n\nПодписка открывает твой магазин для покупателей — приём оплаты, автовыдача товаров и полная автоматизация продаж без ручной работы.\n\nДля оплаты по карте обратитесь к ${supportUsername}`;
+  const currentPlanLine = currentPlan
+    ? `\n🎟 Ваш тариф: <b>${PLAN_META[currentPlan].emoji} ${PLAN_META[currentPlan].label}</b>`
+    : "";
+
+  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${currentPlanLine}${daysLeftText}${statusBlock}\n\n──────────────────\n\n<b>Выберите тариф:</b>\n\n${(Object.keys(PLAN_META) as PlanKey[]).map((p) => {
+    const t = tariffs[p];
+    const m = PLAN_META[p];
+    return `${m.emoji} <b>${m.label}</b> — $${t.price.toFixed(2)}/мес\n<i>${m.short}</i>`;
+  }).join("\n\n")}\n\n──────────────────\n\nПодписка открывает магазин для покупателей: приём оплаты, автовыдача товаров и полная автоматизация продаж.\n\nДля оплаты по карте обратитесь к ${supportUsername}`;
 
   const rows: Btn[][] = [];
   const isBlocked = user.subscription_status === "blocked";
   if (!isBlocked) {
-    const isActive = user.subscription_status === "active" || user.subscription_status === "trial";
-    if (isActive) {
-      // For active users — single button that opens duration selection
-      rows.push([btn("🔄 Продлить подписку", "p:sub_renew")]);
-    } else {
-      // For inactive users — show duration buttons directly
-      rows.push([
-        btn(`1 мес — $${priceInfo.price.toFixed(2)}`, "p:pay_sub:1"),
-        btn(`3 мес — $${(priceInfo.price * 3).toFixed(2)}`, "p:pay_sub:3"),
-      ]);
-      rows.push([
-        btn(`6 мес — $${(priceInfo.price * 6).toFixed(2)}`, "p:pay_sub:6"),
-        btn(`12 мес — $${(priceInfo.price * 12).toFixed(2)}`, "p:pay_sub:12"),
-      ]);
-      rows.push([btn("🎫 Ввести промокод", "p:sub_promo")]);
-    }
+    // Кнопки выбора тарифа
+    (Object.keys(PLAN_META) as PlanKey[]).forEach((p) => {
+      if (!tariffs[p].enabled) return;
+      const m = PLAN_META[p];
+      const isCurrent = currentPlan === p;
+      rows.push([btn(`${m.emoji} ${m.label}${isCurrent ? " ✅" : ""} — $${tariffs[p].price.toFixed(2)}/мес`, `p:plan:${p}`)]);
+    });
   }
 
   if (user.subscription_status === "active" || user.subscription_status === "trial") {
@@ -1386,7 +1385,47 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
   }
 
   rows.push([btn("◀️ Назад", "p:profile")]);
-  return tg.edit(chatId, msgId, text, ikb(rows));
+  // Шлём фото-баннер при первом открытии (msgId=0) или редактируем текст обычным сообщением
+  if (!msgId) {
+    const res = await tg.sendPhoto(chatId, SUBSCRIPTION_BANNER_URL, text, ikb(rows));
+    if (!res?.ok) {
+      // Fallback: текст без фото
+      return tg.send(chatId, text, ikb(rows));
+    }
+    return res;
+  }
+  // Редактирование сообщения с фото невозможно — удалить и отправить заново
+  try { await tg.delete(chatId, msgId); } catch (_) { /* noop */ }
+  const res = await tg.sendPhoto(chatId, SUBSCRIPTION_BANNER_URL, text, ikb(rows));
+  if (!res?.ok) return tg.send(chatId, text, ikb(rows));
+  return res;
+}
+
+// Экран выбора срока для конкретного тарифа
+async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgId: number, plan: PlanKey) {
+  const meta = PLAN_META[plan];
+  if (!meta) return showSubscription(tg, chatId, 0);
+  const price = await getTariffPrice(plan);
+  const perksText = meta.perks.map((p) => `• ${p}`).join("\n");
+  const text = `${meta.emoji} <b>Тариф «${meta.label}»</b>\n\n💰 Цена: <b>$${price.toFixed(2)}/мес</b>\n\n<b>Что входит:</b>\n${perksText}\n\n──────────────────\n\nВыберите срок оплаты:`;
+  const rows: Btn[][] = [
+    [
+      btn(`1 мес — $${price.toFixed(2)}`, `p:pay_sub:${plan}:1`),
+      btn(`3 мес — $${(price * 3).toFixed(2)}`, `p:pay_sub:${plan}:3`),
+    ],
+    [
+      btn(`6 мес — $${(price * 6).toFixed(2)}`, `p:pay_sub:${plan}:6`),
+      btn(`12 мес — $${(price * 12).toFixed(2)}`, `p:pay_sub:${plan}:12`),
+    ],
+    [btn("🎫 Ввести промокод", "p:sub_promo")],
+    [btn("◀️ К тарифам", "p:sub")],
+  ];
+  if (!msgId) return tg.send(chatId, text, ikb(rows));
+  // Если пред. сообщение было фото — edit упадёт, делаем delete+send
+  const editRes = await tg.edit(chatId, msgId, text, ikb(rows));
+  if (editRes?.ok) return editRes;
+  try { await tg.delete(chatId, msgId); } catch (_) { /* noop */ }
+  return tg.send(chatId, text, ikb(rows));
 }
 
 async function showRenewOptions(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
