@@ -2330,6 +2330,11 @@ async function handleCallback(
   if (cmd === "refpayout") return handleReferralPayout(tg, chatId, msgId);
   if (cmd === "sub") return showSubscription(tg, chatId, msgId);
   if (cmd === "sub_renew") return showRenewOptions(tg, chatId, msgId);
+  if (cmd === "plan") {
+    const plan = (parts[2] as PlanKey);
+    if (!["start","basic","premium"].includes(plan)) return showSubscription(tg, chatId, msgId);
+    return showPlanDurations(tg, chatId, msgId, plan);
+  }
   if (cmd === "privchat") return showPrivateChatInvite(tg, chatId, msgId);
   // p:pay_sub and p:sub_promo are handled below (after shop management callbacks)
   if (cmd === "myshops") return myShops(tg, chatId, msgId, parseInt(parts[2]) || 0);
