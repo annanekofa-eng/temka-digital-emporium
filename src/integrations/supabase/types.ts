@@ -152,6 +152,66 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_invites: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invite_link: string
+          telegram_id: number
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_link: string
+          telegram_id: number
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_link?: string
+          telegram_id?: number
+          used?: boolean
+        }
+        Relationships: []
+      }
+      customization_requests: {
+        Row: {
+          created_at: string
+          curator_response: string | null
+          description: string
+          id: string
+          owner_telegram_id: number
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          curator_response?: string | null
+          description?: string
+          id?: string
+          owner_telegram_id: number
+          shop_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          curator_response?: string | null
+          description?: string
+          id?: string
+          owner_telegram_id?: number
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           content: string
@@ -295,6 +355,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      paid_content: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_active: boolean
+          plan: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plan: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plan?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      paid_content_logs: {
+        Row: {
+          content_id: string
+          error: string | null
+          id: string
+          sent_at: string
+          status: string
+          telegram_id: number
+        }
+        Insert: {
+          content_id: string
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          telegram_id: number
+        }
+        Update: {
+          content_id?: string
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          telegram_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_content_logs_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "paid_content"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_admins: {
         Row: {
@@ -548,6 +676,24 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       platform_subscription_promos: {
         Row: {
           code: string
@@ -606,6 +752,7 @@ export type Database = {
           balance: number
           billing_price_usd: number | null
           created_at: string
+          current_period_end: string | null
           expiry_notified_at: string | null
           first_name: string
           first_paid_at: string | null
@@ -619,6 +766,7 @@ export type Database = {
           pricing_tier: string | null
           reminder_sent_at: string | null
           subscription_expires_at: string | null
+          subscription_plan: string
           subscription_status: string
           telegram_id: number
           trial_started_at: string | null
@@ -631,6 +779,7 @@ export type Database = {
           balance?: number
           billing_price_usd?: number | null
           created_at?: string
+          current_period_end?: string | null
           expiry_notified_at?: string | null
           first_name?: string
           first_paid_at?: string | null
@@ -644,6 +793,7 @@ export type Database = {
           pricing_tier?: string | null
           reminder_sent_at?: string | null
           subscription_expires_at?: string | null
+          subscription_plan?: string
           subscription_status?: string
           telegram_id: number
           trial_started_at?: string | null
@@ -656,6 +806,7 @@ export type Database = {
           balance?: number
           billing_price_usd?: number | null
           created_at?: string
+          current_period_end?: string | null
           expiry_notified_at?: string | null
           first_name?: string
           first_paid_at?: string | null
@@ -669,6 +820,7 @@ export type Database = {
           pricing_tier?: string | null
           reminder_sent_at?: string | null
           subscription_expires_at?: string | null
+          subscription_plan?: string
           subscription_status?: string
           telegram_id?: number
           trial_started_at?: string | null
@@ -1825,6 +1977,7 @@ export type Database = {
       }
       shops: {
         Row: {
+          ai_avatar_generated_at: string | null
           bot_avatar_url: string | null
           bot_id: number | null
           bot_token_encrypted: string | null
@@ -1850,6 +2003,7 @@ export type Database = {
           welcome_photo_id: string | null
         }
         Insert: {
+          ai_avatar_generated_at?: string | null
           bot_avatar_url?: string | null
           bot_id?: number | null
           bot_token_encrypted?: string | null
@@ -1875,6 +2029,7 @@ export type Database = {
           welcome_photo_id?: string | null
         }
         Update: {
+          ai_avatar_generated_at?: string | null
           bot_avatar_url?: string | null
           bot_id?: number | null
           bot_token_encrypted?: string | null
@@ -1955,6 +2110,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tariff_prices: {
+        Row: {
+          is_enabled: boolean
+          plan: string
+          price_usd: number
+          updated_at: string
+        }
+        Insert: {
+          is_enabled?: boolean
+          plan: string
+          price_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          is_enabled?: boolean
+          plan?: string
+          price_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_profiles: {
         Row: {
@@ -2198,6 +2374,10 @@ export type Database = {
           p_username?: string
         }
         Returns: string
+      }
+      has_entitlement: {
+        Args: { p_feature: string; p_telegram_id: number }
+        Returns: boolean
       }
       increment_platform_promo_usage: {
         Args: {
