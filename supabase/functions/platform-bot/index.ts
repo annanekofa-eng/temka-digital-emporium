@@ -5773,7 +5773,8 @@ async function handleAdmCallback(
   }
 
   // ─── Subscription Config (platform-wide) ──
-  if (cmd === "subconfig") return admSubConfig(tg, chatId, msgId);
+  // legacy: старый раздел "Подписка (policy)" — теперь объединён в "💎 Тарифы и подписка"
+  if (cmd === "subconfig") return admTariffs(tg, chatId, msgId);
   if (cmd === "sc") {
     const subCmd = parts[2]; // prices, trial, limits, expiry, notify, set, tog, clean_orphan_trials, expire_all_trials
     if (subCmd === "prices") return admTariffs(tg, chatId, msgId); // legacy → новый раздел
