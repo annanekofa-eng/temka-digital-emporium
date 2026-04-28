@@ -7478,11 +7478,16 @@ async function handleAdmText(
         ikb([[btn("🔄 Попробовать другой", "p:sub_promo")], [btn("◀️ Назад", "p:sub")]]),
       );
     const priceInfo = await getSubscriptionPrice(chatId);
+    if (!["start","basic","premium"].includes(priceInfo.tier)) {
+      await clearSession(chatId);
+      return tg.send(chatId, "❌ Сначала выберите тариф, затем введите промокод.", ikb([[btn("💳 К тарифам", "p:sub")]]));
+    }
     await setSession(chatId, "sub_promo_applied", {
       promo_code: r.code,
       promo_id: r.id,
       discount_type: r.discount_type,
       discount_value: r.discount_value,
+      plan: priceInfo.tier,
     });
     // Show month selection with discounted prices
     const calcPrice = (m: number) => {
@@ -7503,8 +7508,8 @@ async function handleAdmText(
       chatId,
       `✅ Промокод <code>${esc(r.code)}</code> применён!\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, "p:pay_sub:1"), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, "p:pay_sub:3")],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, "p:pay_sub:6"), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, "p:pay_sub:12")],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );
