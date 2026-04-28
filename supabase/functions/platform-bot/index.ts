@@ -5748,7 +5748,7 @@ async function handleAdmCallback(
   if (cmd === "subconfig") return admSubConfig(tg, chatId, msgId);
   if (cmd === "sc") {
     const subCmd = parts[2]; // prices, trial, limits, expiry, notify, set, tog, clean_orphan_trials, expire_all_trials
-    if (subCmd === "prices") return admScPrices(tg, chatId, msgId);
+    if (subCmd === "prices") return admTariffs(tg, chatId, msgId); // legacy → новый раздел
     if (subCmd === "trial") return admScTrial(tg, chatId, msgId);
     if (subCmd === "clean_orphan_trials") {
       // Set all orphan trial users (no expiry) to 'none'
@@ -5816,7 +5816,6 @@ async function handleAdmCallback(
       await admLog(adminTgId, "toggle_sub_setting", "sub_config", key, { old: currentVal, new: newVal });
       // Navigate back to the parent section
       const sectionMap: Record<string, string> = {
-        pricing_enabled: "prices",
         trial_enabled: "trial",
         one_trial_per_user: "trial",
         auto_trial_on_shop_create: "trial",
@@ -5829,7 +5828,6 @@ async function handleAdmCallback(
         bot_deactivated_notify: "notify",
       };
       const section = sectionMap[key] || "subconfig";
-      if (section === "prices") return admScPrices(tg, chatId, msgId);
       if (section === "trial") return admScTrial(tg, chatId, msgId);
       if (section === "expiry") return admScExpiry(tg, chatId, msgId);
       if (section === "notify") return admScNotify(tg, chatId, msgId);
@@ -5838,18 +5836,12 @@ async function handleAdmCallback(
     if (subCmd === "set") {
       const key = parts[3]; // e.g. standard_price_usd
       const labels: Record<string, string> = {
-        standard_price_usd: "стандартную цену (USD)",
-        early_price_usd: "early bird цену (USD)",
-        early_slots_limit: "кол-во early слотов",
         trial_days: "дни trial",
         max_shops_per_user: "макс. магазинов на user",
         grace_period_days: "дни grace period",
         reminder_days_before: "за сколько дней reminder",
       };
       const backMap: Record<string, string> = {
-        standard_price_usd: "prices",
-        early_price_usd: "prices",
-        early_slots_limit: "prices",
         trial_days: "trial",
         max_shops_per_user: "limits",
         grace_period_days: "expiry",
