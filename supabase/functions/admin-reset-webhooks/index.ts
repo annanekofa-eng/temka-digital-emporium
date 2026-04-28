@@ -9,25 +9,28 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PLATFORM_BOT_TOKEN = Deno.env.get("PLATFORM_BOT_TOKEN")!;
+const CURATOR_BOT_TOKEN = Deno.env.get("CURATOR_BOT_TOKEN") || "";
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET")!;
 const TOKEN_ENCRYPTION_KEY = Deno.env.get("TOKEN_ENCRYPTION_KEY")!;
 const ENFORCE_JOB_SECRET = Deno.env.get("ENFORCE_JOB_SECRET")!;
 
 const PLATFORM_WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/platform-bot`;
 const SELLER_WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/seller-bot-webhook`;
+const CURATOR_WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/curator-bot`;
 
 const maskToken = (s: string) => s.replace(/\d{6,}:[A-Za-z0-9_-]{20,}/g, "***");
 
-async function setWebhook(botToken: string, url: string) {
+async function setWebhook(botToken: string, url: string, opts: { withSecret?: boolean; allowedUpdates?: string[] } = {}) {
+  const body: Record<string, unknown> = {
+    url,
+    drop_pending_updates: true,
+    allowed_updates: opts.allowedUpdates ?? ["message", "callback_query", "pre_checkout_query", "my_chat_member", "chat_member"],
+  };
+  if (opts.withSecret !== false) body.secret_token = TELEGRAM_WEBHOOK_SECRET;
   const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url,
-      secret_token: TELEGRAM_WEBHOOK_SECRET,
-      drop_pending_updates: true,
-      allowed_updates: ["message", "callback_query", "pre_checkout_query", "my_chat_member", "chat_member"],
-    }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   return { status: res.status, ok: res.ok && data?.ok === true, data };
@@ -57,6 +60,21 @@ serve(async (req) => {
       results.platform = { ok: r.ok, status: r.status, response: r.data };
     } catch (e) {
       results.platform = { ok: false, error: maskToken(String(e)) };
+    }
+
+    // 1b) Curator bot (no shared secret — curator-bot has its own validation flow)
+    if (CURATOR_BOT_TOKEN) {
+      try {
+        const r = await setWebhook(CURATOR_BOT_TOKEN, CURATOR_WEBHOOK_URL, {
+          withSecret: false,
+          allowedUpdates: ["message", "chat_member", "my_chat_member"],
+        });
+        results.curator = { ok: r.ok, status: r.status, response: r.data };
+      } catch (e) {
+        results.curator = { ok: false, error: maskToken(String(e)) };
+      }
+    } else {
+      results.curator = { skipped: "no_token" };
     }
 
     // 2) Shop bots
