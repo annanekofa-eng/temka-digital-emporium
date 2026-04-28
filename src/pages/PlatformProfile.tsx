@@ -25,6 +25,7 @@ interface ShopData {
   bot_username: string | null;
   webhook_status: string;
   created_at: string;
+  bot_avatar_url?: string | null;
   stats?: ShopStats;
 }
 
@@ -483,6 +484,10 @@ const PlatformProfile: React.FC = () => {
         shop={selectedShop}
         open={shopSheetOpen}
         onOpenChange={setShopSheetOpen}
+        canUsePremium={!!(data as any)?.subscription?.entitlements?.ai_avatar}
+        initData={initData}
+        openTelegramLink={openTelegramLink}
+        onAvatarUpdated={() => fetchProfile(true)}
       />
       <BalanceTopupSheet
         balance={data.balance}
