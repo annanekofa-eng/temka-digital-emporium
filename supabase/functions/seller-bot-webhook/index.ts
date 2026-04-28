@@ -242,6 +242,7 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     supabase().from("shop_categories").select("id", { count: "exact", head: true }).eq("shop_id", shopId),
   ]);
 
+  const hasPremium = await shopOwnerHasPremium(shopId);
   const text =
     `🔧 <b>Админ-панель: ${esc(shop.name)}</b>\n\n` +
     `📊 Статус: ${shop.status === "active" ? "активен 🟢" : "остановлен 🔴"}\n` +
@@ -249,6 +250,9 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     `📂 Категорий: ${categoryCount || 0}\n` +
     `🛍 Заказов: ${orderCount || 0}\n\nВыберите раздел:`;
 
+  const autoBtn = hasPremium
+    ? btn("🤖 Авто-товары", "s:ap")
+    : btn("🔒 Авто-товары (Премиум)", "s:ap");
   const kb = ikb([
     [btn("📦 Товары", "s:pl:0"), btn("📁 Категории", "s:cl:0")],
     [btn("🛒 Заказы", "s:ol:0"), btn("👥 Пользователи", "s:ul:0")],
@@ -257,7 +261,7 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     [btn("🗃 Склад", "s:sk:0"), btn("📋 Логи", "s:lg:0")],
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
     [btn("⭐ Отзывы", "s:rvl:0")],
-    [btn("🤖 Авто-товары", "s:ap"), btn("📲 Авто-заказы", "s:ao:0")],
+    [autoBtn, btn("📲 Авто-заказы", "s:ao:0")],
   ]);
 
   if (msgId) return tg.edit(chatId, msgId, text, kb);

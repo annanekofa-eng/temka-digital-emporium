@@ -120,11 +120,28 @@ async function handleStart(chatId: number, userId: number, token: string) {
     name: `inv_${userId}`,
   });
   if (!inviteRes?.ok) {
-    console.error("createChatInviteLink failed", inviteRes);
+    console.error("createChatInviteLink failed", JSON.stringify(inviteRes));
     await supabase.from("curator_chat_invites").update({ status: "failed" }).eq("id", invite.id);
+    // Try to diagnose
+    const meRes = await tgCall("getMe", {});
+    const chatRes = await tgCall("getChat", { chat_id: CHAT_ID });
+    const memRes = chatRes?.ok ? await tgCall("getChatMember", { chat_id: CHAT_ID, user_id: meRes?.result?.id }) : null;
+    const desc = inviteRes?.description || "неизвестная ошибка";
+    let hint = "";
+    if (!chatRes?.ok) {
+      hint = `\n\n🔎 Бот не видит чат: <code>${esc(chatRes?.description || "нет доступа")}</code>\nПроверьте CURATOR_CHAT_ID (например, <code>-1001234567890</code>).`;
+    } else if (memRes && memRes.ok) {
+      const st = memRes.result?.status;
+      const canInvite = memRes.result?.can_invite_users;
+      if (st !== "administrator" && st !== "creator") {
+        hint = `\n\n🔎 Бот в чате как <b>${st}</b>. Сделайте его администратором.`;
+      } else if (canInvite === false) {
+        hint = `\n\n🔎 У бота-админа нет права «Пригласить пользователей по ссылке». Включите его в настройках чата.`;
+      }
+    }
     await sendMessage(
       chatId,
-      "⚠️ Не удалось создать приглашение. Убедитесь, что бот добавлен в чат как администратор с правом приглашать пользователей.",
+      `⚠️ Не удалось создать приглашение.\n\nОшибка Telegram: <code>${esc(desc)}</code>${hint}`,
     );
     return;
   }
