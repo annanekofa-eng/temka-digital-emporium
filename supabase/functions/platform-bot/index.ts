@@ -4543,7 +4543,34 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
   );
 }
 
-// admScPrices удалён — управление ценами перенесено в admTariffs (раздел «Тарифы и подписка»).
+// admScPrices — отдельный экран управления ценами тарифов (вызывается из «Подписка — глобальные настройки»).
+async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { data: prices } = await db()
+    .from("tariff_prices")
+    .select("plan, price_usd, is_enabled")
+    .order("price_usd", { ascending: true });
+  const map: Record<string, { price: number; active: boolean }> = {};
+  for (const r of prices || []) map[r.plan] = { price: Number(r.price_usd), active: !!r.is_enabled };
+  const fmt = (k: string) => {
+    const r = map[k];
+    if (!r) return "—";
+    return `<b>$${r.price.toFixed(2)}</b>${r.active ? "" : " (выкл)"}/мес`;
+  };
+  const text =
+    `💰 <b>Цены тарифов</b>\n\n` +
+    `🟢 Старт: ${fmt("start")}\n` +
+    `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
+    `🔵 Базовый: ${fmt("basic")}\n` +
+    `   <i>+ кураторство, закрытый чат, поставщики, бесплатные товары</i>\n\n` +
+    `🟣 Премиум: ${fmt("premium")}\n` +
+    `   <i>+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент</i>`;
+  return tg.edit(chatId, msgId, text, ikb([
+    [btn("✏️ Цена Старт", "adm:tarset:start"), btn(map.start?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:start")],
+    [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
+    [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
+    [btn("◀️ Назад", "adm:tariffs")],
+  ]));
+}
 async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
   // Count active trial users (with actual trial expiry set)
