@@ -2074,13 +2074,18 @@ async function handleText(
         ikb([[btn("🔄 Попробовать снова", "p:sub_promo")], [btn("◀️ К подписке", "p:sub")]]),
       );
     }
-    const priceInfo = await getSubscriptionPrice(chatId);
+    const promoPlan = (["start","basic","premium"] as PlanKey[]).includes(sData.plan as PlanKey) ? (sData.plan as PlanKey) : null;
+    if (!promoPlan) {
+      await clearSession(chatId);
+      return tg.send(chatId, "❌ Сначала выберите тариф, затем введите промокод.", ikb([[btn("💳 К тарифам", "p:sub")]]));
+    }
+    const promoMonthlyPrice = await getTariffPrice(promoPlan);
     let discountText = "";
     if (r.discount_type === "percent") {
-      const discountAmount = Math.round(((priceInfo.price * r.discount_value) / 100) * 100) / 100;
+      const discountAmount = Math.round(((promoMonthlyPrice * r.discount_value) / 100) * 100) / 100;
       discountText = `${r.discount_value}% (-$${discountAmount.toFixed(2)}/мес)`;
     } else {
-      const discountAmount = Math.min(r.discount_value, priceInfo.price);
+      const discountAmount = Math.min(r.discount_value, promoMonthlyPrice);
       discountText = `-$${discountAmount.toFixed(2)}/мес`;
     }
     await setSession(chatId, "sub_promo_applied", {
@@ -2088,24 +2093,22 @@ async function handleText(
       promo_id: r.id,
       discount_type: r.discount_type,
       discount_value: r.discount_value,
-      plan: priceInfo.tier,
+      plan: promoPlan,
     });
     // Show month selection with discounted prices
     const calcPrice = (m: number) => {
-      const total = Math.round(priceInfo.price * m * 100) / 100;
+      const total = Math.round(promoMonthlyPrice * m * 100) / 100;
       let disc = 0;
       if (r.discount_type === "percent") disc = Math.round(total * r.discount_value / 100 * 100) / 100;
       else disc = Math.min(r.discount_value, total);
       return Math.max(0, total - disc);
     };
-    const planForPromo: PlanKey = (["start","basic","premium"] as PlanKey[])
-      .includes(priceInfo.tier as PlanKey) ? (priceInfo.tier as PlanKey) : "start";
     return tg.send(
       chatId,
-      `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
+      `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${promoMonthlyPrice}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${planForPromo}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${planForPromo}:3`)],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${planForPromo}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${planForPromo}:12`)],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${promoPlan}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${promoPlan}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${promoPlan}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${promoPlan}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );
