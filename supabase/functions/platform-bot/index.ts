@@ -4469,31 +4469,7 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
 }
 
 async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  const ss = await getSubSettings();
-  const { count: paidCount } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
-  const earlyRemaining = Math.max(0, ss.early_slots_limit - (paidCount || 0));
-  const text =
-    `💰 <b>Управление ценами</b>\n\n` +
-    `Стандартная цена: <b>$${ss.standard_price_usd}</b>/мес\n` +
-    `Early Bird цена: <b>$${ss.early_price_usd}</b>/мес\n` +
-    `Early слотов: <b>${ss.early_slots_limit}</b> (осталось: ${earlyRemaining})\n` +
-    `Pricing: ${ss.pricing_enabled ? "✅ Включён" : "❌ Выключен"}\n\n` +
-    `Оплативших пользователей: ${paidCount || 0}`;
-  return tg.edit(
-    chatId,
-    msgId,
-    text,
-    ikb([
-      [btn("✏️ Стандартная цена", "adm:sc:set:standard_price_usd"), btn("✏️ Early цена", "adm:sc:set:early_price_usd")],
-      [btn("✏️ Early слоты", "adm:sc:set:early_slots_limit")],
-      [btn(ss.pricing_enabled ? "❌ Выкл pricing" : "✅ Вкл pricing", "adm:sc:tog:pricing_enabled")],
-      [btn("◀️ Назад", "adm:tariffs")],
-    ]),
-  );
-}
+// admScPrices removed — управление ценами перенесено в admTariffs (раздел «Тарифы и подписка»).
 
 async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
