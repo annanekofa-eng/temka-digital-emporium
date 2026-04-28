@@ -2734,6 +2734,7 @@ async function isUserBlocked(telegramId: number): Promise<boolean> {
 // ─── ADM Main Menu ────────────────────────────
 async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
   const text = `🛡 <b>Super Admin Panel</b>\n\nВыберите раздел:`;
+  // (admin home — расширено: тарифы/контент/куратор/кастом-заявки)
   const kb = ikb([
     [btn("📊 Статистика", "adm:stats"), btn("👥 Пользователи", "adm:users:0")],
     [btn("🏪 Магазины", "adm:shops:0"), btn("💳 Подписки/платежи", "adm:finance:sub:0")],
