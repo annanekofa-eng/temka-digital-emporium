@@ -48,9 +48,11 @@ interface ProfileData {
     pricing_tier: string | null;
     billing_price_usd: number | null;
     first_paid_at: string | null;
+    plan?: string | null;
   };
   balance: number;
   shops: ShopData[];
+  tariffs?: { plan: string; price_usd: number; is_enabled: boolean }[];
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -145,7 +147,7 @@ const PlatformProfile: React.FC = () => {
     };
   }, []);
 
-  const handleSubscriptionPay = async (useBalance: boolean, promoCode?: string, months?: number) => {
+  const handleSubscriptionPay = async (useBalance: boolean, promoCode?: string, months?: number, plan?: string) => {
     if (!isInTelegram || !initData) {
       toast.info('Откройте платформу через Telegram');
       return;
@@ -153,7 +155,7 @@ const PlatformProfile: React.FC = () => {
     setSubLoading(true);
     try {
       const { data: res, error: err } = await supabase.functions.invoke('create-subscription-invoice', {
-        body: { initData, useBalance, promoCode, months: months || 1 },
+        body: { initData, useBalance, promoCode, months: months || 1, plan: plan || 'start' },
       });
       if (err) throw err;
       if (res?.error) throw new Error(res.error);
