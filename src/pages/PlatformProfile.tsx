@@ -481,6 +481,7 @@ const PlatformProfile: React.FC = () => {
         onOpenChange={setSubSheetOpen}
         onPayWithInvoice={handleSubscriptionPay}
         loading={subLoading}
+        tariffs={(data as any)?.tariffs || []}
       />
       <ShopInfoSheet
         shop={selectedShop}
