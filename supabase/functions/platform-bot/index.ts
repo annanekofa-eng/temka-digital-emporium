@@ -2079,12 +2079,14 @@ async function handleText(
       else disc = Math.min(r.discount_value, total);
       return Math.max(0, total - disc);
     };
+    const planForPromo: PlanKey = (["start","basic","premium"] as PlanKey[])
+      .includes(priceInfo.tier as PlanKey) ? (priceInfo.tier as PlanKey) : "start";
     return tg.send(
       chatId,
       `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, "p:pay_sub:1"), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, "p:pay_sub:3")],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, "p:pay_sub:6"), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, "p:pay_sub:12")],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${planForPromo}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${planForPromo}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${planForPromo}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${planForPromo}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );
