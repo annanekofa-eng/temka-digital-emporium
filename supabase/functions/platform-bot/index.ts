@@ -1395,7 +1395,7 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     return res;
   }
   // Редактирование сообщения с фото невозможно — удалить и отправить заново
-  try { await tg.delete(chatId, msgId); } catch (_) { /* noop */ }
+  try { await tg.deleteMessage(chatId, msgId); } catch (_) { /* noop */ }
   const res = await tg.sendPhoto(chatId, SUBSCRIPTION_BANNER_URL, text, ikb(rows));
   if (!res?.ok) return tg.send(chatId, text, ikb(rows));
   return res;
@@ -1424,7 +1424,7 @@ async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgI
   // Если пред. сообщение было фото — edit упадёт, делаем delete+send
   const editRes = await tg.edit(chatId, msgId, text, ikb(rows));
   if (editRes?.ok) return editRes;
-  try { await tg.delete(chatId, msgId); } catch (_) { /* noop */ }
+  try { await tg.deleteMessage(chatId, msgId); } catch (_) { /* noop */ }
   return tg.send(chatId, text, ikb(rows));
 }
 
