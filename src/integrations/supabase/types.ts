@@ -179,6 +179,69 @@ export type Database = {
         }
         Relationships: []
       }
+      curator_chat_invites: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invite_link: string | null
+          plan: string
+          status: string
+          telegram_id: number
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_link?: string | null
+          plan: string
+          status?: string
+          telegram_id: number
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_link?: string | null
+          plan?: string
+          status?: string
+          telegram_id?: number
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
+      curator_chat_members: {
+        Row: {
+          id: string
+          joined_at: string
+          kick_reason: string | null
+          kicked_at: string | null
+          last_checked_at: string | null
+          telegram_id: number
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          kick_reason?: string | null
+          kicked_at?: string | null
+          last_checked_at?: string | null
+          telegram_id: number
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          kick_reason?: string | null
+          kicked_at?: string | null
+          last_checked_at?: string | null
+          telegram_id?: number
+        }
+        Relationships: []
+      }
       customization_requests: {
         Row: {
           created_at: string
