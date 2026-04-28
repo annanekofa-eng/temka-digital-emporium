@@ -149,6 +149,8 @@ serve(async (req) => {
       discount_amount: discountAmount,
       final_amount: finalAmount,
       status: finalAmount === 0 ? "paid" : "pending",
+      plan,
+      months,
     }).select("id").single();
     if (payError || !payment) return jsonRes({ error: `Ошибка создания платежа: ${payError?.message || "unknown"}` }, 500);
 

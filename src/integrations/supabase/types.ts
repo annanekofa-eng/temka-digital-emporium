@@ -2073,6 +2073,8 @@ export type Database = {
           final_amount: number | null
           id: string
           invoice_id: string | null
+          months: number | null
+          plan: string | null
           promo_code: string | null
           status: string
           user_id: string
@@ -2085,6 +2087,8 @@ export type Database = {
           final_amount?: number | null
           id?: string
           invoice_id?: string | null
+          months?: number | null
+          plan?: string | null
           promo_code?: string | null
           status?: string
           user_id: string
@@ -2097,6 +2101,8 @@ export type Database = {
           final_amount?: number | null
           id?: string
           invoice_id?: string | null
+          months?: number | null
+          plan?: string | null
           promo_code?: string | null
           status?: string
           user_id?: string
