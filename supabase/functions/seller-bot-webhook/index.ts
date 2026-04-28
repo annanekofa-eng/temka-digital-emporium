@@ -2432,6 +2432,12 @@ async function autoProductView(tg: ReturnType<typeof TG>, cid: number, mid: numb
   if (!AUTO_TYPES.includes(type as AutoType)) {
     return tg.edit(cid, mid, "❌ Неизвестный тип", ikb([[btn("◀️ Назад", "s:ap")]]));
   }
+  if (!(await shopOwnerHasPremium(shopId))) {
+    return tg.edit(cid, mid, premiumUpsellBanner(), ikb([
+      [btn("💎 Перейти на Премиум", "s:upsell:premium")],
+      [btn("◀️ Меню", "s:m")],
+    ]));
+  }
   await ensureAutoProduct(shopId, type as AutoType);
   const { data: r } = await supabase()
     .from("shop_auto_products").select("*")
