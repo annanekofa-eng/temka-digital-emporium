@@ -3130,6 +3130,7 @@ async function admPlanCountsLine(): Promise<string> {
 
 // ─── 3-TIER TARIFFS ADMIN ──────────────────────
 async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  // Combined dashboard: Тарифы (цены) + глобальные настройки подписки
   const { data: prices } = await db()
     .from("tariff_prices")
     .select("plan, price_usd, is_enabled")
@@ -3139,39 +3140,57 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   const fmt = (k: string) => {
     const r = map[k];
     if (!r) return "—";
-    return `<b>$${r.price.toFixed(2)}</b>${r.active ? "" : " (выкл)"}`;
+    return `<b>$${r.price.toFixed(2)}</b>${r.active ? "" : " (выкл)"}/мес`;
   };
-  // Stats by plan
-  const planStats: Record<string, number> = { start: 0, basic: 0, premium: 0 };
-  for (const p of ["start", "basic", "premium"]) {
-    const { count } = await db()
-      .from("platform_users")
-      .select("id", { count: "exact", head: true })
-      .eq("subscription_plan", p)
-      .in("subscription_status", ["active", "trial", "grace_period"]);
-    planStats[p] = count || 0;
-  }
+
+  const ss = await getSubSettings();
+
+  // Counts: trial / active / expired + paid users
+  const [trialQ, activeQ, expiredQ, paidQ] = await Promise.all([
+    db().from("platform_users").select("id", { count: "exact", head: true })
+      .eq("subscription_status", "trial"),
+    db().from("platform_users").select("id", { count: "exact", head: true })
+      .in("subscription_status", ["active", "grace_period"]),
+    db().from("platform_users").select("id", { count: "exact", head: true })
+      .eq("subscription_status", "expired"),
+    db().from("platform_users").select("id", { count: "exact", head: true })
+      .not("first_paid_at", "is", null),
+  ]);
+
   const text =
-    `💎 <b>Тарифы и подписка</b>\n\n` +
-    `🟢 Старт: ${fmt("start")}\n` +
-    `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
-    `🔵 Базовый: ${fmt("basic")}\n` +
-    `   <i>+ кураторство, закрытый чат, поставщики, бесплатные товары</i>\n\n` +
-    `🟣 Премиум: ${fmt("premium")}\n` +
-    `   <i>+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент</i>\n\n` +
-    `📊 <b>Активных подписчиков:</b>\n` +
-    `  Старт: ${planStats.start} • Базовый: ${planStats.basic} • Премиум: ${planStats.premium}`;
+    `📋 <b>Подписка — глобальные настройки</b>\n\n` +
+    `<b>💰 Цены:</b>\n` +
+    `  🟢 Старт: ${fmt("start")}\n` +
+    `  🔵 Базовый: ${fmt("basic")}\n` +
+    `  🟣 Премиум: ${fmt("premium")}\n\n` +
+    `<b>🆓 Trial:</b>\n` +
+    `  Trial: ${ss.trial_enabled ? "✅" : "❌"} (${ss.trial_days} дн.)\n` +
+    `  Один trial/user: ${ss.one_trial_per_user ? "✅" : "❌"}\n` +
+    `  Авто-trial: ${ss.auto_trial_on_shop_create ? "✅" : "❌"}\n\n` +
+    `<b>🏪 Лимиты:</b>\n` +
+    `  Магазинов на user: ${ss.max_shops_per_user}\n\n` +
+    `<b>⏰ Expiration:</b>\n` +
+    `  Grace period: ${ss.grace_period_enabled ? `✅ (${ss.grace_period_days} дн.)` : "❌"}\n` +
+    `  Пауза магазинов: ${ss.on_expiry_pause_shop ? "✅" : "❌"}\n` +
+    `  Деактивация ботов: ${ss.on_expiry_deactivate_bot ? "✅" : "❌"}\n\n` +
+    `<b>🔔 Уведомления:</b>\n` +
+    `  Reminder: ${ss.reminder_enabled ? `✅ (за ${ss.reminder_days_before} дн.)` : "❌"}\n` +
+    `  Trial started: ${ss.trial_started_notify ? "✅" : "❌"}\n` +
+    `  Expired: ${ss.expired_notify ? "✅" : "❌"}\n` +
+    `  Bot deactivated: ${ss.bot_deactivated_notify ? "✅" : "❌"}\n\n` +
+    `<b>📊 Текущее состояние:</b>\n` +
+    `  Trial: ${trialQ.count || 0} | Active: ${activeQ.count || 0} | Expired: ${expiredQ.count || 0}\n` +
+    `  Оплативших: ${paidQ.count || 0}`;
+
   return tg.edit(
     chatId,
     msgId,
     text,
     ikb([
-      [btn("✏️ Цена Старт", "adm:tarset:start"), btn(map.start?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:start")],
-      [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
-      [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
-      [btn("📊 Подробная статистика", "adm:tarstats")],
-      [btn("🆓 Trial", "adm:sc:trial"), btn("🏪 Лимиты", "adm:sc:limits")],
-      [btn("⏰ Окончание", "adm:sc:expiry"), btn("🔔 Уведомления", "adm:sc:notify")],
+      [btn("💰 Цены", "adm:sc:prices"), btn("🆓 Trial", "adm:sc:trial")],
+      [btn("🏪 Лимиты", "adm:sc:limits"), btn("⏰ Expiration", "adm:sc:expiry")],
+      [btn("🔔 Уведомления", "adm:sc:notify"), btn("📊 Статистика", "adm:tarstats")],
+      [btn("🔄 Обновить", "adm:tariffs")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
