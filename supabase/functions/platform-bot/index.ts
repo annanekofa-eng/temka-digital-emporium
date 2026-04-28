@@ -2600,16 +2600,14 @@ async function handleCallback(
   if (cmd === "delshop") return deleteShopConfirm(tg, chatId, msgId, parts[2]);
   if (cmd === "confirmdelete") return deleteShopExecute(tg, chatId, msgId, parts[2]);
   if (cmd === "pay_sub") {
-    // Поддерживаем 2 формата:
-    //   p:pay_sub:<plan>:<months>  — новый
-    //   p:pay_sub:<months>         — старый (fallback → start)
-    let plan: PlanKey = 'start';
+    // Оплата всегда должна идти после явного выбора тарифа.
+    let plan: PlanKey | null = null;
     let monthsRaw = 1;
     if (parts[2] && ['start','basic','premium'].includes(parts[2])) {
       plan = parts[2] as PlanKey;
       monthsRaw = parseInt(parts[3]) || 1;
     } else {
-      monthsRaw = parseInt(parts[2]) || 1;
+      return showSubscription(tg, chatId, msgId);
     }
     const allowedMonths = [1, 3, 6, 12];
     const validMonths = allowedMonths.includes(monthsRaw) ? monthsRaw : 1;
