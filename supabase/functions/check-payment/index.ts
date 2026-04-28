@@ -286,15 +286,19 @@ async function checkSubscriptionPayment(params: {
     }
 
     // Activate subscription — preserve remaining days
-    const { data: pUser } = await supabase.from("platform_users").select("first_paid_at, id, subscription_status, subscription_expires_at").eq("telegram_id", telegramId).maybeSingle();
+    const { data: pUser } = await supabase.from("platform_users").select("first_paid_at, id, subscription_status, subscription_expires_at, subscription_plan").eq("telegram_id", telegramId).maybeSingle();
     const currentExpiry = pUser?.subscription_expires_at ? new Date(pUser.subscription_expires_at).getTime() : 0;
     const baseDate = Math.max(currentExpiry, Date.now());
     const expiresAt = new Date(baseDate + totalDays * 24 * 60 * 60 * 1000).toISOString();
     const subscriptionPrice = Number(payload.subscriptionPrice || 0);
+    const plan = ['start','basic','premium'].includes(payload.plan) ? payload.plan : 'start';
+    const previousPlan = (pUser as any)?.subscription_plan || null;
     await supabase.from("platform_users").update({
       subscription_status: "active", subscription_expires_at: expiresAt,
+      subscription_plan: plan,
+      current_period_end: expiresAt,
       billing_price_usd: months === 1 ? subscriptionPrice : Math.round(subscriptionPrice / months * 100) / 100,
-      pricing_tier: payload.tier,
+      pricing_tier: payload.tier || plan,
       first_paid_at: pUser?.first_paid_at || new Date().toISOString(),
       reminder_sent_at: null, expiry_notified_at: null, updated_at: new Date().toISOString(),
     }).eq("telegram_id", telegramId);
@@ -341,10 +345,35 @@ async function checkSubscriptionPayment(params: {
     const monthsLabel = months === 1 ? "1 мес" : `${months} мес`;
     const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (botToken) {
-      let msg = `✅ <b>Подписка ${pUser?.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")} (${monthsLabel})`;
+      const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+      let msg = `✅ <b>Подписка ${pUser?.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")} (${monthsLabel})`;
       if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
       try { await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: telegramId, text: msg, parse_mode: "HTML" }) }); } catch {}
     }
+
+    // Deliver paid_content (basic/premium)
+    try {
+      const eligible: string[] = [];
+      if (plan === 'basic' || plan === 'premium') eligible.push('basic');
+      if (plan === 'premium') eligible.push('premium');
+      if (eligible.length > 0 && botToken) {
+        const { data: items } = await supabase.from('paid_content')
+          .select('id, title, body').in('plan', eligible).eq('is_active', true).order('sort_order', { ascending: true });
+        for (const it of items || []) {
+          const { data: ex } = await supabase.from('paid_content_logs').select('id').eq('telegram_id', telegramId).eq('content_id', it.id).maybeSingle();
+          if (ex) continue;
+          let ok = false; let err = '';
+          try {
+            const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: telegramId, text: `🎁 <b>${it.title}</b>\n\n${it.body}`, parse_mode: 'HTML', disable_web_page_preview: true }),
+            });
+            const j = await r.json().catch(() => ({})); ok = !!j?.ok; if (!ok) err = String(j?.description || r.status);
+          } catch (e: any) { err = e?.message || 'send error'; }
+          await supabase.from('paid_content_logs').insert({ telegram_id: telegramId, content_id: it.id, status: ok ? 'sent' : 'failed', error: ok ? null : err });
+        }
+      }
+    } catch (e) { console.error('paid_content delivery error (poll):', e); }
 
     return jsonRes({ subscriptionStatus: "paid", paymentStatus: "paid", expiresAt });
   }

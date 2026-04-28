@@ -10,6 +10,8 @@ const corsHeaders = {
 const CRYPTOBOT_API_URL = "https://pay.crypt.bot/api";
 const PLATFORM_NAME = "TeleStore";
 const ALLOWED_MONTHS = [1, 3, 6, 12];
+const ALLOWED_PLANS = ['start', 'basic', 'premium'] as const;
+type Plan = typeof ALLOWED_PLANS[number];
 
 const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -54,13 +56,10 @@ async function getSubSettings(supabase: any): Promise<SubSettings> {
   };
 }
 
-async function getSubscriptionPrice(supabase: any, telegramId: number): Promise<{ price: number; tier: string }> {
-  const { data: user } = await supabase.from("platform_users").select("billing_price_usd, pricing_tier").eq("telegram_id", telegramId).maybeSingle();
-  if (user?.billing_price_usd != null && user?.pricing_tier) return { price: Number(user.billing_price_usd), tier: user.pricing_tier };
-  const ss = await getSubSettings(supabase);
-  const { count } = await supabase.from("platform_users").select("id", { count: "exact", head: true }).not("first_paid_at", "is", null);
-  const paidCount = count || 0;
-  return paidCount < ss.early_slots_limit ? { price: ss.early_price_usd, tier: "early_3" } : { price: ss.standard_price_usd, tier: "standard_5" };
+async function getPlanPrice(supabase: any, plan: Plan): Promise<{ price: number; enabled: boolean }> {
+  const { data: row } = await supabase.from("tariff_prices").select("price_usd, is_enabled").eq("plan", plan).maybeSingle();
+  if (!row) return { price: 0, enabled: false };
+  return { price: Number(row.price_usd) || 0, enabled: !!row.is_enabled };
 }
 
 function monthsLabel(m: number): string {
@@ -72,10 +71,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { initData, useBalance, promoCode, months: rawMonths } = await req.json();
+    const { initData, useBalance, promoCode, months: rawMonths, plan: rawPlan } = await req.json();
     if (!initData) return jsonRes({ error: "Откройте приложение через Telegram" }, 401);
 
     const months = ALLOWED_MONTHS.includes(Number(rawMonths)) ? Number(rawMonths) : 1;
+    const plan: Plan = ALLOWED_PLANS.includes(rawPlan as Plan) ? (rawPlan as Plan) : 'start';
 
     const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (!botToken) return jsonRes({ error: "Бот не настроен" }, 500);
@@ -94,7 +94,7 @@ serve(async (req) => {
     await supabase.from("rate_limits").insert({ identifier: String(telegramId), action: "sub_invoice" });
 
     // Get platform user
-    const { data: pUser } = await supabase.from("platform_users").select("id, subscription_status, subscription_expires_at, balance, billing_price_usd, pricing_tier, first_paid_at")
+    const { data: pUser } = await supabase.from("platform_users").select("id, subscription_status, subscription_expires_at, balance, billing_price_usd, pricing_tier, first_paid_at, subscription_plan")
       .eq("telegram_id", telegramId).maybeSingle();
     if (!pUser) return jsonRes({ error: "Пользователь не найден" }, 404);
 
@@ -105,9 +105,11 @@ serve(async (req) => {
     // Blocked users cannot renew
     if (pUser.subscription_status === "blocked") return jsonRes({ error: "Подписка заблокирована. Обратитесь в поддержку." }, 400);
 
-    // Calculate price (per month * months)
-    const priceInfo = await getSubscriptionPrice(supabase, telegramId);
-    const monthlyPrice = priceInfo.price;
+    // Calculate price (per month * months) based on selected plan
+    const planPrice = await getPlanPrice(supabase, plan);
+    if (!planPrice.enabled) return jsonRes({ error: "Этот тариф сейчас недоступен" }, 400);
+    if (planPrice.price <= 0) return jsonRes({ error: "Цена тарифа не задана" }, 400);
+    const monthlyPrice = planPrice.price;
     const subscriptionPrice = Math.round(monthlyPrice * months * 100) / 100;
     const totalDays = months * 30;
 
@@ -169,9 +171,12 @@ serve(async (req) => {
       const currentExpiry = pUser.subscription_expires_at ? new Date(pUser.subscription_expires_at).getTime() : 0;
       const baseDate = Math.max(currentExpiry, Date.now());
       const expiresAt = new Date(baseDate + totalDays * 24 * 60 * 60 * 1000).toISOString();
+      const previousPlan = (pUser as any)?.subscription_plan || null;
       await supabase.from("platform_users").update({
         subscription_status: "active", subscription_expires_at: expiresAt,
-        billing_price_usd: monthlyPrice, pricing_tier: priceInfo.tier,
+        subscription_plan: plan,
+        current_period_end: expiresAt,
+        billing_price_usd: monthlyPrice, pricing_tier: plan,
         first_paid_at: pUser.first_paid_at || new Date().toISOString(),
         reminder_sent_at: null, expiry_notified_at: null, updated_at: new Date().toISOString(),
       }).eq("telegram_id", telegramId);
@@ -195,7 +200,8 @@ serve(async (req) => {
       // Notify
       const platformBotToken = Deno.env.get("PLATFORM_BOT_TOKEN");
       if (platformBotToken) {
-        let msg = `✅ <b>Подписка ${pUser.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel(months)})`;
+        const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+        let msg = `✅ <b>Подписка ${pUser.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel(months)})`;
         if (discountAmount > 0) msg += `\n🎫 Скидка: -$${discountAmount.toFixed(2)}`;
         if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
         try {
@@ -206,6 +212,30 @@ serve(async (req) => {
         } catch {}
       }
 
+      // Deliver paid content (basic/premium) — call cryptobot-webhook helper inline via direct logic
+      try {
+        const eligible: string[] = [];
+        if (plan === 'basic' || plan === 'premium') eligible.push('basic');
+        if (plan === 'premium') eligible.push('premium');
+        if (eligible.length > 0 && platformBotToken) {
+          const { data: items } = await supabase.from('paid_content')
+            .select('id, title, body').in('plan', eligible).eq('is_active', true).order('sort_order', { ascending: true });
+          for (const it of items || []) {
+            const { data: ex } = await supabase.from('paid_content_logs').select('id').eq('telegram_id', telegramId).eq('content_id', it.id).maybeSingle();
+            if (ex) continue;
+            let ok = false; let err = '';
+            try {
+              const r = await fetch(`https://api.telegram.org/bot${platformBotToken}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: telegramId, text: `🎁 <b>${it.title}</b>\n\n${it.body}`, parse_mode: 'HTML', disable_web_page_preview: true }),
+              });
+              const j = await r.json().catch(() => ({})); ok = !!j?.ok; if (!ok) err = String(j?.description || r.status);
+            } catch (e: any) { err = e?.message || 'send error'; }
+            await supabase.from('paid_content_logs').insert({ telegram_id: telegramId, content_id: it.id, status: ok ? 'sent' : 'failed', error: ok ? null : err });
+          }
+        }
+      } catch (e) { console.error('paid_content delivery error:', e); }
+
       return jsonRes({
         status: "paid",
         subscriptionStatus: "active",
@@ -214,6 +244,7 @@ serve(async (req) => {
         discountAmount,
         finalAmount: 0,
         months,
+        plan,
       });
     }
 
@@ -229,14 +260,15 @@ serve(async (req) => {
       body: JSON.stringify({
         currency_type: "fiat", fiat: "USD",
         amount: finalAmount.toFixed(2),
-        description: `Подписка ${PLATFORM_NAME} (${monthsLabel(months)})${validatedPromoCode ? ` [промо: ${validatedPromoCode}]` : ""}`,
+        description: `Подписка ${PLATFORM_NAME} ${plan} (${monthsLabel(months)})${validatedPromoCode ? ` [промо: ${validatedPromoCode}]` : ""}`,
         payload: JSON.stringify({
           type: "subscription",
           paymentId: payment.id,
           telegramUserId: telegramId,
           balanceUsed,
           subscriptionPrice,
-          tier: priceInfo.tier,
+          tier: plan,
+          plan,
           months,
         }),
         paid_btn_name: "callback",
