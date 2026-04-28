@@ -5889,7 +5889,7 @@ async function handleAdmCallback(
   if (cmd === "subconfig") return admTariffs(tg, chatId, msgId);
   if (cmd === "sc") {
     const subCmd = parts[2]; // prices, trial, limits, expiry, notify, set, tog, clean_orphan_trials, expire_all_trials
-    if (subCmd === "prices") return admTariffs(tg, chatId, msgId); // legacy → новый раздел
+    if (subCmd === "prices") return admScPrices(tg, chatId, msgId);
     if (subCmd === "trial") return admScTrial(tg, chatId, msgId);
     if (subCmd === "clean_orphan_trials") {
       // Set all orphan trial users (no expiry) to 'none'
