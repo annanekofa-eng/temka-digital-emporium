@@ -1089,9 +1089,11 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   }
   if (user.subscription_status === "trial") {
     subExtra += `\n\n✅ <i>Подписка активна бесплатно (пробный период).</i>`;
-    subExtra += `\n<i>После окончания пробного периода продление: $${priceInfo.price}/мес.</i>`;
+    subExtra += `\n<i>Тариф не назначен — выберите его при оплате после окончания пробного периода.</i>`;
   } else if (user.subscription_status === "none") {
-    subExtra += `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`;
+    subExtra += priceInfo.price > 0
+      ? `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`
+      : `\n\n<i>Для работы магазина выберите тариф и оформите подписку.</i>`;
   }
   const text = `👤 <b>${esc(user.first_name)}${user.last_name ? " " + esc(user.last_name) : ""}</b>${user.username ? `\n🔗 @${esc(user.username)}` : ""}\n\n🏪 Магазинов: <b>${shopCount || 0}</b>\n📊 Подписка: <b>${subLabel}</b>${subExtra}`;
   // 3-tier perks: curator + private chat for basic/premium
@@ -1437,9 +1439,10 @@ async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgI
 }
 
 async function showRenewOptions(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  // Берём текущий план юзера (или 'start' по умолчанию) и сразу открываем выбор срока
+  // Если тариф не назначен (например, trial) — сначала показываем выбор тарифа.
   const { data: u } = await db().from("platform_users").select("subscription_plan").eq("telegram_id", chatId).maybeSingle();
-  const plan = (((u as any)?.subscription_plan) as PlanKey) || 'start';
+  const plan = ((u as any)?.subscription_plan) as PlanKey | null;
+  if (!plan) return showSubscription(tg, chatId, msgId);
   return showPlanDurations(tg, chatId, msgId, plan);
 }
 
