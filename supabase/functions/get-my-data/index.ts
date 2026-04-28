@@ -208,24 +208,25 @@ serve(async (req) => {
         const { data: curatorRow } = await supabase.from("platform_settings").select("value").eq("key", "global_curator_username").maybeSingle();
         const curatorUsername = (curatorRow?.value || "").trim().replace(/^@/, "");
 
-        const plan = (pUser as any).subscription_plan || 'start';
+        const plan = (pUser as any).subscription_plan || null;
 
         // Subscription price: фактическая цена пользователя или цена его текущего тарифа
         let subPrice: number | null = pUser.billing_price_usd != null ? Number(pUser.billing_price_usd) : null;
         let subTier: string | null = pUser.pricing_tier || null;
         if (subPrice == null) {
-          const tariffRow = (tariffsRows || []).find((t: any) => t.plan === plan);
+          const fallbackPlan = plan || 'start';
+          const tariffRow = (tariffsRows || []).find((t: any) => t.plan === fallbackPlan);
           const fallback: Record<string, number> = { start: 5, basic: 9, premium: 19 };
-          subPrice = tariffRow ? Number(tariffRow.price_usd) : (fallback[plan] || 5);
+          subPrice = tariffRow ? Number(tariffRow.price_usd) : (fallback[fallbackPlan] || 5);
           subTier = plan;
         }
 
         const isActive = ['active','trial','grace_period'].includes(pUser.subscription_status)
           && (!pUser.subscription_expires_at || new Date(pUser.subscription_expires_at).getTime() > Date.now());
         const entitlements = {
-          private_chat: isActive && (plan === 'basic' || plan === 'premium'),
-          curator_help: isActive && (plan === 'basic' || plan === 'premium'),
-          suppliers: isActive && (plan === 'basic' || plan === 'premium'),
+          private_chat: isActive && pUser.subscription_status !== 'trial' && (plan === 'basic' || plan === 'premium'),
+          curator_help: isActive && pUser.subscription_status !== 'trial' && (plan === 'basic' || plan === 'premium'),
+          suppliers: isActive && pUser.subscription_status !== 'trial' && (plan === 'basic' || plan === 'premium'),
           ai_avatar: isActive && plan === 'premium',
           shop_customization: isActive && plan === 'premium',
           sell_telegram_stars: isActive && plan === 'premium',
