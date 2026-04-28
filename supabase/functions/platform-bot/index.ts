@@ -2911,6 +2911,8 @@ async function admGrantReferralCredit(
         currency: "USD",
         status: "paid",
         promo_code: `admin:${source}`,
+        plan: (meta as any).plan || null,
+        months: (meta as any).months || null,
       })
       .select("id")
       .single();
