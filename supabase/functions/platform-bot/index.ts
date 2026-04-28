@@ -1133,44 +1133,48 @@ async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, 
     return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
   }
 
-  const { data: chatRow } = await db().from("platform_settings").select("value").eq("key", "private_chat_id").maybeSingle();
-  const chatIdStr = (chatRow?.value || "").trim();
-  if (!chatIdStr) {
+  const curatorChatId = (Deno.env.get("CURATOR_CHAT_ID") || "").trim();
+  const curatorBotToken = Deno.env.get("CURATOR_BOT_TOKEN") || "";
+  if (!curatorChatId || !curatorBotToken) {
     const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nЗакрытый чат ещё не настроен администратором. Скоро будет доступен.`;
     const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
     return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
   }
 
-  // Generate one-time invite via Telegram API
   try {
-    const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
-    const expireDate = Math.floor(Date.now() / 1000) + 60 * 60; // 1h
-    const r = await fetch(`https://api.telegram.org/bot${token}/createChatInviteLink`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatIdStr,
-        expire_date: expireDate,
-        member_limit: 1,
-        name: `Invite ${chatId}`,
-      }),
-    });
-    const j = await r.json();
-    if (!j?.ok || !j.result?.invite_link) {
-      const errTxt = `❌ Не удалось создать инвайт. Сообщите в поддержку.`;
-      const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
-      return msgId ? tg.edit(chatId, msgId, errTxt, kb) : tg.send(chatId, errTxt, kb);
-    }
-    const link = j.result.invite_link;
-    // Persist for audit
-    await db().from("chat_invites").insert({
+    // Get curator bot username (cache via getMe)
+    const meRes = await fetch(`https://api.telegram.org/bot${curatorBotToken}/getMe`);
+    const me = await meRes.json().catch(() => ({}));
+    const curatorUsername: string = me?.result?.username || "";
+    if (!curatorUsername) throw new Error("curator bot username unavailable");
+
+    // Get user plan for context
+    const { data: pUser } = await db()
+      .from("platform_users")
+      .select("subscription_plan")
+      .eq("telegram_id", chatId)
+      .maybeSingle();
+    const plan = (pUser?.subscription_plan as string) || "basic";
+
+    // Issue a short-lived token (15 minutes)
+    const tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const { error: insErr } = await db().from("curator_chat_invites").insert({
+      token: tokenStr,
       telegram_id: chatId,
-      invite_link: link,
-      expires_at: new Date(expireDate * 1000).toISOString(),
+      plan,
+      status: "issued",
+      expires_at: expiresAt,
     });
-    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nВаша одноразовая ссылка (1 час, на 1 пользователя):\n\n${esc(link)}\n\n<i>Не передавайте ссылку другим — она перестанет работать после первого вступления.</i>`;
+    if (insErr) throw insErr;
+
+    const deepLink = `https://t.me/${curatorUsername}?start=${tokenStr}`;
+    const txt =
+      `🔐 <b>Закрытый чат владельцев</b>\n\n` +
+      `Нажмите кнопку ниже — бот-куратор @${esc(curatorUsername)} выдаст вам персональную ссылку на вход в чат.\n\n` +
+      `⏱ Запрос действует 15 минут, ссылка — одноразовая.`;
     const kb = ikb([
-      [{ text: "🔗 Перейти в чат", url: link } as Btn],
+      [{ text: "🔑 Получить приглашение", url: deepLink } as Btn],
       [btn("◀️ Профиль", "p:profile")],
     ]);
     return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
