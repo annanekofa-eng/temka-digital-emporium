@@ -2352,6 +2352,25 @@ const AUTO_TYPES = ["telegram_premium", "telegram_stars"] as const;
 type AutoType = typeof AUTO_TYPES[number];
 const autoTypeLabel = (t: string) => (t === "telegram_premium" ? "⭐ Telegram Premium" : t === "telegram_stars" ? "✨ Telegram Stars" : t);
 
+// Check if shop owner has Premium plan (required to sell Stars/Premium to customers)
+async function shopOwnerHasPremium(shopId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase().rpc("shop_has_premium_features" as any, { p_shop_id: shopId });
+    if (error) return false;
+    return Boolean(data);
+  } catch (_e) {
+    return false;
+  }
+}
+
+function premiumUpsellBanner(): string {
+  return (
+    `🔒 <b>Доступно на тарифе Премиум</b>\n\n` +
+    `Продажа Telegram Premium и Stars вашим покупателям — Premium-функция платформы.\n\n` +
+    `Откройте платформенного бота → подписка → выберите 💎 Премиум, и эти разделы автоматически активируются для покупателей в вашем магазине.\n`
+  );
+}
+
 async function ensureAutoProduct(shopId: string, type: AutoType) {
   const { data: existing } = await supabase()
     .from("shop_auto_products")
@@ -2369,6 +2388,16 @@ async function ensureAutoProduct(shopId: string, type: AutoType) {
 }
 
 async function autoProductsHome(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string) {
+  const hasPremium = await shopOwnerHasPremium(shopId);
+  if (!hasPremium) {
+    const text =
+      premiumUpsellBanner() +
+      `\n<i>Сейчас покупатели не видят эти разделы в вашем магазине.</i>`;
+    return tg.edit(cid, mid, text, ikb([
+      [btn("💎 Перейти на Премиум", "s:upsell:premium")],
+      [btn("◀️ Меню", "s:m")],
+    ]));
+  }
   for (const t of AUTO_TYPES) await ensureAutoProduct(shopId, t);
   const { data: rows } = await supabase()
     .from("shop_auto_products")
