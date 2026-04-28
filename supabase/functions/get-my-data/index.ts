@@ -174,7 +174,7 @@ serve(async (req) => {
           .eq("telegram_id", telegramId).maybeSingle();
         if (!pUser) return jsonRes({ error: "Platform user not found" }, 404);
 
-        const { data: shops } = await supabase.from("shops").select("id, name, slug, status, bot_username, webhook_status, created_at")
+        const { data: shops } = await supabase.from("shops").select("id, name, slug, status, bot_username, webhook_status, created_at, bot_avatar_url")
           .eq("owner_id", pUser.id).order("created_at", { ascending: false });
 
         // Fetch stats per shop
