@@ -36,12 +36,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { initData, shopId, prompt } = await req.json().catch(() => ({}));
+    const { initData, shopId, prompt, action, parentId, applyImageUrl } = await req.json().catch(() => ({}));
     if (!initData) return jsonRes({ error: "Откройте через Telegram" }, 401);
     if (!shopId) return jsonRes({ error: "shopId обязателен" }, 400);
-    if (!prompt || typeof prompt !== "string" || prompt.length < 3 || prompt.length > 300) {
-      return jsonRes({ error: "Опишите магазин (3–300 символов)" }, 400);
-    }
 
     const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (!botToken) return jsonRes({ error: "Бот не настроен" }, 500);
@@ -49,25 +46,62 @@ serve(async (req) => {
     if (!tgUser) return jsonRes({ error: "Ошибка авторизации" }, 401);
     const telegramId = tgUser.id;
 
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Verify ownership of shop (доступно всем владельцам с любой подпиской)
+    const { data: pUser } = await supabase.from("platform_users").select("id").eq("telegram_id", telegramId).maybeSingle();
+    if (!pUser?.id) return jsonRes({ error: "Пользователь не найден" }, 404);
+    const { data: shop } = await supabase.from("shops").select("id, owner_id").eq("id", shopId).maybeSingle();
+    if (!shop || shop.owner_id !== pUser.id) return jsonRes({ error: "Магазин не найден или не принадлежит вам" }, 403);
+
+    // ── action: quota — вернуть лимит ────────
+    const quotaRes = await supabase.rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+    const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3, cycle_start: null };
+
+    if (action === "quota") {
+      return jsonRes({ quota });
+    }
+
+    // ── action: apply — установить выбранную картинку как аватарку ───
+    if (action === "apply") {
+      if (!applyImageUrl || typeof applyImageUrl !== "string") {
+        return jsonRes({ error: "applyImageUrl обязателен" }, 400);
+      }
+      await supabase.from("shops").update({
+        bot_avatar_url: applyImageUrl,
+        ai_avatar_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", shopId);
+      return jsonRes({ ok: true, avatarUrl: applyImageUrl });
+    }
+
+    // ── action: generate (default) ───────
+    if (!prompt || typeof prompt !== "string" || prompt.length < 3 || prompt.length > 300) {
+      return jsonRes({ error: "Опишите магазин (3–300 символов)" }, 400);
+    }
+    if (quota.remaining <= 0) {
+      return jsonRes({ error: `Лимит исчерпан: ${quota.used}/${quota.limit} в этом цикле подписки. Лимит обновится при продлении.`, quota }, 402);
+    }
+
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) return jsonRes({ error: "AI не настроен" }, 500);
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Если parentId — это «правка» предыдущей картинки: добавляем её как контекст для image-edit
+    let parentImageUrl: string | null = null;
+    if (parentId) {
+      const { data: parent } = await supabase
+        .from("shop_ai_avatar_generations")
+        .select("image_url, prompt")
+        .eq("id", parentId)
+        .maybeSingle();
+      parentImageUrl = (parent as any)?.image_url || null;
+    }
 
-    // Verify entitlement
-    const { data: entitled } = await supabase.rpc("has_entitlement", { p_telegram_id: telegramId, p_feature: "ai_avatar" });
-    if (!entitled) return jsonRes({ error: "AI-аватарка доступна только на Премиум" }, 403);
-
-    // Verify ownership of shop
-    const { data: pUser } = await supabase.from("platform_users").select("id").eq("telegram_id", telegramId).maybeSingle();
-    if (!pUser?.id) return jsonRes({ error: "Пользователь не найден" }, 404);
-    const { data: shop } = await supabase.from("shops").select("id, owner_id, ai_avatar_generated_at").eq("id", shopId).maybeSingle();
-    if (!shop || shop.owner_id !== pUser.id) return jsonRes({ error: "Магазин не найден или не принадлежит вам" }, 403);
-
-    // Rate limit: max 5 / hour
-    if (shop.ai_avatar_generated_at) {
-      const ago = Date.now() - new Date(shop.ai_avatar_generated_at).getTime();
-      if (ago < 30_000) return jsonRes({ error: "Подождите 30 секунд между генерациями" }, 429);
+    const userContent: any[] = [
+      { type: "text", text: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${parentImageUrl ? "Внеси изменения в существующую картинку согласно описанию." : "Описание магазина:"} ${prompt}` },
+    ];
+    if (parentImageUrl) {
+      userContent.push({ type: "image_url", image_url: { url: parentImageUrl } });
     }
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -75,9 +109,7 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
-        messages: [
-          { role: "user", content: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\nОписание магазина: ${prompt}` },
-        ],
+        messages: [{ role: "user", content: userContent }],
         modalities: ["image", "text"],
       }),
     });
@@ -114,13 +146,26 @@ serve(async (req) => {
     const { data: pub } = supabase.storage.from("bot-avatars").getPublicUrl(path);
     const publicUrl = pub.publicUrl;
 
-    await supabase.from("shops").update({
-      bot_avatar_url: publicUrl,
-      ai_avatar_generated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", shopId);
+    // Записываем генерацию в историю с привязкой к циклу
+    const cycleStart = quota.cycle_start || new Date().toISOString();
+    const { data: gen } = await supabase.from("shop_ai_avatar_generations").insert({
+      shop_id: shopId,
+      owner_telegram_id: telegramId,
+      prompt,
+      parent_id: parentId || null,
+      image_url: publicUrl,
+      subscription_cycle_start: cycleStart,
+    }).select("id").single();
 
-    return jsonRes({ avatarUrl: publicUrl });
+    // Получаем обновлённую квоту
+    const newQuotaRes = await supabase.rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+    const newQuota = (newQuotaRes.data as any) || quota;
+
+    return jsonRes({
+      avatarUrl: publicUrl,
+      generationId: (gen as any)?.id || null,
+      quota: newQuota,
+    });
   } catch (e: any) {
     console.error("[generate-shop-avatar] error:", e?.message || e);
     return jsonRes({ error: "Внутренняя ошибка" }, 500);
