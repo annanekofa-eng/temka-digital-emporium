@@ -292,20 +292,15 @@ async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; en
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
-    .select("billing_price_usd, pricing_tier")
+    .select("billing_price_usd, pricing_tier, subscription_plan")
     .eq("telegram_id", telegramId)
     .maybeSingle();
   if (user?.billing_price_usd != null && user?.pricing_tier)
     return { price: Number(user.billing_price_usd), tier: user.pricing_tier };
-  const ss = await getSubSettings();
-  const { count } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
-  const paidCount = count || 0;
-  return paidCount < ss.early_slots_limit
-    ? { price: ss.early_price_usd, tier: "early_3" }
-    : { price: ss.standard_price_usd, tier: "standard_5" };
+  // Fallback: цена из tariff_prices по плану пользователя (или start)
+  const plan = (user?.subscription_plan as PlanKey) || "start";
+  const price = await getTariffPrice(plan);
+  return { price, tier: plan };
 }
 
 function subscriptionDaysLeft(expiresAt: string | null): number {
