@@ -3109,7 +3109,7 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
     planStats[p] = count || 0;
   }
   const text =
-    `💎 <b>Тарифы (3-плана)</b>\n\n` +
+    `💎 <b>Тарифы и подписка</b>\n\n` +
     `🟢 Старт: ${fmt("start")}\n` +
     `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
     `🔵 Базовый: ${fmt("basic")}\n` +
@@ -3127,6 +3127,8 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
       [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
       [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
       [btn("📊 Подробная статистика", "adm:tarstats")],
+      [btn("🆓 Trial", "adm:sc:trial"), btn("🏪 Лимиты", "adm:sc:limits")],
+      [btn("⏰ Окончание", "adm:sc:expiry"), btn("🔔 Уведомления", "adm:sc:notify")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
