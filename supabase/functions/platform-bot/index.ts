@@ -1427,7 +1427,7 @@ async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgI
       btn(`6 мес — $${(price * 6).toFixed(2)}`, `p:pay_sub:${plan}:6`),
       btn(`12 мес — $${(price * 12).toFixed(2)}`, `p:pay_sub:${plan}:12`),
     ],
-    [btn("🎫 Ввести промокод", "p:sub_promo")],
+    [btn("🎫 Ввести промокод", `p:sub_promo:${plan}`)],
     [btn("◀️ К тарифам", "p:sub")],
   ];
   if (!msgId) return tg.send(chatId, text, ikb(rows));
@@ -2823,7 +2823,8 @@ async function handleCallback(
     }
   }
   if (cmd === "sub_promo") {
-    await setSession(chatId, "sub_promo_input", {});
+    const promoPlan = (["start","basic","premium"] as PlanKey[]).includes(parts[2] as PlanKey) ? (parts[2] as PlanKey) : null;
+    await setSession(chatId, "sub_promo_input", { plan: promoPlan });
     return tg.edit(
       chatId,
       msgId,
