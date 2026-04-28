@@ -3003,6 +3003,33 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
   const uniqueOwners = new Set(allShops?.map((s) => s.owner_id) || []).size;
   const totalRevenue = paidOrders?.reduce((s, o) => s + Number(o.total_amount), 0) || 0;
 
+  // Subscription revenue + MRR by plan (canonical: subscription_payments.plan)
+  const { data: paidSubs } = await db()
+    .from("subscription_payments")
+    .select("plan, final_amount, amount, months")
+    .eq("status", "paid");
+  const planRevenue: Record<string, number> = { start: 0, basic: 0, premium: 0, other: 0 };
+  let subTotalRevenue = 0;
+  for (const sp of paidSubs || []) {
+    const v = Number((sp as any).final_amount ?? (sp as any).amount ?? 0);
+    subTotalRevenue += v;
+    const k = ["start", "basic", "premium"].includes((sp as any).plan) ? (sp as any).plan : "other";
+    planRevenue[k] += v;
+  }
+  // MRR: sum of billing_price_usd for users with active/grace subscription
+  const { data: activeSubs } = await db()
+    .from("platform_users")
+    .select("subscription_plan, billing_price_usd")
+    .in("subscription_status", ["active", "grace_period"]);
+  const mrrByPlan: Record<string, number> = { start: 0, basic: 0, premium: 0 };
+  let mrrTotal = 0;
+  for (const u of activeSubs || []) {
+    const v = Number((u as any).billing_price_usd || 0);
+    mrrTotal += v;
+    const p = (u as any).subscription_plan;
+    if (p === "start" || p === "basic" || p === "premium") mrrByPlan[p] += v;
+  }
+
   // Platform OP status
   const platformChannels = await getPlatformChannelIds();
   const platformOPStatus = platformChannels.length > 0 ? "✅" : "❌";
@@ -3054,6 +3081,10 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     `🛍 Tenant заказов: ${totalShopOrders || 0}\n` +
     `💵 Tenant выручка: <b>$${totalRevenue.toFixed(2)}</b>\n\n` +
     `💳 Подписок: ${subPayments || 0}\n` +
+    `💰 Выручка подписок: <b>$${subTotalRevenue.toFixed(2)}</b>\n` +
+    `   🟢 Старт: $${planRevenue.start.toFixed(2)} • 🔵 Базовый: $${planRevenue.basic.toFixed(2)} • 🟣 Премиум: $${planRevenue.premium.toFixed(2)}\n` +
+    `📈 MRR: <b>$${mrrTotal.toFixed(2)}</b>\n` +
+    `   🟢 $${mrrByPlan.start.toFixed(2)} • 🔵 $${mrrByPlan.basic.toFixed(2)} • 🟣 $${mrrByPlan.premium.toFixed(2)}\n\n` +
     `🧾 Инвойсов: ${invoiceCount || 0}\n` +
     `⏱ Rate limits: ${rateLimits || 0}\n\n` +
     `💎 <b>Тарифы (active):</b>\n${await admPlanCountsLine()}\n\n` +
