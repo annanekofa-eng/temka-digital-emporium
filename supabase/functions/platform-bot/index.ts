@@ -4471,9 +4471,7 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
   );
 }
 
-async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-// admScPrices removed — управление ценами перенесено в admTariffs (раздел «Тарифы и подписка»).
-
+// admScPrices удалён — управление ценами перенесено в admTariffs (раздел «Тарифы и подписка»).
 async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
   // Count active trial users (with actual trial expiry set)
