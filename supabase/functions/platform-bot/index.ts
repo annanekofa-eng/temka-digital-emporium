@@ -1899,13 +1899,14 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     trialMsg = "";
   } else if (willGetTrial) {
     const trialExpiresAt = new Date(Date.now() + ss.trial_days * 24 * 60 * 60 * 1000).toISOString();
+    const startPrice = await getTariffPrice("start");
     await db()
       .from("platform_users")
       .update({
         subscription_status: "trial",
-        subscription_plan: null,
-        billing_price_usd: null,
-        pricing_tier: null,
+        subscription_plan: "start",
+        billing_price_usd: startPrice,
+        pricing_tier: "start",
         trial_started_at: new Date().toISOString(),
         subscription_expires_at: trialExpiresAt,
         has_used_trial: true,
