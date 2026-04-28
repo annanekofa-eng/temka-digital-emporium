@@ -362,10 +362,17 @@ const PlatformProfile: React.FC = () => {
               )}
             </div>
 
-            {subscription.pricing_tier && (
+            {(subscription as any).plan && (
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
-                Тариф: <span className="font-medium text-gray-700 capitalize">{subscription.pricing_tier === 'early_3' ? 'Early Bird' : subscription.pricing_tier}</span>
+                Тариф:
+                <span className="font-medium text-gray-700">
+                  {(() => {
+                    const p = (subscription as any).plan as string;
+                    const map: Record<string, string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+                    return map[p] || p;
+                  })()}
+                </span>
               </div>
             )}
 
