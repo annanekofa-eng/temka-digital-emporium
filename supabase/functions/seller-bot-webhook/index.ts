@@ -3392,6 +3392,21 @@ async function handleCallback(
     // ─── Auto-products ──────────────────────
     if (cmd === "ap") return autoProductsHome(tg, cid, mid, shopId);
     if (cmd === "apv") return autoProductView(tg, cid, mid, shopId, parts[2]);
+    if (cmd === "upsell") {
+      const webapp = Deno.env.get("WEBAPP_URL") || "";
+      const upsellRows: Btn[][] = [];
+      if (webapp) {
+        upsellRows.push([{ text: "💎 Открыть платформу", web_app: { url: webapp } } as Btn]);
+      }
+      upsellRows.push([btn("◀️ Назад", "s:ap")]);
+      return tg.edit(cid, mid,
+        `💎 <b>Тариф Премиум</b>\n\n` +
+        `Открывает в вашем магазине разделы Telegram Stars и Telegram Premium для покупателей.\n\n` +
+        `Также включает: AI-аватарку магазина, кастомизацию, премиум-контент, кураторство и закрытый чат владельцев.\n\n` +
+        `Подписка оформляется в платформенном Mini App.`,
+        ikb(upsellRows),
+      );
+    }
     if (cmd === "apt") {
       const type = parts[2];
       if (!AUTO_TYPES.includes(type as AutoType)) return;
