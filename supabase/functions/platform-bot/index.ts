@@ -1095,10 +1095,10 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   }
   const text = `👤 <b>${esc(user.first_name)}${user.last_name ? " " + esc(user.last_name) : ""}</b>${user.username ? `\n🔗 @${esc(user.username)}` : ""}\n\n🏪 Магазинов: <b>${shopCount || 0}</b>\n📊 Подписка: <b>${subLabel}</b>${subExtra}`;
   // 3-tier perks: curator + private chat for basic/premium
-  const plan = (user as any).subscription_plan || "start";
-  const isPaidPlus = ["active", "trial", "grace_period"].includes(user.subscription_status) && (plan === "basic" || plan === "premium");
-  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Базовый" : "🟢 Старт";
-  let perksLine = `\n🎫 Тариф: <b>${planIcon}</b>`;
+  const plan = ((user as any).subscription_plan || null) as PlanKey | null;
+  const isPaidPlus = ["active", "grace_period"].includes(user.subscription_status) && (plan === "basic" || plan === "premium");
+  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Базовый" : plan === "start" ? "🟢 Старт" : "—";
+  let perksLine = plan ? `\n🎫 Тариф: <b>${planIcon}</b>` : `\n🎫 Тариф: <b>не назначен</b>`;
   // Global curator
   let curator = "";
   if (isPaidPlus) {
@@ -1154,7 +1154,7 @@ async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, 
       .select("subscription_plan")
       .eq("telegram_id", chatId)
       .maybeSingle();
-    const plan = (pUser?.subscription_plan as string) || "basic";
+    const plan = (pUser?.subscription_plan as string) || "trial";
 
     // Issue a short-lived token (15 minutes)
     const tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
