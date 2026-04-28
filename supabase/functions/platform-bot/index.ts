@@ -1061,10 +1061,8 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   kbRows.push([btn("🎁 Реферальная система", "p:ref")]);
   kbRows.push([btn("◀️ Назад", "p:home")]);
   const kb = ikb(kbRows);
-  const finalText = fullText;
-  if (msgId) return tg.edit(chatId, msgId, text, kb);
-  if (msgId) return tg.edit(chatId, msgId, finalText, kb);
-  return tg.send(chatId, finalText, kb);
+  if (msgId) return tg.edit(chatId, msgId, fullText, kb);
+  return tg.send(chatId, fullText, kb);
 }
 
 // ═══════════════════════════════════════════════
