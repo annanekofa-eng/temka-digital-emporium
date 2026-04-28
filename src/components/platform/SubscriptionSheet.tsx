@@ -186,14 +186,51 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
             </div>
           )}
 
-          {/* Tier */}
-          {subscription.pricing_tier && (
+          {/* Current plan */}
+          {subscription.plan && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Тариф</span>
+              <span className="text-sm text-muted-foreground">Текущий тариф</span>
               <span className="text-sm font-medium flex items-center gap-1">
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
-                {tierLabels[subscription.pricing_tier] || subscription.pricing_tier}
+                {PLAN_META[subscription.plan]?.emoji} {PLAN_META[subscription.plan]?.label || subscription.plan}
               </span>
+            </div>
+          )}
+
+          {/* Plan selector */}
+          {canRenew && (tariffs?.length || 0) > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Выберите тариф:</p>
+              <div className="space-y-2">
+                {(['start','basic','premium'] as const).map((p) => {
+                  const meta = PLAN_META[p];
+                  const tr = tariffMap[p];
+                  if (!tr || !tr.enabled) return null;
+                  const active = selectedPlan === p;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setSelectedPlan(p)}
+                      className={`w-full text-left rounded-xl p-3 border transition-all ${
+                        active
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold">
+                          {meta.emoji} {meta.label}
+                          {subscription.plan === p && (
+                            <span className="ml-2 text-[10px] text-blue-500 font-medium">(текущий)</span>
+                          )}
+                        </span>
+                        <span className="text-sm font-bold">${tr.price}/мес</span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 leading-snug">{meta.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
