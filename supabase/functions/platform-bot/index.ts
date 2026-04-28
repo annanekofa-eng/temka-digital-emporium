@@ -1900,6 +1900,9 @@ async function finalizeShop(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       .from("platform_users")
       .update({
         subscription_status: "trial",
+        subscription_plan: null,
+        billing_price_usd: null,
+        pricing_tier: null,
         trial_started_at: new Date().toISOString(),
         subscription_expires_at: trialExpiresAt,
         has_used_trial: true,
