@@ -15,11 +15,33 @@ export interface ShopAutoProduct {
   label: string;
 }
 
+// Server-side check: does the shop owner have Premium plan?
+// Required to show Stars/Premium sections to customers.
+export const useShopHasPremiumFeatures = (shopId?: string) => {
+  return useQuery({
+    queryKey: ['shop-has-premium', shopId],
+    enabled: !!shopId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('shop_has_premium_features' as any, {
+        p_shop_id: shopId!,
+      });
+      if (error) throw error;
+      return Boolean(data);
+    },
+  });
+};
+
 export const useShopAutoProducts = (shopId?: string) => {
   return useQuery({
-    queryKey: ['shop-auto-products', shopId],
+    queryKey: ['shop-auto-products', shopId, 'gated'],
     enabled: !!shopId,
     queryFn: async () => {
+      // Gate: only show Stars/Premium auto products if shop owner has Premium plan
+      const { data: hasPremium } = await supabase.rpc('shop_has_premium_features' as any, {
+        p_shop_id: shopId!,
+      });
+      if (!hasPremium) return [] as ShopAutoProduct[];
       const { data, error } = await supabase
         .from('shop_auto_products' as any)
         .select('*')
@@ -36,9 +58,14 @@ export const useShopAutoProduct = (
   type: 'telegram_premium' | 'telegram_stars',
 ) => {
   return useQuery({
-    queryKey: ['shop-auto-product', shopId, type],
+    queryKey: ['shop-auto-product', shopId, type, 'gated'],
     enabled: !!shopId,
     queryFn: async () => {
+      // Gate: hide entirely if owner not on Premium
+      const { data: hasPremium } = await supabase.rpc('shop_has_premium_features' as any, {
+        p_shop_id: shopId!,
+      });
+      if (!hasPremium) return null;
       const { data, error } = await supabase
         .from('shop_auto_products' as any)
         .select('*')

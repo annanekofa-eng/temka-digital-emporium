@@ -1036,14 +1036,92 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
     subExtra += `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`;
   }
   const text = `👤 <b>${esc(user.first_name)}${user.last_name ? " " + esc(user.last_name) : ""}</b>${user.username ? `\n🔗 @${esc(user.username)}` : ""}\n\n🏪 Магазинов: <b>${shopCount || 0}</b>\n📊 Подписка: <b>${subLabel}</b>${subExtra}`;
-  const kb = ikb([
+  // 3-tier perks: curator + private chat for basic/premium
+  const plan = (user as any).subscription_plan || "start";
+  const isPaidPlus = ["active", "trial", "grace_period"].includes(user.subscription_status) && (plan === "basic" || plan === "premium");
+  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Базовый" : "🟢 Старт";
+  let perksLine = `\n🎫 Тариф: <b>${planIcon}</b>`;
+  // Global curator
+  let curator = "";
+  if (isPaidPlus) {
+    const { data: cur } = await db().from("platform_settings").select("value").eq("key", "global_curator_username").maybeSingle();
+    if (cur?.value) {
+      curator = String(cur.value).replace(/^@/, "");
+      perksLine += `\n👤 Ваш куратор: <a href="https://t.me/${esc(curator)}">@${esc(curator)}</a>`;
+    }
+  }
+  const fullText = text + perksLine;
+  const kbRows: Btn[][] = [
     [webAppBtn("🌐 Открыть профиль", `${WEBAPP_DOMAIN}/platform/profile`)],
     [btn("💳 Подписка", "p:sub")],
-    [btn("🎁 Реферальная система", "p:ref")],
-    [btn("◀️ Назад", "p:home")],
-  ]);
-  if (msgId) return tg.edit(chatId, msgId, text, kb);
-  return tg.send(chatId, text, kb);
+  ];
+  if (isPaidPlus) {
+    kbRows.push([btn("🔐 Закрытый чат", "p:privchat")]);
+  }
+  kbRows.push([btn("🎁 Реферальная система", "p:ref")]);
+  kbRows.push([btn("◀️ Назад", "p:home")]);
+  const kb = ikb(kbRows);
+  if (msgId) return tg.edit(chatId, msgId, fullText, kb);
+  return tg.send(chatId, fullText, kb);
+}
+
+// ─── Private chat one-time invite (Basic/Premium) ────────
+async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
+  // Verify entitlement server-side
+  const { data: hasIt } = await db().rpc("has_entitlement" as any, { p_telegram_id: chatId, p_feature: "private_chat" });
+  if (!hasIt) {
+    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nДоступен на тарифах 🔵 Базовый и 🟣 Премиум.`;
+    const kb = ikb([[btn("💳 К подписке", "p:sub")], [btn("◀️ Профиль", "p:profile")]]);
+    return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
+  }
+
+  const { data: chatRow } = await db().from("platform_settings").select("value").eq("key", "private_chat_id").maybeSingle();
+  const chatIdStr = (chatRow?.value || "").trim();
+  if (!chatIdStr) {
+    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nЗакрытый чат ещё не настроен администратором. Скоро будет доступен.`;
+    const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
+    return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
+  }
+
+  // Generate one-time invite via Telegram API
+  try {
+    const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
+    const expireDate = Math.floor(Date.now() / 1000) + 60 * 60; // 1h
+    const r = await fetch(`https://api.telegram.org/bot${token}/createChatInviteLink`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatIdStr,
+        expire_date: expireDate,
+        member_limit: 1,
+        name: `Invite ${chatId}`,
+      }),
+    });
+    const j = await r.json();
+    if (!j?.ok || !j.result?.invite_link) {
+      const errTxt = `❌ Не удалось создать инвайт. Сообщите в поддержку.`;
+      const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
+      return msgId ? tg.edit(chatId, msgId, errTxt, kb) : tg.send(chatId, errTxt, kb);
+    }
+    const link = j.result.invite_link;
+    // Persist for audit
+    await db().from("chat_invites").insert({
+      telegram_id: chatId,
+      invite_link: link,
+      expires_at: new Date(expireDate * 1000).toISOString(),
+    });
+    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nВаша одноразовая ссылка (1 час, на 1 пользователя):\n\n${esc(link)}\n\n<i>Не передавайте ссылку другим — она перестанет работать после первого вступления.</i>`;
+    const kb = ikb([
+      [{ text: "🔗 Перейти в чат", url: link } as Btn],
+      [btn("◀️ Профиль", "p:profile")],
+    ]);
+    return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
+  } catch (e) {
+    console.error("private chat invite failed:", maskToken((e as Error).message));
+    const errTxt = `❌ Сервис временно недоступен.`;
+    const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
+    return msgId ? tg.edit(chatId, msgId, errTxt, kb) : tg.send(chatId, errTxt, kb);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2151,6 +2229,7 @@ async function handleCallback(
   if (cmd === "refpayout") return handleReferralPayout(tg, chatId, msgId);
   if (cmd === "sub") return showSubscription(tg, chatId, msgId);
   if (cmd === "sub_renew") return showRenewOptions(tg, chatId, msgId);
+  if (cmd === "privchat") return showPrivateChatInvite(tg, chatId, msgId);
   // p:pay_sub and p:sub_promo are handled below (after shop management callbacks)
   if (cmd === "myshops") return myShops(tg, chatId, msgId, parseInt(parts[2]) || 0);
   if (cmd === "shop") return shopView(tg, chatId, msgId, parts[2]);

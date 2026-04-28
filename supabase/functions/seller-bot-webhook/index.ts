@@ -2352,6 +2352,25 @@ const AUTO_TYPES = ["telegram_premium", "telegram_stars"] as const;
 type AutoType = typeof AUTO_TYPES[number];
 const autoTypeLabel = (t: string) => (t === "telegram_premium" ? "⭐ Telegram Premium" : t === "telegram_stars" ? "✨ Telegram Stars" : t);
 
+// Check if shop owner has Premium plan (required to sell Stars/Premium to customers)
+async function shopOwnerHasPremium(shopId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase().rpc("shop_has_premium_features" as any, { p_shop_id: shopId });
+    if (error) return false;
+    return Boolean(data);
+  } catch (_e) {
+    return false;
+  }
+}
+
+function premiumUpsellBanner(): string {
+  return (
+    `🔒 <b>Доступно на тарифе Премиум</b>\n\n` +
+    `Продажа Telegram Premium и Stars вашим покупателям — Premium-функция платформы.\n\n` +
+    `Откройте платформенного бота → подписка → выберите 💎 Премиум, и эти разделы автоматически активируются для покупателей в вашем магазине.\n`
+  );
+}
+
 async function ensureAutoProduct(shopId: string, type: AutoType) {
   const { data: existing } = await supabase()
     .from("shop_auto_products")
@@ -2369,6 +2388,16 @@ async function ensureAutoProduct(shopId: string, type: AutoType) {
 }
 
 async function autoProductsHome(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string) {
+  const hasPremium = await shopOwnerHasPremium(shopId);
+  if (!hasPremium) {
+    const text =
+      premiumUpsellBanner() +
+      `\n<i>Сейчас покупатели не видят эти разделы в вашем магазине.</i>`;
+    return tg.edit(cid, mid, text, ikb([
+      [btn("💎 Перейти на Премиум", "s:upsell:premium")],
+      [btn("◀️ Меню", "s:m")],
+    ]));
+  }
   for (const t of AUTO_TYPES) await ensureAutoProduct(shopId, t);
   const { data: rows } = await supabase()
     .from("shop_auto_products")
@@ -2402,6 +2431,12 @@ async function autoProductsHome(tg: ReturnType<typeof TG>, cid: number, mid: num
 async function autoProductView(tg: ReturnType<typeof TG>, cid: number, mid: number, shopId: string, type: string) {
   if (!AUTO_TYPES.includes(type as AutoType)) {
     return tg.edit(cid, mid, "❌ Неизвестный тип", ikb([[btn("◀️ Назад", "s:ap")]]));
+  }
+  if (!(await shopOwnerHasPremium(shopId))) {
+    return tg.edit(cid, mid, premiumUpsellBanner(), ikb([
+      [btn("💎 Перейти на Премиум", "s:upsell:premium")],
+      [btn("◀️ Меню", "s:m")],
+    ]));
   }
   await ensureAutoProduct(shopId, type as AutoType);
   const { data: r } = await supabase()
@@ -3357,6 +3392,21 @@ async function handleCallback(
     // ─── Auto-products ──────────────────────
     if (cmd === "ap") return autoProductsHome(tg, cid, mid, shopId);
     if (cmd === "apv") return autoProductView(tg, cid, mid, shopId, parts[2]);
+    if (cmd === "upsell") {
+      const webapp = Deno.env.get("WEBAPP_URL") || "";
+      const upsellRows: Btn[][] = [];
+      if (webapp) {
+        upsellRows.push([{ text: "💎 Открыть платформу", web_app: { url: webapp } } as Btn]);
+      }
+      upsellRows.push([btn("◀️ Назад", "s:ap")]);
+      return tg.edit(cid, mid,
+        `💎 <b>Тариф Премиум</b>\n\n` +
+        `Открывает в вашем магазине разделы Telegram Stars и Telegram Premium для покупателей.\n\n` +
+        `Также включает: AI-аватарку магазина, кастомизацию, премиум-контент, кураторство и закрытый чат владельцев.\n\n` +
+        `Подписка оформляется в платформенном Mini App.`,
+        ikb(upsellRows),
+      );
+    }
     if (cmd === "apt") {
       const type = parts[2];
       if (!AUTO_TYPES.includes(type as AutoType)) return;
