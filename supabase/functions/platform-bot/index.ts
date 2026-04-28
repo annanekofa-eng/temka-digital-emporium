@@ -292,13 +292,13 @@ async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; en
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
-    .select("billing_price_usd, pricing_tier, subscription_plan")
+    .select("billing_price_usd, pricing_tier, subscription_plan, subscription_status")
     .eq("telegram_id", telegramId)
     .maybeSingle();
   if (user?.billing_price_usd != null && user?.pricing_tier)
     return { price: Number(user.billing_price_usd), tier: user.pricing_tier };
-  // Fallback: цена из tariff_prices по плану пользователя (или start)
-  const plan = (user?.subscription_plan as PlanKey) || "start";
+  const plan = user?.subscription_plan as PlanKey | null;
+  if (!plan) return { price: 0, tier: "none" };
   const price = await getTariffPrice(plan);
   return { price, tier: plan };
 }
