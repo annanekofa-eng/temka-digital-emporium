@@ -25,6 +25,7 @@ interface ShopData {
   bot_username: string | null;
   webhook_status: string;
   created_at: string;
+  bot_avatar_url?: string | null;
   stats?: ShopStats;
 }
 
