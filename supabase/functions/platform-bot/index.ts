@@ -4420,10 +4420,6 @@ async function admLogsList(tg: ReturnType<typeof TG>, chatId: number, msgId: num
 // ─── SUBSCRIPTION CONFIG (platform-wide policy) ─
 async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
-  const { count: paidCount } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
   const { count: trialCount } = await db()
     .from("platform_users")
     .select("id", { count: "exact", head: true })
@@ -4436,15 +4432,10 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     .from("platform_users")
     .select("id", { count: "exact", head: true })
     .eq("subscription_status", "expired");
-  const earlyRemaining = Math.max(0, ss.early_slots_limit - (paidCount || 0));
 
   const text =
     `📋 <b>Подписка — глобальные настройки</b>\n\n` +
-    `<b>💰 Цены:</b>\n` +
-    `  Стандарт: <b>$${ss.standard_price_usd}</b>/мес\n` +
-    `  Early Bird: <b>$${ss.early_price_usd}</b>/мес\n` +
-    `  Early слотов: ${ss.early_slots_limit} (осталось: ${earlyRemaining})\n` +
-    `  Pricing: ${ss.pricing_enabled ? "✅" : "❌"}\n\n` +
+    `<i>Цены тарифов теперь в разделе «💎 Тарифы и подписка».</i>\n\n` +
     `<b>🆓 Trial:</b>\n` +
     `  Trial: ${ss.trial_enabled ? "✅" : "❌"} (${ss.trial_days} дн.)\n` +
     `  Один trial/user: ${ss.one_trial_per_user ? "✅" : "❌"}\n` +
@@ -4461,15 +4452,14 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     `  Expired: ${ss.expired_notify ? "✅" : "❌"}\n` +
     `  Bot deactivated: ${ss.bot_deactivated_notify ? "✅" : "❌"}\n\n` +
     `<b>📊 Текущее состояние:</b>\n` +
-    `  Trial: ${trialCount || 0} | Active: ${activeCount || 0} | Expired: ${expiredCount || 0}\n` +
-    `  Оплативших: ${paidCount || 0}`;
+    `  Trial: ${trialCount || 0} | Active: ${activeCount || 0} | Expired: ${expiredCount || 0}`;
 
   return tg.edit(
     chatId,
     msgId,
     text,
     ikb([
-      [btn("💰 Цены", "adm:sc:prices"), btn("🆓 Trial", "adm:sc:trial")],
+      [btn("💎 Тарифы (цены)", "adm:tariffs"), btn("🆓 Trial", "adm:sc:trial")],
       [btn("🏪 Лимиты", "adm:sc:limits"), btn("⏰ Expiration", "adm:sc:expiry")],
       [btn("🔔 Уведомления", "adm:sc:notify")],
       [btn("🔄 Обновить", "adm:tariffs")],
