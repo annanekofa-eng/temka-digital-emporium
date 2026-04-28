@@ -2580,13 +2580,22 @@ async function handleCallback(
   if (cmd === "delshop") return deleteShopConfirm(tg, chatId, msgId, parts[2]);
   if (cmd === "confirmdelete") return deleteShopExecute(tg, chatId, msgId, parts[2]);
   if (cmd === "pay_sub") {
-    const months = Math.max(1, parseInt(parts[2]) || 1);
+    // Поддерживаем 2 формата:
+    //   p:pay_sub:<plan>:<months>  — новый
+    //   p:pay_sub:<months>         — старый (fallback → start)
+    let plan: PlanKey = 'start';
+    let monthsRaw = 1;
+    if (parts[2] && ['start','basic','premium'].includes(parts[2])) {
+      plan = parts[2] as PlanKey;
+      monthsRaw = parseInt(parts[3]) || 1;
+    } else {
+      monthsRaw = parseInt(parts[2]) || 1;
+    }
     const allowedMonths = [1, 3, 6, 12];
-    const validMonths = allowedMonths.includes(months) ? months : 1;
+    const validMonths = allowedMonths.includes(monthsRaw) ? monthsRaw : 1;
     const totalDays = validMonths * 30;
 
-    const priceInfo = await getSubscriptionPrice(chatId);
-    const MONTHLY_PRICE = priceInfo.price;
+    const MONTHLY_PRICE = await getTariffPrice(plan);
     const SUBSCRIPTION_PRICE = Math.round(MONTHLY_PRICE * validMonths * 100) / 100;
     const telegramId = chatId;
     const session = await getSession(chatId);
@@ -2632,6 +2641,8 @@ async function handleCallback(
         discount_amount: discountAmount,
         final_amount: toPay,
         status: toPay === 0 ? "paid" : "pending",
+        plan,
+        months: validMonths,
       })
       .select("id")
       .single();
@@ -2671,7 +2682,8 @@ async function handleCallback(
           subscription_status: "active",
           subscription_expires_at: expiresAt,
           billing_price_usd: MONTHLY_PRICE,
-          pricing_tier: priceInfo.tier,
+          pricing_tier: plan,
+          subscription_plan: plan,
           first_paid_at: user.first_paid_at || new Date().toISOString(),
           reminder_sent_at: null,
           expiry_notified_at: null,
@@ -2721,11 +2733,15 @@ async function handleCallback(
         console.error("Platform referral credit error:", e);
       }
       await clearSession(chatId);
-      let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
+      const planLabelDone = `${PLAN_META[plan].emoji} ${PLAN_META[plan].label}`;
+      let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n🎟 Тариф: <b>${planLabelDone}</b>\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
         msg += `\n🎫 Промокод: <code>${esc(promoCode || "")}</code>\n🏷 Скидка: -$${discountAmount.toFixed(2)}`;
       if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
-      return tg.edit(chatId, msgId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
+      const okRes = await tg.edit(chatId, msgId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
+      if (okRes?.ok) return okRes;
+      try { await tg.deleteMessage(chatId, msgId); } catch (_) {}
+      return tg.send(chatId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
     }
 
     // Create CryptoBot invoice for remaining amount
@@ -2745,14 +2761,15 @@ async function handleCallback(
           currency_type: "fiat",
           fiat: "USD",
           amount: toPay.toFixed(2),
-          description: `Подписка ${PLATFORM_NAME} (${monthsLabel})${promoCode ? ` [промо: ${promoCode}]` : ""}`,
+          description: `Подписка ${PLATFORM_NAME} • ${PLAN_META[plan].label} (${monthsLabel})${promoCode ? ` [промо: ${promoCode}]` : ""}`,
           payload: JSON.stringify({
             type: "subscription",
             paymentId: payment.id,
             telegramUserId: telegramId,
             balanceUsed,
             subscriptionPrice: SUBSCRIPTION_PRICE,
-            tier: priceInfo.tier,
+            tier: plan,
+            plan,
             months: validMonths,
           }),
           paid_btn_name: "callback",
@@ -2774,12 +2791,15 @@ async function handleCallback(
         .update({ invoice_id: String(invoice.invoice_id), status: "awaiting" })
         .eq("id", payment.id);
       await clearSession(chatId);
-      let text = `💳 <b>Оплата подписки</b>\n\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
+      let text = `💳 <b>Оплата подписки</b>\n\n🎟 Тариф: <b>${PLAN_META[plan].emoji} ${PLAN_META[plan].label}</b>\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
         text += `\n🎫 Промокод: <code>${esc(promoCode || "")}</code>\n🏷 Скидка: -$${discountAmount.toFixed(2)}`;
       if (balanceUsed > 0) text += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
       text += `\n💵 К оплате: <b>$${toPay.toFixed(2)}</b>\n\nНажмите кнопку ниже для оплаты:`;
-      return tg.edit(chatId, msgId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
+      const okRes = await tg.edit(chatId, msgId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
+      if (okRes?.ok) return okRes;
+      try { await tg.deleteMessage(chatId, msgId); } catch (_) {}
+      return tg.send(chatId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
     } catch (e) {
       await clearSession(chatId);
       return tg.edit(chatId, msgId, `❌ Ошибка: ${maskToken((e as Error).message)}`, ikb([[btn("◀️ Назад", "p:sub")]]));
