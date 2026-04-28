@@ -6820,8 +6820,12 @@ async function handleAdmText(
     const price = parseFloat(val);
     if (isNaN(price) || price < 0 || price > 100) return tg.send(chatId, "❌ Введите число от 0 до 100:");
     await clearSession(chatId);
-    const ss = await getSubSettings();
-    const tier = price <= ss.early_price_usd ? "early_3" : "standard_5";
+    // Определяем tier по близости к цене тарифа (start/basic/premium)
+    const all = await getAllTariffPrices();
+    const tier = (["start", "basic", "premium"] as PlanKey[])
+      .reduce((best, p) =>
+        Math.abs(all[p].price - price) < Math.abs(all[best].price - price) ? p : best,
+      "start" as PlanKey);
     await db()
       .from("platform_users")
       .update({
