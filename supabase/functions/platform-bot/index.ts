@@ -2877,6 +2877,21 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
   );
 }
 
+// Compact one-liner with active subscribers per plan
+async function admPlanCountsLine(): Promise<string> {
+  const out: string[] = [];
+  for (const p of ["start", "basic", "premium"]) {
+    const { count } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .in("subscription_status", ["active", "grace_period"]);
+    const icon = p === "premium" ? "🟣" : p === "basic" ? "🔵" : "🟢";
+    out.push(`${icon} ${p}: ${count || 0}`);
+  }
+  return "  " + out.join(" • ");
+}
+
 // ─── 3-TIER TARIFFS ADMIN ──────────────────────
 async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const { data: prices } = await db()
