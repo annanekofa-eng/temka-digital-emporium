@@ -829,7 +829,7 @@ export type Database = {
           pricing_tier: string | null
           reminder_sent_at: string | null
           subscription_expires_at: string | null
-          subscription_plan: string
+          subscription_plan: string | null
           subscription_status: string
           telegram_id: number
           trial_started_at: string | null
@@ -856,7 +856,7 @@ export type Database = {
           pricing_tier?: string | null
           reminder_sent_at?: string | null
           subscription_expires_at?: string | null
-          subscription_plan?: string
+          subscription_plan?: string | null
           subscription_status?: string
           telegram_id: number
           trial_started_at?: string | null
@@ -883,7 +883,7 @@ export type Database = {
           pricing_tier?: string | null
           reminder_sent_at?: string | null
           subscription_expires_at?: string | null
-          subscription_plan?: string
+          subscription_plan?: string | null
           subscription_status?: string
           telegram_id?: number
           trial_started_at?: string | null
