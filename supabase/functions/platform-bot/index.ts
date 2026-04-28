@@ -5189,23 +5189,26 @@ async function handleAdmCallback(
     }
     await admLog(adminTgId, "activate_subscription", "user", String(tgId), {
       expires_at: expiresAt,
-      price: priceInfo.price,
+      price: planPrice,
+      plan,
     });
     // Referral credit for admin-granted activation (1 month at user's price)
-    await admGrantReferralCredit(tgId, priceInfo.price, "admin_activate", {
+    await admGrantReferralCredit(tgId, planPrice, "admin_activate", {
       months: 1,
       expires_at: expiresAt,
+      plan,
     });
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
       try {
+        const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: tgId,
-            text: `✅ <b>Подписка активирована!</b>\n\nВаша подписка на <b>${PLATFORM_NAME}</b> активирована администратором.\n\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Цена: $${priceInfo.price}/мес`,
+            text: `✅ <b>Подписка активирована!</b>\n\nВаша подписка на <b>${PLATFORM_NAME}</b> активирована администратором.\n\n🎟 Тариф: <b>${planLabelMap[plan] || plan}</b>\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Цена: $${planPrice}/мес`,
             parse_mode: "HTML",
           }),
         });
@@ -5214,7 +5217,7 @@ async function handleAdmCallback(
     return tg.edit(
       chatId,
       msgId,
-      `✅ Подписка активирована до ${new Date(expiresAt).toLocaleDateString("ru")}`,
+      `✅ Подписка <b>${plan}</b> активирована до ${new Date(expiresAt).toLocaleDateString("ru")} ($${planPrice}/мес).`,
       ikb([[btn("◀️ К подписке", `adm:usub:${tgId}`), btn("◀️ К пользователю", `adm:ucard:${tgId}`)]]),
     );
   }
