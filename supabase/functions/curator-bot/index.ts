@@ -185,6 +185,34 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (!TOKEN) return new Response("Bot not configured", { status: 503, headers: corsHeaders });
 
+  // One-shot self-registration of the webhook (call manually):
+  //   GET /curator-bot?setup=1&secret=<ENFORCE_JOB_SECRET>
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    const want = url.searchParams.get("secret") || "";
+    const expected = Deno.env.get("ENFORCE_JOB_SECRET") || "";
+    if (url.searchParams.get("setup") === "1" && expected && want === expected) {
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/curator-bot`;
+      const r = await fetch(`${TG}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: webhookUrl,
+          allowed_updates: ["message", "chat_member"],
+          drop_pending_updates: true,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      const meRes = await fetch(`${TG}/getMe`);
+      const me = await meRes.json().catch(() => ({}));
+      return new Response(
+        JSON.stringify({ webhook: j, me: me?.result || null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   let update: any = null;
   try {
     update = await req.json();
