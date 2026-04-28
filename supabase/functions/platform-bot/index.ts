@@ -2088,6 +2088,7 @@ async function handleText(
       promo_id: r.id,
       discount_type: r.discount_type,
       discount_value: r.discount_value,
+      plan: priceInfo.tier,
     });
     // Show month selection with discounted prices
     const calcPrice = (m: number) => {
