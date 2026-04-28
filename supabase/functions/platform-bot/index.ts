@@ -2924,19 +2924,42 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
 }
 
 async function admTariffStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  // Revenue by plan from subscription_payments (last 30 days + total)
+  // Aggregate paid users by current plan (subscription status active/grace)
   const lines: string[] = [];
+  let grandRevenue = 0;
   for (const p of ["start", "basic", "premium"]) {
-    const { data: rows } = await db()
-      .from("subscription_payments")
-      .select("amount_usd")
-      .eq("status", "paid")
-      .eq("plan", p);
-    const total = (rows || []).reduce((s: number, r: any) => s + Number(r.amount_usd || 0), 0);
-    const cnt = rows?.length || 0;
-    lines.push(`  ${p}: ${cnt} платежей • $${total.toFixed(2)}`);
+    const { count: activeCnt } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .in("subscription_status", ["active", "grace_period"]);
+    const { count: trialCnt } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .eq("subscription_status", "trial");
+    // Total revenue from this plan's current users (rough estimate via subscription_payments joined manually)
+    const { data: users } = await db()
+      .from("platform_users")
+      .select("id")
+      .eq("subscription_plan", p);
+    const ids = (users || []).map((u: any) => u.id);
+    let revenue = 0;
+    if (ids.length) {
+      const { data: pays } = await db()
+        .from("subscription_payments")
+        .select("final_amount, amount")
+        .in("user_id", ids)
+        .eq("status", "paid");
+      revenue = (pays || []).reduce((s: number, r: any) => s + Number(r.final_amount ?? r.amount ?? 0), 0);
+    }
+    grandRevenue += revenue;
+    lines.push(`  <b>${p}</b>: active ${activeCnt || 0} • trial ${trialCnt || 0} • выручка $${revenue.toFixed(2)}`);
   }
-  const text = `📊 <b>Статистика по тарифам</b>\n\n<b>Все оплаты (paid):</b>\n${lines.join("\n")}`;
+  const text =
+    `📊 <b>Статистика по тарифам</b>\n\n` +
+    `${lines.join("\n")}\n\n` +
+    `💰 Общая выручка по подпискам: <b>$${grandRevenue.toFixed(2)}</b>`;
   return tg.edit(chatId, msgId, text, ikb([[btn("◀️ Назад", "adm:tariffs")]]));
 }
 
