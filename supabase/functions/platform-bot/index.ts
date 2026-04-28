@@ -5114,8 +5114,8 @@ async function handleAdmCallback(
     const priceInfo = await getSubscriptionPrice(tgId);
     let details = `📊 Статус: <b>${subLabel}</b>\n`;
     const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
-    const curPlan = (pu as any).subscription_plan || 'start';
-    details += `🎟 Тариф: <b>${planLabelMap[curPlan] || curPlan}</b>\n`;
+    const curPlan = (pu as any).subscription_plan || null;
+    details += `🎟 Тариф: <b>${curPlan ? (planLabelMap[curPlan] || curPlan) : '— не назначен'}</b>\n`;
     if (pu.subscription_expires_at) {
       const dLeft = subscriptionDaysLeft(pu.subscription_expires_at);
       details += `📅 До: ${new Date(pu.subscription_expires_at).toLocaleDateString("ru")}${dLeft > 0 ? ` (${dLeft} дн.)` : " (истекла)"}\n`;
@@ -5350,6 +5350,9 @@ async function handleAdmCallback(
       .from("platform_users")
       .update({
         subscription_status: "trial",
+        subscription_plan: null,
+        billing_price_usd: null,
+        pricing_tier: null,
         trial_started_at: new Date().toISOString(),
         subscription_expires_at: trialExpiresAt,
         has_used_trial: true,
