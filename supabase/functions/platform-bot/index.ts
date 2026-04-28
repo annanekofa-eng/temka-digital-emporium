@@ -227,6 +227,68 @@ function invalidateSubCache() {
 }
 
 // ─── Subscription Helpers ─────────────────────
+const SUBSCRIPTION_BANNER_URL = "https://nrwkriquwmjpdirihwrz.supabase.co/storage/v1/object/public/bot-avatars/platform/subscription-banner.jpg";
+
+type PlanKey = "start" | "basic" | "premium";
+const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; perks: string[] }> = {
+  start: {
+    emoji: "🚀",
+    label: "Старт",
+    short: "Минимум — для запуска",
+    perks: [
+      "Полный функционал магазина",
+      "Помощь с запуском от куратора",
+    ],
+  },
+  basic: {
+    emoji: "⭐",
+    label: "Базовый",
+    short: "Поддержка и комьюнити",
+    perks: [
+      "Всё из Старт",
+      "Кураторство и помощь в ведении",
+      "Закрытый чат владельцев магазинов",
+      "Поставщики товаров",
+      "Бесплатные товары для базового уровня",
+    ],
+  },
+  premium: {
+    emoji: "💎",
+    label: "Премиум",
+    short: "Максимум возможностей",
+    perks: [
+      "Всё из Базового",
+      "Продажа Telegram Stars и Premium",
+      "AI-аватарка магазина",
+      "Кастомизация магазина под нишу",
+      "Премиум-поддержка",
+    ],
+  },
+};
+
+async function getTariffPrice(plan: PlanKey): Promise<number> {
+  const { data } = await db().from("tariff_prices").select("price_usd, is_enabled").eq("plan", plan).maybeSingle();
+  if (!data || data.is_enabled === false) {
+    // Fallback по умолчанию
+    const fallback = { start: 5, basic: 9, premium: 19 } as Record<PlanKey, number>;
+    return fallback[plan];
+  }
+  return Number(data.price_usd);
+}
+
+async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; enabled: boolean }>> {
+  const { data } = await db().from("tariff_prices").select("plan, price_usd, is_enabled");
+  const out: Record<PlanKey, { price: number; enabled: boolean }> = {
+    start: { price: 5, enabled: true },
+    basic: { price: 9, enabled: true },
+    premium: { price: 19, enabled: true },
+  };
+  (data || []).forEach((r: any) => {
+    if (r.plan in out) out[r.plan as PlanKey] = { price: Number(r.price_usd), enabled: r.is_enabled !== false };
+  });
+  return out;
+}
+
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
