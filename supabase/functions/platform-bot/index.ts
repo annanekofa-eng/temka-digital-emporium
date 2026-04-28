@@ -5860,7 +5860,7 @@ async function handleAdmCallback(
       if (section === "trial") return admScTrial(tg, chatId, msgId);
       if (section === "expiry") return admScExpiry(tg, chatId, msgId);
       if (section === "notify") return admScNotify(tg, chatId, msgId);
-      return admSubConfig(tg, chatId, msgId);
+      return admTariffs(tg, chatId, msgId);
     }
     if (subCmd === "set") {
       const key = parts[3]; // e.g. standard_price_usd
