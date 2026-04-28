@@ -1384,6 +1384,14 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     rows.push([webAppBtn("🌐 Профиль и подписка", `${WEBAPP_DOMAIN}/platform/profile`)]);
   }
 
+  // Curator chat access (basic/premium only)
+  if (
+    (user.subscription_status === "active" || user.subscription_status === "grace_period") &&
+    (currentPlan === "basic" || currentPlan === "premium")
+  ) {
+    rows.push([btn("🔑 Войти в чат подписчиков", "p:privchat")]);
+  }
+
   rows.push([btn("◀️ Назад", "p:profile")]);
   // Шлём фото-баннер при первом открытии (msgId=0) или редактируем текст обычным сообщением
   if (!msgId) {
