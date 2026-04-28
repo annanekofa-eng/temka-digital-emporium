@@ -2880,10 +2880,10 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
 async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const { data: prices } = await db()
     .from("tariff_prices")
-    .select("plan, price_usd, is_active")
+    .select("plan, price_usd, is_enabled")
     .order("price_usd", { ascending: true });
   const map: Record<string, { price: number; active: boolean }> = {};
-  for (const r of prices || []) map[r.plan] = { price: Number(r.price_usd), active: !!r.is_active };
+  for (const r of prices || []) map[r.plan] = { price: Number(r.price_usd), active: !!r.is_enabled };
   const fmt = (k: string) => {
     const r = map[k];
     if (!r) return "—";
@@ -4610,9 +4610,9 @@ async function handleAdmCallback(
   if (cmd === "tartog") {
     const plan = parts[2];
     if (!["start", "basic", "premium"].includes(plan)) return;
-    const { data: cur } = await db().from("tariff_prices").select("is_active").eq("plan", plan).maybeSingle();
-    const newVal = !(cur?.is_active);
-    await db().from("tariff_prices").update({ is_active: newVal, updated_at: new Date().toISOString() }).eq("plan", plan);
+    const { data: cur } = await db().from("tariff_prices").select("is_enabled").eq("plan", plan).maybeSingle();
+    const newVal = !(cur?.is_enabled);
+    await db().from("tariff_prices").update({ is_enabled: newVal, updated_at: new Date().toISOString() }).eq("plan", plan);
     await admLog(adminTgId, "toggle_tariff", "tariff", plan, { is_active: newVal });
     await tg.answer(cbId, newVal ? "✅ Включён" : "🚫 Выключен");
     return admTariffs(tg, chatId, msgId);
