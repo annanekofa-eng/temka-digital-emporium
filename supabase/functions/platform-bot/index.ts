@@ -3164,42 +3164,50 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
 }
 
 async function admTariffStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  // Aggregate paid users by current plan (subscription status active/grace)
+  // Canonical: revenue & payments aggregated by subscription_payments.plan
+  // (independent of user's current plan — accurately reflects historical billing)
+  const { data: pays } = await db()
+    .from("subscription_payments")
+    .select("plan, final_amount, amount")
+    .eq("status", "paid");
+  const revByPlan: Record<string, number> = { start: 0, basic: 0, premium: 0, other: 0 };
+  const cntByPlan: Record<string, number> = { start: 0, basic: 0, premium: 0, other: 0 };
+  for (const r of pays || []) {
+    const k = ["start", "basic", "premium"].includes((r as any).plan) ? (r as any).plan : "other";
+    revByPlan[k] += Number((r as any).final_amount ?? (r as any).amount ?? 0);
+    cntByPlan[k] += 1;
+  }
   const lines: string[] = [];
   let grandRevenue = 0;
+  let mrrTotal = 0;
+  const mrrByPlan: Record<string, number> = { start: 0, basic: 0, premium: 0 };
   for (const p of ["start", "basic", "premium"]) {
-    const { count: activeCnt } = await db()
-      .from("platform_users")
-      .select("id", { count: "exact", head: true })
-      .eq("subscription_plan", p)
-      .in("subscription_status", ["active", "grace_period"]);
-    const { count: trialCnt } = await db()
-      .from("platform_users")
-      .select("id", { count: "exact", head: true })
-      .eq("subscription_plan", p)
-      .eq("subscription_status", "trial");
-    // Total revenue from this plan's current users (rough estimate via subscription_payments joined manually)
-    const { data: users } = await db()
-      .from("platform_users")
-      .select("id")
-      .eq("subscription_plan", p);
-    const ids = (users || []).map((u: any) => u.id);
-    let revenue = 0;
-    if (ids.length) {
-      const { data: pays } = await db()
-        .from("subscription_payments")
-        .select("final_amount, amount")
-        .in("user_id", ids)
-        .eq("status", "paid");
-      revenue = (pays || []).reduce((s: number, r: any) => s + Number(r.final_amount ?? r.amount ?? 0), 0);
-    }
-    grandRevenue += revenue;
-    lines.push(`  <b>${p}</b>: active ${activeCnt || 0} • trial ${trialCnt || 0} • выручка $${revenue.toFixed(2)}`);
+    const [{ count: activeCnt }, { count: trialCnt }, { data: mrrUsers }] = await Promise.all([
+      db().from("platform_users").select("id", { count: "exact", head: true })
+        .eq("subscription_plan", p).in("subscription_status", ["active", "grace_period"]),
+      db().from("platform_users").select("id", { count: "exact", head: true })
+        .eq("subscription_plan", p).eq("subscription_status", "trial"),
+      db().from("platform_users").select("billing_price_usd")
+        .eq("subscription_plan", p).in("subscription_status", ["active", "grace_period"]),
+    ]);
+    const planMrr = (mrrUsers || []).reduce((s: number, u: any) => s + Number(u.billing_price_usd || 0), 0);
+    mrrByPlan[p] = planMrr;
+    mrrTotal += planMrr;
+    grandRevenue += revByPlan[p];
+    const icon = p === "premium" ? "🟣" : p === "basic" ? "🔵" : "🟢";
+    lines.push(
+      `${icon} <b>${p}</b>: active ${activeCnt || 0} • trial ${trialCnt || 0}\n` +
+      `   платежей: ${cntByPlan[p]} • выручка: $${revByPlan[p].toFixed(2)} • MRR: $${planMrr.toFixed(2)}`,
+    );
   }
+  const otherNote = revByPlan.other > 0
+    ? `\n\n<i>⚠️ Платежи без тарифа (legacy): ${cntByPlan.other} на $${revByPlan.other.toFixed(2)}</i>`
+    : "";
   const text =
     `📊 <b>Статистика по тарифам</b>\n\n` +
-    `${lines.join("\n")}\n\n` +
-    `💰 Общая выручка по подпискам: <b>$${grandRevenue.toFixed(2)}</b>`;
+    `${lines.join("\n\n")}\n\n` +
+    `💰 Общая выручка: <b>$${grandRevenue.toFixed(2)}</b>\n` +
+    `📈 Общий MRR: <b>$${mrrTotal.toFixed(2)}</b>${otherNote}`;
   return tg.edit(chatId, msgId, text, ikb([[btn("◀️ Назад", "adm:tariffs")]]));
 }
 
