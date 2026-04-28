@@ -4477,7 +4477,7 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
       [btn("💰 Цены", "adm:sc:prices"), btn("🆓 Trial", "adm:sc:trial")],
       [btn("🏪 Лимиты", "adm:sc:limits"), btn("⏰ Expiration", "adm:sc:expiry")],
       [btn("🔔 Уведомления", "adm:sc:notify")],
-      [btn("🔄 Обновить", "adm:subconfig")],
+      [btn("🔄 Обновить", "adm:tariffs")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
@@ -4505,7 +4505,7 @@ async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: num
       [btn("✏️ Стандартная цена", "adm:sc:set:standard_price_usd"), btn("✏️ Early цена", "adm:sc:set:early_price_usd")],
       [btn("✏️ Early слоты", "adm:sc:set:early_slots_limit")],
       [btn(ss.pricing_enabled ? "❌ Выкл pricing" : "✅ Вкл pricing", "adm:sc:tog:pricing_enabled")],
-      [btn("◀️ Назад", "adm:subconfig")],
+      [btn("◀️ Назад", "adm:tariffs")],
     ]),
   );
 }
@@ -4556,7 +4556,7 @@ async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   if ((activeTrialCount || 0) > 0 && !ss.trial_enabled) {
     rows.push([btn("⏹ Завершить все active trials", "adm:sc:expire_all_trials")]);
   }
-  rows.push([btn("◀️ Назад", "adm:subconfig")]);
+  rows.push([btn("◀️ Назад", "adm:tariffs")]);
   return tg.edit(chatId, msgId, text, ikb(rows));
 }
 
@@ -4567,7 +4567,7 @@ async function admScLimits(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     chatId,
     msgId,
     text,
-    ikb([[btn("✏️ Макс. магазинов", "adm:sc:set:max_shops_per_user")], [btn("◀️ Назад", "adm:subconfig")]]),
+    ikb([[btn("✏️ Макс. магазинов", "adm:sc:set:max_shops_per_user")], [btn("◀️ Назад", "adm:tariffs")]]),
   );
 }
 
@@ -4592,7 +4592,7 @@ async function admScExpiry(tg: ReturnType<typeof TG>, chatId: number, msgId: num
           "adm:sc:tog:on_expiry_deactivate_bot",
         ),
       ],
-      [btn("◀️ Назад", "adm:subconfig")],
+      [btn("◀️ Назад", "adm:tariffs")],
     ]),
   );
 }
@@ -4621,7 +4621,7 @@ async function admScNotify(tg: ReturnType<typeof TG>, chatId: number, msgId: num
         btn(ss.bot_deactivated_notify ? "❌" : "✅", "adm:sc:tog:bot_deactivated_notify"),
         btn("Bot deactivated", "adm:sc:notify"),
       ],
-      [btn("◀️ Назад", "adm:subconfig")],
+      [btn("◀️ Назад", "adm:tariffs")],
     ]),
   );
 }
