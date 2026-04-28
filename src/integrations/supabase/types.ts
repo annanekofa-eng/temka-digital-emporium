@@ -1193,6 +1193,61 @@ export type Database = {
           },
         ]
       }
+      shop_ai_avatar_generations: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          owner_telegram_id: number
+          parent_id: string | null
+          prompt: string
+          shop_id: string
+          subscription_cycle_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          owner_telegram_id: number
+          parent_id?: string | null
+          prompt: string
+          shop_id: string
+          subscription_cycle_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          owner_telegram_id?: number
+          parent_id?: string | null
+          prompt?: string
+          shop_id?: string
+          subscription_cycle_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_ai_avatar_generations_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "shop_ai_avatar_generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_ai_avatar_generations_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_ai_avatar_generations_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_auto_products: {
         Row: {
           created_at: string
@@ -2444,6 +2499,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_shop_ai_avatar_quota: { Args: { p_shop_id: string }; Returns: Json }
       has_entitlement: {
         Args: { p_feature: string; p_telegram_id: number }
         Returns: boolean
