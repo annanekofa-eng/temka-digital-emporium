@@ -18,15 +18,19 @@ interface SubscriptionData {
   pricing_tier: string | null;
   billing_price_usd: number | null;
   first_paid_at: string | null;
+  plan?: string | null;
 }
+
+interface TariffRow { plan: string; price_usd: number; is_enabled: boolean }
 
 interface Props {
   subscription: SubscriptionData;
   balance: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPayWithInvoice: (useBalance: boolean, promoCode?: string, months?: number) => Promise<void>;
+  onPayWithInvoice: (useBalance: boolean, promoCode?: string, months?: number, plan?: string) => Promise<void>;
   loading?: boolean;
+  tariffs?: TariffRow[];
 }
 
 const statusConfig: Record<string, { label: string; badgeVariant: 'default' | 'secondary' | 'destructive' }> = {
@@ -46,6 +50,12 @@ const MONTH_OPTIONS = [
   { value: 12, label: '12 мес' },
 ];
 
+const PLAN_META: Record<string, { label: string; emoji: string; desc: string }> = {
+  start:   { label: 'Старт',    emoji: '🚀', desc: 'Магазин + поддержка + помощь куратора при запуске' },
+  basic:   { label: 'Базовый',  emoji: '⭐', desc: '+ кураторство, закрытый чат, поставщики, бесплатные товары' },
+  premium: { label: 'Премиум',  emoji: '💎', desc: '+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент' },
+};
+
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -56,7 +66,7 @@ function formatDate(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWithInvoice, loading }: Props) => {
+const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWithInvoice, loading, tariffs }: Props) => {
   const { initData } = useTelegram();
   const cfg = statusConfig[subscription.status] || statusConfig.expired;
   const daysLeft = daysUntil(subscription.expires_at);
@@ -64,7 +74,6 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
   const needsPayment = ['expired', 'trial', 'grace_period', 'cancelled', 'none'].includes(subscription.status);
   const canRenew = true; // Always allow renewal (active users can extend)
   const tierLabels: Record<string, string> = { early_3: '🎉 Early Bird', standard_5: 'Стандартный' };
-  const monthlyPrice = subscription.billing_price_usd || 0;
 
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [useBalance, setUseBalance] = useState(true);
@@ -72,6 +81,15 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoResult, setPromoResult] = useState<{ valid: boolean; code: string; discount_type: string; discount_value: number; discountAmount: number } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const initialPlan = (subscription.plan && ['start','basic','premium'].includes(subscription.plan))
+    ? subscription.plan
+    : 'start';
+  const [selectedPlan, setSelectedPlan] = useState<string>(initialPlan);
+
+  // Build plan→price map from tariffs (fallback to current billing_price_usd for selected plan)
+  const tariffMap: Record<string, { price: number; enabled: boolean }> = {};
+  for (const t of tariffs || []) tariffMap[t.plan] = { price: Number(t.price_usd), enabled: !!t.is_enabled };
+  const monthlyPrice = tariffMap[selectedPlan]?.price ?? (subscription.billing_price_usd || 0);
 
   const totalPrice = Math.round(monthlyPrice * selectedMonths * 100) / 100;
   const discountAmount = promoResult?.discountAmount
@@ -136,7 +154,7 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
   };
 
   const handlePay = () => {
-    onPayWithInvoice(useBalance, promoResult?.code || undefined, selectedMonths);
+    onPayWithInvoice(useBalance, promoResult?.code || undefined, selectedMonths, selectedPlan);
   };
 
   const buttonLabel = isActive ? 'Продлить' : (subscription.status === 'trial' ? 'Оформить' : 'Продлить');
@@ -168,14 +186,51 @@ const SubscriptionSheet = ({ subscription, balance, open, onOpenChange, onPayWit
             </div>
           )}
 
-          {/* Tier */}
-          {subscription.pricing_tier && (
+          {/* Current plan */}
+          {subscription.plan && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Тариф</span>
+              <span className="text-sm text-muted-foreground">Текущий тариф</span>
               <span className="text-sm font-medium flex items-center gap-1">
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
-                {tierLabels[subscription.pricing_tier] || subscription.pricing_tier}
+                {PLAN_META[subscription.plan]?.emoji} {PLAN_META[subscription.plan]?.label || subscription.plan}
               </span>
+            </div>
+          )}
+
+          {/* Plan selector */}
+          {canRenew && (tariffs?.length || 0) > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Выберите тариф:</p>
+              <div className="space-y-2">
+                {(['start','basic','premium'] as const).map((p) => {
+                  const meta = PLAN_META[p];
+                  const tr = tariffMap[p];
+                  if (!tr || !tr.enabled) return null;
+                  const active = selectedPlan === p;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setSelectedPlan(p)}
+                      className={`w-full text-left rounded-xl p-3 border transition-all ${
+                        active
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold">
+                          {meta.emoji} {meta.label}
+                          {subscription.plan === p && (
+                            <span className="ml-2 text-[10px] text-blue-500 font-medium">(текущий)</span>
+                          )}
+                        </span>
+                        <span className="text-sm font-bold">${tr.price}/мес</span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 leading-snug">{meta.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

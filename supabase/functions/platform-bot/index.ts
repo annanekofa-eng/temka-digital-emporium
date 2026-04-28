@@ -2911,6 +2911,8 @@ async function admGrantReferralCredit(
         currency: "USD",
         status: "paid",
         promo_code: `admin:${source}`,
+        plan: (meta as any).plan || null,
+        months: (meta as any).months || null,
       })
       .select("id")
       .single();
@@ -5062,6 +5064,9 @@ async function handleAdmCallback(
     const subLabel = subStatusLabel(pu.subscription_status);
     const priceInfo = await getSubscriptionPrice(tgId);
     let details = `📊 Статус: <b>${subLabel}</b>\n`;
+    const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+    const curPlan = (pu as any).subscription_plan || 'start';
+    details += `🎟 Тариф: <b>${planLabelMap[curPlan] || curPlan}</b>\n`;
     if (pu.subscription_expires_at) {
       const dLeft = subscriptionDaysLeft(pu.subscription_expires_at);
       details += `📅 До: ${new Date(pu.subscription_expires_at).toLocaleDateString("ru")}${dLeft > 0 ? ` (${dLeft} дн.)` : " (истекла)"}\n`;
@@ -5077,17 +5082,73 @@ async function handleAdmCallback(
       details += `📬 Expiry notified: ${new Date(pu.expiry_notified_at).toLocaleDateString("ru")}\n`;
     const text = `💳 <b>Управление подпиской</b>\n👤 ${esc(pu.first_name)} [${tgId}]\n\n${details}`;
     const rows: Btn[][] = [
-      [btn("✅ Активировать", `adm:usub_act:${tgId}`), btn("📅 Продлить", `adm:usub_ext:${tgId}`)],
+      [btn("✅ Активировать", `adm:usub_actpick:${tgId}`), btn("📅 Продлить", `adm:usub_ext:${tgId}`)],
+      [btn("🎟 Сменить тариф", `adm:usub_planpick:${tgId}`)],
       [btn("❌ Отключить", `adm:usub_cancel:${tgId}`), btn("🆓 Trial", `adm:usub_trial:${tgId}`)],
       [btn("🎁 Бесплатный период", `adm:usub_free:${tgId}`), btn("💰 Назначить цену", `adm:usub_price:${tgId}`)],
       [btn("◀️ К пользователю", `adm:ucard:${tgId}`)],
     ];
     return tg.edit(chatId, msgId, text, ikb(rows));
   }
+  // ─── Pick plan for activation (30d) ───
+  if (cmd === "usub_actpick") {
+    const tgId = parseInt(parts[2]);
+    const text = `🎟 <b>Выберите тариф для активации</b>\n\nПользователь [${tgId}] — подписка будет активирована на 30 дней с указанным тарифом.`;
+    return tg.edit(chatId, msgId, text, ikb([
+      [btn("🚀 Старт", `adm:usub_act:${tgId}:start`)],
+      [btn("⭐ Базовый", `adm:usub_act:${tgId}:basic`)],
+      [btn("💎 Премиум", `adm:usub_act:${tgId}:premium`)],
+      [btn("◀️ Назад", `adm:usub:${tgId}`)],
+    ]));
+  }
+  // ─── Change plan only (no period change) ───
+  if (cmd === "usub_planpick") {
+    const tgId = parseInt(parts[2]);
+    const text = `🎟 <b>Сменить тариф</b>\n\nПользователю [${tgId}] будет изменён тариф без изменения срока подписки.`;
+    return tg.edit(chatId, msgId, text, ikb([
+      [btn("🚀 Старт", `adm:usub_setplan:${tgId}:start`)],
+      [btn("⭐ Базовый", `adm:usub_setplan:${tgId}:basic`)],
+      [btn("💎 Премиум", `adm:usub_setplan:${tgId}:premium`)],
+      [btn("◀️ Назад", `adm:usub:${tgId}`)],
+    ]));
+  }
+  if (cmd === "usub_setplan") {
+    const tgId = parseInt(parts[2]);
+    const plan = parts[3];
+    if (!['start','basic','premium'].includes(plan)) return tg.edit(chatId, msgId, "❌ Неверный тариф.", ikb([[btn("◀️ Назад", `adm:usub:${tgId}`)]]));
+    const { data: trow } = await db().from("tariff_prices").select("price_usd").eq("plan", plan).maybeSingle();
+    const newPrice = trow ? Number((trow as any).price_usd) : null;
+    await db().from("platform_users").update({
+      subscription_plan: plan,
+      pricing_tier: plan,
+      ...(newPrice != null ? { billing_price_usd: newPrice } : {}),
+      updated_at: new Date().toISOString(),
+    }).eq("telegram_id", tgId);
+    await admLog(adminTgId, "change_subscription_plan", "user", String(tgId), { plan, price: newPrice });
+    const tokenN = Deno.env.get("PLATFORM_BOT_TOKEN");
+    if (tokenN) {
+      try {
+        const planLabelN: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+        await fetch(`https://api.telegram.org/bot${tokenN}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: tgId, parse_mode: "HTML",
+            text: `🎟 <b>Тариф изменён</b>\n\nАдминистратор изменил ваш тариф на: <b>${planLabelN[plan] || plan}</b>${newPrice != null ? `\n💰 Цена: $${newPrice}/мес` : ''}`,
+          }),
+        });
+      } catch {}
+    }
+    return tg.edit(chatId, msgId, `✅ Тариф изменён на <b>${plan}</b>${newPrice != null ? ` ($${newPrice}/мес)` : ''}.`,
+      ikb([[btn("◀️ К подписке", `adm:usub:${tgId}`)]]));
+  }
   if (cmd === "usub_act") {
     // Activate subscription for 30 days — preserve remaining days
     const tgId = parseInt(parts[2]);
+    const planArg = parts[3];
+    const plan = ['start','basic','premium'].includes(planArg) ? planArg : 'start';
+    const { data: tariffRow } = await db().from("tariff_prices").select("price_usd").eq("plan", plan).maybeSingle();
     const priceInfo = await getSubscriptionPrice(tgId);
+    const planPrice = tariffRow ? Number((tariffRow as any).price_usd) : priceInfo.price;
     const { data: puAct } = await db().from("platform_users").select("subscription_expires_at").eq("telegram_id", tgId).maybeSingle();
     const currentExpiry = puAct?.subscription_expires_at ? new Date(puAct.subscription_expires_at).getTime() : 0;
     const baseDate = Math.max(currentExpiry, Date.now());
@@ -5097,8 +5158,10 @@ async function handleAdmCallback(
       .update({
         subscription_status: "active",
         subscription_expires_at: expiresAt,
-        billing_price_usd: priceInfo.price,
-        pricing_tier: priceInfo.tier,
+        subscription_plan: plan,
+        billing_price_usd: planPrice,
+        pricing_tier: plan,
+        current_period_end: expiresAt,
         reminder_sent_at: null,
         expiry_notified_at: null,
         updated_at: new Date().toISOString(),
@@ -5128,23 +5191,26 @@ async function handleAdmCallback(
     }
     await admLog(adminTgId, "activate_subscription", "user", String(tgId), {
       expires_at: expiresAt,
-      price: priceInfo.price,
+      price: planPrice,
+      plan,
     });
     // Referral credit for admin-granted activation (1 month at user's price)
-    await admGrantReferralCredit(tgId, priceInfo.price, "admin_activate", {
+    await admGrantReferralCredit(tgId, planPrice, "admin_activate", {
       months: 1,
       expires_at: expiresAt,
+      plan,
     });
     // Notify user
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
       try {
+        const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: tgId,
-            text: `✅ <b>Подписка активирована!</b>\n\nВаша подписка на <b>${PLATFORM_NAME}</b> активирована администратором.\n\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Цена: $${priceInfo.price}/мес`,
+            text: `✅ <b>Подписка активирована!</b>\n\nВаша подписка на <b>${PLATFORM_NAME}</b> активирована администратором.\n\n🎟 Тариф: <b>${planLabelMap[plan] || plan}</b>\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Цена: $${planPrice}/мес`,
             parse_mode: "HTML",
           }),
         });
@@ -5153,7 +5219,7 @@ async function handleAdmCallback(
     return tg.edit(
       chatId,
       msgId,
-      `✅ Подписка активирована до ${new Date(expiresAt).toLocaleDateString("ru")}`,
+      `✅ Подписка <b>${plan}</b> активирована до ${new Date(expiresAt).toLocaleDateString("ru")} ($${planPrice}/мес).`,
       ikb([[btn("◀️ К подписке", `adm:usub:${tgId}`), btn("◀️ К пользователю", `adm:ucard:${tgId}`)]]),
     );
   }
@@ -5773,7 +5839,8 @@ async function handleAdmCallback(
   }
 
   // ─── Subscription Config (platform-wide) ──
-  if (cmd === "subconfig") return admSubConfig(tg, chatId, msgId);
+  // legacy: старый раздел "Подписка (policy)" — теперь объединён в "💎 Тарифы и подписка"
+  if (cmd === "subconfig") return admTariffs(tg, chatId, msgId);
   if (cmd === "sc") {
     const subCmd = parts[2]; // prices, trial, limits, expiry, notify, set, tog, clean_orphan_trials, expire_all_trials
     if (subCmd === "prices") return admTariffs(tg, chatId, msgId); // legacy → новый раздел
@@ -5859,7 +5926,7 @@ async function handleAdmCallback(
       if (section === "trial") return admScTrial(tg, chatId, msgId);
       if (section === "expiry") return admScExpiry(tg, chatId, msgId);
       if (section === "notify") return admScNotify(tg, chatId, msgId);
-      return admSubConfig(tg, chatId, msgId);
+      return admTariffs(tg, chatId, msgId);
     }
     if (subCmd === "set") {
       const key = parts[3]; // e.g. standard_price_usd

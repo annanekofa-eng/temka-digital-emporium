@@ -48,9 +48,11 @@ interface ProfileData {
     pricing_tier: string | null;
     billing_price_usd: number | null;
     first_paid_at: string | null;
+    plan?: string | null;
   };
   balance: number;
   shops: ShopData[];
+  tariffs?: { plan: string; price_usd: number; is_enabled: boolean }[];
 }
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -145,7 +147,7 @@ const PlatformProfile: React.FC = () => {
     };
   }, []);
 
-  const handleSubscriptionPay = async (useBalance: boolean, promoCode?: string, months?: number) => {
+  const handleSubscriptionPay = async (useBalance: boolean, promoCode?: string, months?: number, plan?: string) => {
     if (!isInTelegram || !initData) {
       toast.info('Откройте платформу через Telegram');
       return;
@@ -153,7 +155,7 @@ const PlatformProfile: React.FC = () => {
     setSubLoading(true);
     try {
       const { data: res, error: err } = await supabase.functions.invoke('create-subscription-invoice', {
-        body: { initData, useBalance, promoCode, months: months || 1 },
+        body: { initData, useBalance, promoCode, months: months || 1, plan: plan || 'start' },
       });
       if (err) throw err;
       if (res?.error) throw new Error(res.error);
@@ -360,10 +362,17 @@ const PlatformProfile: React.FC = () => {
               )}
             </div>
 
-            {subscription.pricing_tier && (
+            {(subscription as any).plan && (
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
-                Тариф: <span className="font-medium text-gray-700 capitalize">{subscription.pricing_tier === 'early_3' ? 'Early Bird' : subscription.pricing_tier}</span>
+                Тариф:
+                <span className="font-medium text-gray-700">
+                  {(() => {
+                    const p = (subscription as any).plan as string;
+                    const map: Record<string, string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+                    return map[p] || p;
+                  })()}
+                </span>
               </div>
             )}
 
@@ -463,7 +472,7 @@ const PlatformProfile: React.FC = () => {
           <a href="/platform/terms" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Соглашение</a>
           <a href="/platform/rules" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Правила</a>
           <a href="/platform/privacy" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Конфиденциальность</a>
-          <a href="/platform/subscription" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Подписка</a>
+          <a href="/platform/subscription" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Правила подписки</a>
           <a href="/platform/consent" className="text-[10px] text-gray-300 hover:text-blue-400 transition-colors">Согласие на ПД</a>
         </div>
         <p className="text-center text-[10px] text-gray-300 pt-1">
@@ -479,6 +488,7 @@ const PlatformProfile: React.FC = () => {
         onOpenChange={setSubSheetOpen}
         onPayWithInvoice={handleSubscriptionPay}
         loading={subLoading}
+        tariffs={(data as any)?.tariffs || []}
       />
       <ShopInfoSheet
         shop={selectedShop}
