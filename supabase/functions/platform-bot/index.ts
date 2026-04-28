@@ -7414,6 +7414,21 @@ serve(async (req) => {
     const msg = body.message;
     const cb = body.callback_query;
 
+    // ─── Ignore non-private chats ──────────────
+    // Платформенный бот работает только в личных чатах с пользователями.
+    // В группах/каналах/супергруппах он молчит (бот-куратор для приватных чатов
+    // подписчиков — это отдельный бот через CURATOR_BOT_TOKEN).
+    const _chatType =
+      cb?.message?.chat?.type ||
+      msg?.chat?.type ||
+      body?.my_chat_member?.chat?.type ||
+      body?.chat_member?.chat?.type ||
+      body?.channel_post?.chat?.type ||
+      null;
+    if (_chatType && _chatType !== "private") {
+      return new Response("ok");
+    }
+
     // ─── Callback query ─────────────────────
     if (cb) {
       const chatId = cb.message?.chat?.id || cb.from?.id;
