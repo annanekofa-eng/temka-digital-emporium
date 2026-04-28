@@ -94,7 +94,7 @@ serve(async (req) => {
     await supabase.from("rate_limits").insert({ identifier: String(telegramId), action: "sub_invoice" });
 
     // Get platform user
-    const { data: pUser } = await supabase.from("platform_users").select("id, subscription_status, subscription_expires_at, balance, billing_price_usd, pricing_tier, first_paid_at")
+    const { data: pUser } = await supabase.from("platform_users").select("id, subscription_status, subscription_expires_at, balance, billing_price_usd, pricing_tier, first_paid_at, subscription_plan")
       .eq("telegram_id", telegramId).maybeSingle();
     if (!pUser) return jsonRes({ error: "Пользователь не найден" }, 404);
 
