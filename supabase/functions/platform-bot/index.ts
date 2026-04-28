@@ -2734,6 +2734,7 @@ async function isUserBlocked(telegramId: number): Promise<boolean> {
 // ─── ADM Main Menu ────────────────────────────
 async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number) {
   const text = `🛡 <b>Super Admin Panel</b>\n\nВыберите раздел:`;
+  // (admin home — расширено: тарифы/контент/куратор/кастом-заявки)
   const kb = ikb([
     [btn("📊 Статистика", "adm:stats"), btn("👥 Пользователи", "adm:users:0")],
     [btn("🏪 Магазины", "adm:shops:0"), btn("💳 Подписки/платежи", "adm:finance:sub:0")],
@@ -2743,7 +2744,9 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("🚨 Риски/блокировки", "adm:risks"), btn("📋 Логи", "adm:logs:0")],
     [btn("📋 Подписка (policy)", "adm:subconfig"), btn("⚙️ Настройки", "adm:settings")],
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
-    [btn("🎁 Рефералка", "adm:ref")],
+    [btn("🎁 Рефералка", "adm:ref"), btn("💎 Тарифы (3 плана)", "adm:tariffs")],
+    [btn("📦 Платный контент", "adm:pcontent:0"), btn("👤 Куратор/Чат", "adm:pglobal")],
+    [btn("🛠 Кастом-заявки", "adm:custreq:pending:0")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
   return tg.send(chatId, text, kb);
@@ -2862,6 +2865,7 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     `💳 Подписок: ${subPayments || 0}\n` +
     `🧾 Инвойсов: ${invoiceCount || 0}\n` +
     `⏱ Rate limits: ${rateLimits || 0}\n\n` +
+    `💎 <b>Тарифы (active):</b>\n${await admPlanCountsLine()}\n\n` +
     `🚨 <b>Проблемы:</b>\n${problemsText}\n\n` +
     `🏆 <b>Топ магазинов по выручке:</b>\n${topShopsText}`;
 
@@ -2870,6 +2874,249 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     msgId,
     text,
     ikb([[btn("🔄 Обновить", "adm:stats")], [btn("🚨 Риски", "adm:risks")], [btn("◀️ Меню", "adm:home")]]),
+  );
+}
+
+// Compact one-liner with active subscribers per plan
+async function admPlanCountsLine(): Promise<string> {
+  const out: string[] = [];
+  for (const p of ["start", "basic", "premium"]) {
+    const { count } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .in("subscription_status", ["active", "grace_period"]);
+    const icon = p === "premium" ? "🟣" : p === "basic" ? "🔵" : "🟢";
+    out.push(`${icon} ${p}: ${count || 0}`);
+  }
+  return "  " + out.join(" • ");
+}
+
+// ─── 3-TIER TARIFFS ADMIN ──────────────────────
+async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { data: prices } = await db()
+    .from("tariff_prices")
+    .select("plan, price_usd, is_enabled")
+    .order("price_usd", { ascending: true });
+  const map: Record<string, { price: number; active: boolean }> = {};
+  for (const r of prices || []) map[r.plan] = { price: Number(r.price_usd), active: !!r.is_enabled };
+  const fmt = (k: string) => {
+    const r = map[k];
+    if (!r) return "—";
+    return `<b>$${r.price.toFixed(2)}</b>${r.active ? "" : " (выкл)"}`;
+  };
+  // Stats by plan
+  const planStats: Record<string, number> = { start: 0, basic: 0, premium: 0 };
+  for (const p of ["start", "basic", "premium"]) {
+    const { count } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .in("subscription_status", ["active", "trial", "grace_period"]);
+    planStats[p] = count || 0;
+  }
+  const text =
+    `💎 <b>Тарифы (3-плана)</b>\n\n` +
+    `🟢 Старт: ${fmt("start")}\n` +
+    `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
+    `🔵 Базовый: ${fmt("basic")}\n` +
+    `   <i>+ кураторство, закрытый чат, поставщики, бесплатные товары</i>\n\n` +
+    `🟣 Премиум: ${fmt("premium")}\n` +
+    `   <i>+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент</i>\n\n` +
+    `📊 <b>Активных подписчиков:</b>\n` +
+    `  Старт: ${planStats.start} • Базовый: ${planStats.basic} • Премиум: ${planStats.premium}`;
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn("✏️ Цена Старт", "adm:tarset:start"), btn(map.start?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:start")],
+      [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
+      [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
+      [btn("📊 Подробная статистика", "adm:tarstats")],
+      [btn("◀️ Меню", "adm:home")],
+    ]),
+  );
+}
+
+async function admTariffStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  // Aggregate paid users by current plan (subscription status active/grace)
+  const lines: string[] = [];
+  let grandRevenue = 0;
+  for (const p of ["start", "basic", "premium"]) {
+    const { count: activeCnt } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .in("subscription_status", ["active", "grace_period"]);
+    const { count: trialCnt } = await db()
+      .from("platform_users")
+      .select("id", { count: "exact", head: true })
+      .eq("subscription_plan", p)
+      .eq("subscription_status", "trial");
+    // Total revenue from this plan's current users (rough estimate via subscription_payments joined manually)
+    const { data: users } = await db()
+      .from("platform_users")
+      .select("id")
+      .eq("subscription_plan", p);
+    const ids = (users || []).map((u: any) => u.id);
+    let revenue = 0;
+    if (ids.length) {
+      const { data: pays } = await db()
+        .from("subscription_payments")
+        .select("final_amount, amount")
+        .in("user_id", ids)
+        .eq("status", "paid");
+      revenue = (pays || []).reduce((s: number, r: any) => s + Number(r.final_amount ?? r.amount ?? 0), 0);
+    }
+    grandRevenue += revenue;
+    lines.push(`  <b>${p}</b>: active ${activeCnt || 0} • trial ${trialCnt || 0} • выручка $${revenue.toFixed(2)}`);
+  }
+  const text =
+    `📊 <b>Статистика по тарифам</b>\n\n` +
+    `${lines.join("\n")}\n\n` +
+    `💰 Общая выручка по подпискам: <b>$${grandRevenue.toFixed(2)}</b>`;
+  return tg.edit(chatId, msgId, text, ikb([[btn("◀️ Назад", "adm:tariffs")]]));
+}
+
+// ─── PAID CONTENT ADMIN ────────────────────────
+async function admPaidContent(tg: ReturnType<typeof TG>, chatId: number, msgId: number, page: number) {
+  const PAGE = 10;
+  const { data: items, count } = await db()
+    .from("paid_content")
+    .select("id, title, plan, is_active, sort_order", { count: "exact" })
+    .order("plan")
+    .order("sort_order")
+    .range(page * PAGE, page * PAGE + PAGE - 1);
+  const total = count || 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE));
+  const rows: Btn[][] = [];
+  for (const it of items || []) {
+    const planIcon = it.plan === "premium" ? "🟣" : it.plan === "basic" ? "🔵" : "🟢";
+    rows.push([
+      btn(`${planIcon} ${it.is_active ? "" : "🚫 "}${(it.title || "").slice(0, 50)}`, `adm:pcedit:${it.id}`),
+    ]);
+  }
+  if (totalPages > 1) {
+    const nav: Btn[] = [];
+    if (page > 0) nav.push(btn("◀️", `adm:pcontent:${page - 1}`));
+    nav.push(btn(`${page + 1}/${totalPages}`, "adm:noop"));
+    if (page < totalPages - 1) nav.push(btn("▶️", `adm:pcontent:${page + 1}`));
+    rows.push(nav);
+  }
+  rows.push([btn("➕ Добавить", "adm:pcadd")]);
+  rows.push([btn("◀️ Меню", "adm:home")]);
+  const text =
+    `📦 <b>Платный контент (${total})</b>\n\n` +
+    `Контент Basic отправляется при покупке Basic/Premium, Premium-контент — только Premium.\n` +
+    `Доставка идемпотентна (см. <code>paid_content_logs</code>).`;
+  return tg.edit(chatId, msgId, text, ikb(rows));
+}
+
+async function admPaidContentEdit(tg: ReturnType<typeof TG>, chatId: number, msgId: number, id: string) {
+  const { data: it } = await db().from("paid_content").select("*").eq("id", id).maybeSingle();
+  if (!it) return tg.edit(chatId, msgId, "❌ Не найдено", ikb([[btn("◀️", "adm:pcontent:0")]]));
+  const text =
+    `📦 <b>${esc(it.title)}</b>\n\n` +
+    `План: <b>${it.plan}</b>\n` +
+    `Статус: ${it.is_active ? "✅ активен" : "🚫 выключен"}\n` +
+    `Sort: ${it.sort_order}\n\n` +
+    `<i>${esc((it.body || "").slice(0, 500))}${(it.body || "").length > 500 ? "…" : ""}</i>`;
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn("✏️ Заголовок", `adm:pcfield:title:${id}`), btn("✏️ Тело", `adm:pcfield:body:${id}`)],
+      [btn("🔄 План", `adm:pcplan:${id}`), btn(it.is_active ? "🚫 Выкл" : "✅ Вкл", `adm:pctog:${id}`)],
+      [btn("🗑 Удалить", `adm:pcdel:${id}`)],
+      [btn("◀️ К списку", "adm:pcontent:0")],
+    ]),
+  );
+}
+
+// ─── PLATFORM GLOBAL (curator + private chat) ─
+async function admPlatformGlobal(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
+  const { data } = await db()
+    .from("platform_settings")
+    .select("key,value")
+    .in("key", ["global_curator_username", "private_chat_id"]);
+  const m: Record<string, string> = {};
+  for (const r of data || []) m[r.key] = r.value || "";
+  const curator = m.global_curator_username || "—";
+  const chat = m.private_chat_id || "—";
+  const text =
+    `👤 <b>Глобальные настройки</b>\n\n` +
+    `Куратор (username): <b>${esc(curator)}</b>\n` +
+    `<i>Показывается всем подписчикам Базового/Премиум.</i>\n\n` +
+    `Закрытый чат (chat_id): <b>${esc(chat)}</b>\n` +
+    `<i>Бот должен быть админом в чате. Используется для одноразовых инвайтов.</i>`;
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn("✏️ Куратор", "adm:pgset:global_curator_username")],
+      [btn("✏️ Chat ID", "adm:pgset:private_chat_id")],
+      [btn("◀️ Меню", "adm:home")],
+    ]),
+  );
+}
+
+// ─── CUSTOMIZATION REQUESTS ────────────────────
+async function admCustReqList(tg: ReturnType<typeof TG>, chatId: number, msgId: number, status: string, page: number) {
+  const PAGE = 10;
+  let q = db()
+    .from("customization_requests")
+    .select("id, owner_telegram_id, shop_id, status, created_at, description", { count: "exact" })
+    .order("created_at", { ascending: false });
+  if (status !== "all") q = q.eq("status", status);
+  const { data, count } = await q.range(page * PAGE, page * PAGE + PAGE - 1);
+  const total = count || 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE));
+  const rows: Btn[][] = [];
+  for (const r of data || []) {
+    const dt = new Date(r.created_at).toLocaleDateString("ru-RU");
+    rows.push([btn(`${dt} • TG${r.owner_telegram_id} • ${r.status}`, `adm:custreq:view:${r.id}`)]);
+  }
+  rows.push([
+    btn(status === "pending" ? "✅ pending" : "pending", `adm:custreq:pending:0`),
+    btn(status === "in_progress" ? "✅ in_progress" : "in_progress", `adm:custreq:in_progress:0`),
+    btn(status === "done" ? "✅ done" : "done", `adm:custreq:done:0`),
+    btn(status === "all" ? "✅ all" : "all", `adm:custreq:all:0`),
+  ]);
+  if (totalPages > 1) {
+    const nav: Btn[] = [];
+    if (page > 0) nav.push(btn("◀️", `adm:custreq:${status}:${page - 1}`));
+    nav.push(btn(`${page + 1}/${totalPages}`, "adm:noop"));
+    if (page < totalPages - 1) nav.push(btn("▶️", `adm:custreq:${status}:${page + 1}`));
+    rows.push(nav);
+  }
+  rows.push([btn("◀️ Меню", "adm:home")]);
+  return tg.edit(chatId, msgId, `🛠 <b>Кастом-заявки (${total})</b>`, ikb(rows));
+}
+
+async function admCustReqView(tg: ReturnType<typeof TG>, chatId: number, msgId: number, id: string) {
+  const { data: r } = await db().from("customization_requests").select("*").eq("id", id).maybeSingle();
+  if (!r) return tg.edit(chatId, msgId, "❌ Не найдено", ikb([[btn("◀️", "adm:custreq:pending:0")]]));
+  const text =
+    `🛠 <b>Заявка</b>\n\n` +
+    `TG: <code>${r.owner_telegram_id}</code>\n` +
+    `Магазин: <code>${r.shop_id}</code>\n` +
+    `Статус: <b>${r.status}</b>\n` +
+    `Создано: ${new Date(r.created_at).toLocaleString("ru-RU")}\n\n` +
+    `<b>Описание:</b>\n${esc(r.description || "")}` +
+    (r.curator_response ? `\n\n<b>Ответ:</b>\n${esc(r.curator_response)}` : "");
+  return tg.edit(
+    chatId,
+    msgId,
+    text,
+    ikb([
+      [btn("🔄 In progress", `adm:crstatus:${id}:in_progress`), btn("✅ Done", `adm:crstatus:${id}:done`)],
+      [btn("✏️ Ответ куратора", `adm:crresp:${id}`)],
+      [btn("👤 Карточка владельца", `adm:ucard:${r.owner_telegram_id}`)],
+      [btn("◀️ К списку", "adm:custreq:pending:0")],
+    ]),
   );
 }
 
@@ -4384,6 +4631,99 @@ async function handleAdmCallback(
   if (cmd === "home") return admHome(tg, chatId, msgId);
   if (cmd === "noop") return;
   if (cmd === "stats") return admStats(tg, chatId, msgId);
+
+  // ─── 3-tier tariffs ────────────────────────
+  if (cmd === "tariffs") return admTariffs(tg, chatId, msgId);
+  if (cmd === "tarstats") return admTariffStats(tg, chatId, msgId);
+  if (cmd === "tarset") {
+    const plan = parts[2];
+    if (!["start", "basic", "premium"].includes(plan)) return;
+    await setSession(chatId, "adm_tariff_price", { plan });
+    return tg.edit(
+      chatId,
+      msgId,
+      `✏️ Введите новую цену для тарифа <b>${plan}</b> (USD, например 9.90):`,
+      ikb([[btn("❌ Отмена", "adm:tariffs")]]),
+    );
+  }
+  if (cmd === "tartog") {
+    const plan = parts[2];
+    if (!["start", "basic", "premium"].includes(plan)) return;
+    const { data: cur } = await db().from("tariff_prices").select("is_enabled").eq("plan", plan).maybeSingle();
+    const newVal = !(cur?.is_enabled);
+    await db().from("tariff_prices").update({ is_enabled: newVal, updated_at: new Date().toISOString() }).eq("plan", plan);
+    await admLog(adminTgId, "toggle_tariff", "tariff", plan, { is_active: newVal });
+    await tg.answer(cbId, newVal ? "✅ Включён" : "🚫 Выключен");
+    return admTariffs(tg, chatId, msgId);
+  }
+
+  // ─── Paid content ──────────────────────────
+  if (cmd === "pcontent") return admPaidContent(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  if (cmd === "pcedit") return admPaidContentEdit(tg, chatId, msgId, parts[2]);
+  if (cmd === "pcadd") {
+    await setSession(chatId, "adm_pc_add_title", {});
+    return tg.edit(chatId, msgId, "✏️ Введите заголовок для нового контента:", ikb([[btn("❌ Отмена", "adm:pcontent:0")]]));
+  }
+  if (cmd === "pcfield") {
+    const field = parts[2]; // title | body
+    const id = parts[3];
+    await setSession(chatId, `adm_pc_set_${field}`, { id });
+    return tg.edit(chatId, msgId, `✏️ Введите новое значение для <b>${field}</b>:`, ikb([[btn("❌ Отмена", `adm:pcedit:${id}`)]]));
+  }
+  if (cmd === "pcplan") {
+    const id = parts[2];
+    const { data: cur } = await db().from("paid_content").select("plan").eq("id", id).maybeSingle();
+    const order = ["start", "basic", "premium"];
+    const idx = order.indexOf(cur?.plan || "basic");
+    const next = order[(idx + 1) % order.length];
+    await db().from("paid_content").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "update_paid_content_plan", "paid_content", id, { plan: next });
+    return admPaidContentEdit(tg, chatId, msgId, id);
+  }
+  if (cmd === "pctog") {
+    const id = parts[2];
+    const { data: cur } = await db().from("paid_content").select("is_active").eq("id", id).maybeSingle();
+    const newVal = !(cur?.is_active);
+    await db().from("paid_content").update({ is_active: newVal, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "toggle_paid_content", "paid_content", id, { is_active: newVal });
+    return admPaidContentEdit(tg, chatId, msgId, id);
+  }
+  if (cmd === "pcdel") {
+    const id = parts[2];
+    await db().from("paid_content").delete().eq("id", id);
+    await admLog(adminTgId, "delete_paid_content", "paid_content", id);
+    return admPaidContent(tg, chatId, msgId, 0);
+  }
+
+  // ─── Platform global (curator/chat) ────────
+  if (cmd === "pglobal") return admPlatformGlobal(tg, chatId, msgId);
+  if (cmd === "pgset") {
+    const key = parts[2];
+    if (!["global_curator_username", "private_chat_id"].includes(key)) return;
+    await setSession(chatId, "adm_pg_set", { key });
+    const hint = key === "global_curator_username" ? "username без @ (например, support_curator)" : "chat_id (например, -1001234567890)";
+    return tg.edit(chatId, msgId, `✏️ Введите ${hint}:`, ikb([[btn("❌ Отмена", "adm:pglobal")]]));
+  }
+
+  // ─── Customization requests ────────────────
+  if (cmd === "custreq") {
+    const sub = parts[2];
+    if (sub === "view") return admCustReqView(tg, chatId, msgId, parts[3]);
+    return admCustReqList(tg, chatId, msgId, sub || "pending", parseInt(parts[3]) || 0);
+  }
+  if (cmd === "crstatus") {
+    const id = parts[2];
+    const status = parts[3];
+    if (!["pending", "in_progress", "done"].includes(status)) return;
+    await db().from("customization_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "update_custreq_status", "customization_requests", id, { status });
+    return admCustReqView(tg, chatId, msgId, id);
+  }
+  if (cmd === "crresp") {
+    const id = parts[2];
+    await setSession(chatId, "adm_cr_response", { id });
+    return tg.edit(chatId, msgId, "✏️ Введите ответ куратора:", ikb([[btn("❌ Отмена", `adm:custreq:view:${id}`)]]));
+  }
 
   // ─── Referral admin ───────────────────────
   if (cmd === "ref") return admReferral(tg, chatId, msgId);
@@ -5974,6 +6314,104 @@ async function handleAdmText(
       ikb([[btn("◀️ Назад", `adm:sc:${back}`)]]),
     );
     return;
+  }
+
+  // ─── Tariff price set ──────────────────────
+  if (state === "adm_tariff_price") {
+    const plan = sData.plan as string;
+    const num = parseFloat(val.replace(",", "."));
+    if (isNaN(num) || num < 0) return tg.send(chatId, "❌ Введите число ≥ 0:");
+    const { data: cur } = await db().from("tariff_prices").select("price_usd").eq("plan", plan).maybeSingle();
+    await db().from("tariff_prices").upsert(
+      { plan, price_usd: num, updated_at: new Date().toISOString() },
+      { onConflict: "plan" },
+    );
+    await admLog(chatId, "update_tariff_price", "tariff", plan, { old: cur?.price_usd, new: num });
+    await clearSession(chatId);
+    return tg.send(chatId, `✅ Тариф <b>${plan}</b>: $${num.toFixed(2)}`, ikb([[btn("◀️ Тарифы", "adm:tariffs")]]));
+  }
+
+  // ─── Paid content add/edit ─────────────────
+  if (state === "adm_pc_add_title") {
+    const title = val.trim().slice(0, 200);
+    if (!title) return tg.send(chatId, "❌ Заголовок не может быть пустым:");
+    await setSession(chatId, "adm_pc_add_body", { title });
+    return tg.send(chatId, "✏️ Введите тело сообщения (HTML поддерживается):");
+  }
+  if (state === "adm_pc_add_body") {
+    const title = sData.title as string;
+    const body = val;
+    const { data: ins, error } = await db()
+      .from("paid_content")
+      .insert({ title, body, plan: "basic", is_active: true })
+      .select("id")
+      .single();
+    await clearSession(chatId);
+    if (error) return tg.send(chatId, `❌ Ошибка: ${error.message}`, ikb([[btn("◀️", "adm:pcontent:0")]]));
+    await admLog(chatId, "create_paid_content", "paid_content", ins.id, { title });
+    return tg.send(chatId, `✅ Создано. По умолчанию план: basic.`, ikb([[btn("📦 Открыть", `adm:pcedit:${ins.id}`)]]));
+  }
+  if (state === "adm_pc_set_title") {
+    const id = sData.id as string;
+    await db().from("paid_content").update({ title: val.trim().slice(0, 200), updated_at: new Date().toISOString() }).eq("id", id);
+    await clearSession(chatId);
+    await admLog(chatId, "update_paid_content_title", "paid_content", id);
+    return tg.send(chatId, "✅ Заголовок обновлён.", ikb([[btn("◀️", `adm:pcedit:${id}`)]]));
+  }
+  if (state === "adm_pc_set_body") {
+    const id = sData.id as string;
+    await db().from("paid_content").update({ body: val, updated_at: new Date().toISOString() }).eq("id", id);
+    await clearSession(chatId);
+    await admLog(chatId, "update_paid_content_body", "paid_content", id);
+    return tg.send(chatId, "✅ Тело обновлено.", ikb([[btn("◀️", `adm:pcedit:${id}`)]]));
+  }
+
+  // ─── Platform global (curator/chat) ────────
+  if (state === "adm_pg_set") {
+    const key = sData.key as string;
+    let value = val.trim();
+    if (key === "global_curator_username") value = value.replace(/^@/, "").slice(0, 64);
+    if (key === "private_chat_id") {
+      if (!/^-?\d+$/.test(value)) return tg.send(chatId, "❌ chat_id должен быть числом:");
+    }
+    await db().from("platform_settings").upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+    await admLog(chatId, "update_platform_setting", "platform_settings", key, { value });
+    await clearSession(chatId);
+    return tg.send(chatId, `✅ Сохранено: <b>${esc(key)}</b> = <code>${esc(value)}</code>`, ikb([[btn("◀️", "adm:pglobal")]]));
+  }
+
+  // ─── Customization request: curator response ─
+  if (state === "adm_cr_response") {
+    const id = sData.id as string;
+    await db().from("customization_requests").update({
+      curator_response: val,
+      status: "in_progress",
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    await admLog(chatId, "answer_custreq", "customization_requests", id);
+    // Notify owner
+    const { data: r } = await db().from("customization_requests").select("owner_telegram_id").eq("id", id).maybeSingle();
+    if (r?.owner_telegram_id) {
+      try {
+        const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: r.owner_telegram_id,
+            text: `💎 <b>Ответ куратора по вашей заявке на кастомизацию:</b>\n\n${val}`,
+            parse_mode: "HTML",
+          }),
+        });
+      } catch (e) {
+        console.error("notify owner failed:", maskToken((e as Error).message));
+      }
+    }
+    await clearSession(chatId);
+    return tg.send(chatId, "✅ Ответ сохранён и отправлен владельцу.", ikb([[btn("◀️", `adm:custreq:view:${id}`)]]));
   }
 
   if (state === "adm_user_balance") {
