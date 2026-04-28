@@ -2865,6 +2865,7 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     `💳 Подписок: ${subPayments || 0}\n` +
     `🧾 Инвойсов: ${invoiceCount || 0}\n` +
     `⏱ Rate limits: ${rateLimits || 0}\n\n` +
+    `💎 <b>Тарифы (active):</b>\n${await admPlanCountsLine()}\n\n` +
     `🚨 <b>Проблемы:</b>\n${problemsText}\n\n` +
     `🏆 <b>Топ магазинов по выручке:</b>\n${topShopsText}`;
 
