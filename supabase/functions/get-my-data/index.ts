@@ -198,23 +198,6 @@ serve(async (req) => {
         const settingsMap: Record<string, string> = {};
         for (const r of settingsRows || []) settingsMap[r.key] = r.value;
 
-        // Get subscription price
-        let subPrice = pUser.billing_price_usd;
-        let subTier = pUser.pricing_tier;
-        if (subPrice == null) {
-          const earlyPrice = settingsMap.sub_early_price_usd ? parseFloat(settingsMap.sub_early_price_usd) : 3;
-          const standardPrice = settingsMap.sub_standard_price_usd ? parseFloat(settingsMap.sub_standard_price_usd) : 5;
-          const earlyLimit = settingsMap.sub_early_slots_limit ? parseInt(settingsMap.sub_early_slots_limit) : 10;
-          const { count: paidCount } = await supabase.from("platform_users").select("id", { count: "exact", head: true }).not("first_paid_at", "is", null);
-          if ((paidCount || 0) < earlyLimit) {
-            subPrice = earlyPrice;
-            subTier = "early_3";
-          } else {
-            subPrice = standardPrice;
-            subTier = "standard_5";
-          }
-        }
-
         // Fetch subscription settings for context
         const trialDays = settingsMap.sub_trial_days ? parseInt(settingsMap.sub_trial_days) : 7;
         const trialEnabled = settingsMap.sub_trial_enabled ? settingsMap.sub_trial_enabled === "true" : true;
@@ -226,6 +209,17 @@ serve(async (req) => {
         const curatorUsername = (curatorRow?.value || "").trim().replace(/^@/, "");
 
         const plan = (pUser as any).subscription_plan || 'start';
+
+        // Subscription price: фактическая цена пользователя или цена его текущего тарифа
+        let subPrice: number | null = pUser.billing_price_usd != null ? Number(pUser.billing_price_usd) : null;
+        let subTier: string | null = pUser.pricing_tier || null;
+        if (subPrice == null) {
+          const tariffRow = (tariffsRows || []).find((t: any) => t.plan === plan);
+          const fallback: Record<string, number> = { start: 5, basic: 9, premium: 19 };
+          subPrice = tariffRow ? Number(tariffRow.price_usd) : (fallback[plan] || 5);
+          subTier = plan;
+        }
+
         const isActive = ['active','trial','grace_period'].includes(pUser.subscription_status)
           && (!pUser.subscription_expires_at || new Date(pUser.subscription_expires_at).getTime() > Date.now());
         const entitlements = {

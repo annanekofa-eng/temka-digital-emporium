@@ -292,20 +292,15 @@ async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; en
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
-    .select("billing_price_usd, pricing_tier")
+    .select("billing_price_usd, pricing_tier, subscription_plan")
     .eq("telegram_id", telegramId)
     .maybeSingle();
   if (user?.billing_price_usd != null && user?.pricing_tier)
     return { price: Number(user.billing_price_usd), tier: user.pricing_tier };
-  const ss = await getSubSettings();
-  const { count } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
-  const paidCount = count || 0;
-  return paidCount < ss.early_slots_limit
-    ? { price: ss.early_price_usd, tier: "early_3" }
-    : { price: ss.standard_price_usd, tier: "standard_5" };
+  // Fallback: цена из tariff_prices по плану пользователя (или start)
+  const plan = (user?.subscription_plan as PlanKey) || "start";
+  const price = await getTariffPrice(plan);
+  return { price, tier: plan };
 }
 
 function subscriptionDaysLeft(expiresAt: string | null): number {
@@ -881,7 +876,8 @@ async function sendWelcome(tg: ReturnType<typeof TG>, chatId: number, firstName:
 // ═══════════════════════════════════════════════
 async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
-  const text = `📖 <b>Как это работает?</b>\n\n1️⃣ <b>Создай магазин</b> — пройди простой онбординг из 7 шагов\n\n2️⃣ <b>Добавь товары</b> — загрузи инвентарь прямо в бота\n\n3️⃣ <b>Подключи оплату</b> — CryptoBot и/или СБП (перевод на карту)\n\n4️⃣ <b>Поделись ссылкой</b> — клиенты покупают через mini-app\n\n5️⃣ <b>Автовыдача 24/7</b> — товар доставляется мгновенно после оплаты\n\n🔗 <b>Пример магазина:</b> @TeleStoreTestBot\n❓ <b>FAQ / Частые вопросы:</b> <a href="https://telegra.ph/FAQ--TeleStore-03-17">открыть</a>\n🚀 <b>В чём преимущество Mini App:</b> <a href="https://telegra.ph/V-chem-preimushchestvo-magazina-Mini-App-03-17">читать</a>\n\n💰 Стоимость: от <b>$${ss.early_price_usd}/мес</b> — ${ss.max_shops_per_user} магазин на пользователя\n🆓 ${ss.trial_enabled ? `${ss.trial_days} дней бесплатного пробного периода` : "Пробный период недоступен"}`;
+  const startPrice = await getTariffPrice("start");
+  const text = `📖 <b>Как это работает?</b>\n\n1️⃣ <b>Создай магазин</b> — пройди простой онбординг из 7 шагов\n\n2️⃣ <b>Добавь товары</b> — загрузи инвентарь прямо в бота\n\n3️⃣ <b>Подключи оплату</b> — CryptoBot и/или СБП (перевод на карту)\n\n4️⃣ <b>Поделись ссылкой</b> — клиенты покупают через mini-app\n\n5️⃣ <b>Автовыдача 24/7</b> — товар доставляется мгновенно после оплаты\n\n🔗 <b>Пример магазина:</b> @TeleStoreTestBot\n❓ <b>FAQ / Частые вопросы:</b> <a href="https://telegra.ph/FAQ--TeleStore-03-17">открыть</a>\n🚀 <b>В чём преимущество Mini App:</b> <a href="https://telegra.ph/V-chem-preimushchestvo-magazina-Mini-App-03-17">читать</a>\n\n💰 Стоимость: от <b>$${startPrice.toFixed(2)}/мес</b> — ${ss.max_shops_per_user} магазин на пользователя\n🆓 ${ss.trial_enabled ? `${ss.trial_days} дней бесплатного пробного периода` : "Пробный период недоступен"}`;
   const photoUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/product-images/platform/how-it-works.png`;
   console.log("howItWorks called, chatId:", chatId, "photoUrl:", photoUrl);
   try { await tg.deleteMessage(chatId, msgId); } catch { /* ignore */ }
@@ -2083,12 +2079,14 @@ async function handleText(
       else disc = Math.min(r.discount_value, total);
       return Math.max(0, total - disc);
     };
+    const planForPromo: PlanKey = (["start","basic","premium"] as PlanKey[])
+      .includes(priceInfo.tier as PlanKey) ? (priceInfo.tier as PlanKey) : "start";
     return tg.send(
       chatId,
       `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, "p:pay_sub:1"), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, "p:pay_sub:3")],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, "p:pay_sub:6"), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, "p:pay_sub:12")],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${planForPromo}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${planForPromo}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${planForPromo}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${planForPromo}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );
@@ -2936,9 +2934,9 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("🎟 Промокоды", "adm:promo:platform:0"), btn("⭐ Отзывы", "adm:reviews:shop:0")],
     [btn("🎫 Промо подписки", "adm:subpromo:0"), btn("📢 Рассылки", "adm:broadcast")],
     [btn("🚨 Риски/блокировки", "adm:risks"), btn("📋 Логи", "adm:logs:0")],
-    [btn("📋 Подписка (policy)", "adm:subconfig"), btn("⚙️ Настройки", "adm:settings")],
+    [btn("💎 Тарифы и подписка", "adm:tariffs"), btn("⚙️ Настройки", "adm:settings")],
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
-    [btn("🎁 Рефералка", "adm:ref"), btn("💎 Тарифы (3 плана)", "adm:tariffs")],
+    [btn("🎁 Рефералка", "adm:ref")],
     [btn("📦 Платный контент", "adm:pcontent:0"), btn("👤 Куратор/Чат", "adm:pglobal")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
@@ -3109,7 +3107,7 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
     planStats[p] = count || 0;
   }
   const text =
-    `💎 <b>Тарифы (3-плана)</b>\n\n` +
+    `💎 <b>Тарифы и подписка</b>\n\n` +
     `🟢 Старт: ${fmt("start")}\n` +
     `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
     `🔵 Базовый: ${fmt("basic")}\n` +
@@ -3127,6 +3125,8 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
       [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
       [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
       [btn("📊 Подробная статистика", "adm:tarstats")],
+      [btn("🆓 Trial", "adm:sc:trial"), btn("🏪 Лимиты", "adm:sc:limits")],
+      [btn("⏰ Окончание", "adm:sc:expiry"), btn("🔔 Уведомления", "adm:sc:notify")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
@@ -4423,10 +4423,6 @@ async function admLogsList(tg: ReturnType<typeof TG>, chatId: number, msgId: num
 // ─── SUBSCRIPTION CONFIG (platform-wide policy) ─
 async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
-  const { count: paidCount } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
   const { count: trialCount } = await db()
     .from("platform_users")
     .select("id", { count: "exact", head: true })
@@ -4439,15 +4435,10 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     .from("platform_users")
     .select("id", { count: "exact", head: true })
     .eq("subscription_status", "expired");
-  const earlyRemaining = Math.max(0, ss.early_slots_limit - (paidCount || 0));
 
   const text =
     `📋 <b>Подписка — глобальные настройки</b>\n\n` +
-    `<b>💰 Цены:</b>\n` +
-    `  Стандарт: <b>$${ss.standard_price_usd}</b>/мес\n` +
-    `  Early Bird: <b>$${ss.early_price_usd}</b>/мес\n` +
-    `  Early слотов: ${ss.early_slots_limit} (осталось: ${earlyRemaining})\n` +
-    `  Pricing: ${ss.pricing_enabled ? "✅" : "❌"}\n\n` +
+    `<i>Цены тарифов теперь в разделе «💎 Тарифы и подписка».</i>\n\n` +
     `<b>🆓 Trial:</b>\n` +
     `  Trial: ${ss.trial_enabled ? "✅" : "❌"} (${ss.trial_days} дн.)\n` +
     `  Один trial/user: ${ss.one_trial_per_user ? "✅" : "❌"}\n` +
@@ -4464,50 +4455,23 @@ async function admSubConfig(tg: ReturnType<typeof TG>, chatId: number, msgId: nu
     `  Expired: ${ss.expired_notify ? "✅" : "❌"}\n` +
     `  Bot deactivated: ${ss.bot_deactivated_notify ? "✅" : "❌"}\n\n` +
     `<b>📊 Текущее состояние:</b>\n` +
-    `  Trial: ${trialCount || 0} | Active: ${activeCount || 0} | Expired: ${expiredCount || 0}\n` +
-    `  Оплативших: ${paidCount || 0}`;
+    `  Trial: ${trialCount || 0} | Active: ${activeCount || 0} | Expired: ${expiredCount || 0}`;
 
   return tg.edit(
     chatId,
     msgId,
     text,
     ikb([
-      [btn("💰 Цены", "adm:sc:prices"), btn("🆓 Trial", "adm:sc:trial")],
+      [btn("💎 Тарифы (цены)", "adm:tariffs"), btn("🆓 Trial", "adm:sc:trial")],
       [btn("🏪 Лимиты", "adm:sc:limits"), btn("⏰ Expiration", "adm:sc:expiry")],
       [btn("🔔 Уведомления", "adm:sc:notify")],
-      [btn("🔄 Обновить", "adm:subconfig")],
+      [btn("🔄 Обновить", "adm:tariffs")],
       [btn("◀️ Меню", "adm:home")],
     ]),
   );
 }
 
-async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  const ss = await getSubSettings();
-  const { count: paidCount } = await db()
-    .from("platform_users")
-    .select("id", { count: "exact", head: true })
-    .not("first_paid_at", "is", null);
-  const earlyRemaining = Math.max(0, ss.early_slots_limit - (paidCount || 0));
-  const text =
-    `💰 <b>Управление ценами</b>\n\n` +
-    `Стандартная цена: <b>$${ss.standard_price_usd}</b>/мес\n` +
-    `Early Bird цена: <b>$${ss.early_price_usd}</b>/мес\n` +
-    `Early слотов: <b>${ss.early_slots_limit}</b> (осталось: ${earlyRemaining})\n` +
-    `Pricing: ${ss.pricing_enabled ? "✅ Включён" : "❌ Выключен"}\n\n` +
-    `Оплативших пользователей: ${paidCount || 0}`;
-  return tg.edit(
-    chatId,
-    msgId,
-    text,
-    ikb([
-      [btn("✏️ Стандартная цена", "adm:sc:set:standard_price_usd"), btn("✏️ Early цена", "adm:sc:set:early_price_usd")],
-      [btn("✏️ Early слоты", "adm:sc:set:early_slots_limit")],
-      [btn(ss.pricing_enabled ? "❌ Выкл pricing" : "✅ Вкл pricing", "adm:sc:tog:pricing_enabled")],
-      [btn("◀️ Назад", "adm:subconfig")],
-    ]),
-  );
-}
-
+// admScPrices удалён — управление ценами перенесено в admTariffs (раздел «Тарифы и подписка»).
 async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
   const ss = await getSubSettings();
   // Count active trial users (with actual trial expiry set)
@@ -4554,7 +4518,7 @@ async function admScTrial(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   if ((activeTrialCount || 0) > 0 && !ss.trial_enabled) {
     rows.push([btn("⏹ Завершить все active trials", "adm:sc:expire_all_trials")]);
   }
-  rows.push([btn("◀️ Назад", "adm:subconfig")]);
+  rows.push([btn("◀️ Назад", "adm:tariffs")]);
   return tg.edit(chatId, msgId, text, ikb(rows));
 }
 
@@ -4565,7 +4529,7 @@ async function admScLimits(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     chatId,
     msgId,
     text,
-    ikb([[btn("✏️ Макс. магазинов", "adm:sc:set:max_shops_per_user")], [btn("◀️ Назад", "adm:subconfig")]]),
+    ikb([[btn("✏️ Макс. магазинов", "adm:sc:set:max_shops_per_user")], [btn("◀️ Назад", "adm:tariffs")]]),
   );
 }
 
@@ -4590,7 +4554,7 @@ async function admScExpiry(tg: ReturnType<typeof TG>, chatId: number, msgId: num
           "adm:sc:tog:on_expiry_deactivate_bot",
         ),
       ],
-      [btn("◀️ Назад", "adm:subconfig")],
+      [btn("◀️ Назад", "adm:tariffs")],
     ]),
   );
 }
@@ -4619,7 +4583,7 @@ async function admScNotify(tg: ReturnType<typeof TG>, chatId: number, msgId: num
         btn(ss.bot_deactivated_notify ? "❌" : "✅", "adm:sc:tog:bot_deactivated_notify"),
         btn("Bot deactivated", "adm:sc:notify"),
       ],
-      [btn("◀️ Назад", "adm:subconfig")],
+      [btn("◀️ Назад", "adm:tariffs")],
     ]),
   );
 }
@@ -5761,7 +5725,7 @@ async function handleAdmCallback(
   if (cmd === "subconfig") return admSubConfig(tg, chatId, msgId);
   if (cmd === "sc") {
     const subCmd = parts[2]; // prices, trial, limits, expiry, notify, set, tog, clean_orphan_trials, expire_all_trials
-    if (subCmd === "prices") return admScPrices(tg, chatId, msgId);
+    if (subCmd === "prices") return admTariffs(tg, chatId, msgId); // legacy → новый раздел
     if (subCmd === "trial") return admScTrial(tg, chatId, msgId);
     if (subCmd === "clean_orphan_trials") {
       // Set all orphan trial users (no expiry) to 'none'
@@ -5829,7 +5793,6 @@ async function handleAdmCallback(
       await admLog(adminTgId, "toggle_sub_setting", "sub_config", key, { old: currentVal, new: newVal });
       // Navigate back to the parent section
       const sectionMap: Record<string, string> = {
-        pricing_enabled: "prices",
         trial_enabled: "trial",
         one_trial_per_user: "trial",
         auto_trial_on_shop_create: "trial",
@@ -5842,7 +5805,6 @@ async function handleAdmCallback(
         bot_deactivated_notify: "notify",
       };
       const section = sectionMap[key] || "subconfig";
-      if (section === "prices") return admScPrices(tg, chatId, msgId);
       if (section === "trial") return admScTrial(tg, chatId, msgId);
       if (section === "expiry") return admScExpiry(tg, chatId, msgId);
       if (section === "notify") return admScNotify(tg, chatId, msgId);
@@ -5851,18 +5813,12 @@ async function handleAdmCallback(
     if (subCmd === "set") {
       const key = parts[3]; // e.g. standard_price_usd
       const labels: Record<string, string> = {
-        standard_price_usd: "стандартную цену (USD)",
-        early_price_usd: "early bird цену (USD)",
-        early_slots_limit: "кол-во early слотов",
         trial_days: "дни trial",
         max_shops_per_user: "макс. магазинов на user",
         grace_period_days: "дни grace period",
         reminder_days_before: "за сколько дней reminder",
       };
       const backMap: Record<string, string> = {
-        standard_price_usd: "prices",
-        early_price_usd: "prices",
-        early_slots_limit: "prices",
         trial_days: "trial",
         max_shops_per_user: "limits",
         grace_period_days: "expiry",
@@ -6864,8 +6820,12 @@ async function handleAdmText(
     const price = parseFloat(val);
     if (isNaN(price) || price < 0 || price > 100) return tg.send(chatId, "❌ Введите число от 0 до 100:");
     await clearSession(chatId);
-    const ss = await getSubSettings();
-    const tier = price <= ss.early_price_usd ? "early_3" : "standard_5";
+    // Определяем tier по близости к цене тарифа (start/basic/premium)
+    const all = await getAllTariffPrices();
+    const tier = (["start", "basic", "premium"] as PlanKey[])
+      .reduce((best, p) =>
+        Math.abs(all[p].price - price) < Math.abs(all[best].price - price) ? p : best,
+      "start" as PlanKey);
     await db()
       .from("platform_users")
       .update({
@@ -7413,6 +7373,21 @@ serve(async (req) => {
     const body = await req.json();
     const msg = body.message;
     const cb = body.callback_query;
+
+    // ─── Ignore non-private chats ──────────────
+    // Платформенный бот работает только в личных чатах с пользователями.
+    // В группах/каналах/супергруппах он молчит (бот-куратор для приватных чатов
+    // подписчиков — это отдельный бот через CURATOR_BOT_TOKEN).
+    const _chatType =
+      cb?.message?.chat?.type ||
+      msg?.chat?.type ||
+      body?.my_chat_member?.chat?.type ||
+      body?.chat_member?.chat?.type ||
+      body?.channel_post?.chat?.type ||
+      null;
+    if (_chatType && _chatType !== "private") {
+      return new Response("ok");
+    }
 
     // ─── Callback query ─────────────────────
     if (cb) {
