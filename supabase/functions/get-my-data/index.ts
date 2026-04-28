@@ -213,8 +213,8 @@ serve(async (req) => {
         // Subscription price: фактическая цена пользователя или цена его текущего тарифа
         let subPrice: number | null = pUser.billing_price_usd != null ? Number(pUser.billing_price_usd) : null;
         let subTier: string | null = pUser.pricing_tier || null;
-        if (subPrice == null) {
-          const fallbackPlan = plan || 'start';
+        if (subPrice == null && plan) {
+          const fallbackPlan = plan;
           const tariffRow = (tariffsRows || []).find((t: any) => t.plan === fallbackPlan);
           const fallback: Record<string, number> = { start: 5, basic: 9, premium: 19 };
           subPrice = tariffRow ? Number(tariffRow.price_usd) : (fallback[fallbackPlan] || 5);

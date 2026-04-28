@@ -292,13 +292,13 @@ async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; en
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
-    .select("billing_price_usd, pricing_tier, subscription_plan")
+    .select("billing_price_usd, pricing_tier, subscription_plan, subscription_status")
     .eq("telegram_id", telegramId)
     .maybeSingle();
   if (user?.billing_price_usd != null && user?.pricing_tier)
     return { price: Number(user.billing_price_usd), tier: user.pricing_tier };
-  // Fallback: цена из tariff_prices по плану пользователя (или start)
-  const plan = (user?.subscription_plan as PlanKey) || "start";
+  const plan = user?.subscription_plan as PlanKey | null;
+  if (!plan) return { price: 0, tier: "none" };
   const price = await getTariffPrice(plan);
   return { price, tier: plan };
 }
@@ -1089,9 +1089,11 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   }
   if (user.subscription_status === "trial") {
     subExtra += `\n\n✅ <i>Подписка активна бесплатно (пробный период).</i>`;
-    subExtra += `\n<i>После окончания пробного периода продление: $${priceInfo.price}/мес.</i>`;
+    subExtra += `\n<i>Тариф не назначен — выберите его при оплате после окончания пробного периода.</i>`;
   } else if (user.subscription_status === "none") {
-    subExtra += `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`;
+    subExtra += priceInfo.price > 0
+      ? `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`
+      : `\n\n<i>Для работы магазина выберите тариф и оформите подписку.</i>`;
   }
   const text = `👤 <b>${esc(user.first_name)}${user.last_name ? " " + esc(user.last_name) : ""}</b>${user.username ? `\n🔗 @${esc(user.username)}` : ""}\n\n🏪 Магазинов: <b>${shopCount || 0}</b>\n📊 Подписка: <b>${subLabel}</b>${subExtra}`;
   // 3-tier perks: curator + private chat for basic/premium
@@ -1425,7 +1427,7 @@ async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgI
       btn(`6 мес — $${(price * 6).toFixed(2)}`, `p:pay_sub:${plan}:6`),
       btn(`12 мес — $${(price * 12).toFixed(2)}`, `p:pay_sub:${plan}:12`),
     ],
-    [btn("🎫 Ввести промокод", "p:sub_promo")],
+    [btn("🎫 Ввести промокод", `p:sub_promo:${plan}`)],
     [btn("◀️ К тарифам", "p:sub")],
   ];
   if (!msgId) return tg.send(chatId, text, ikb(rows));
@@ -1437,9 +1439,10 @@ async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgI
 }
 
 async function showRenewOptions(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  // Берём текущий план юзера (или 'start' по умолчанию) и сразу открываем выбор срока
+  // Если тариф не назначен (например, trial) — сначала показываем выбор тарифа.
   const { data: u } = await db().from("platform_users").select("subscription_plan").eq("telegram_id", chatId).maybeSingle();
-  const plan = (((u as any)?.subscription_plan) as PlanKey) || 'start';
+  const plan = ((u as any)?.subscription_plan) as PlanKey | null;
+  if (!plan) return showSubscription(tg, chatId, msgId);
   return showPlanDurations(tg, chatId, msgId, plan);
 }
 
@@ -2071,13 +2074,18 @@ async function handleText(
         ikb([[btn("🔄 Попробовать снова", "p:sub_promo")], [btn("◀️ К подписке", "p:sub")]]),
       );
     }
-    const priceInfo = await getSubscriptionPrice(chatId);
+    const promoPlan = (["start","basic","premium"] as PlanKey[]).includes(sData.plan as PlanKey) ? (sData.plan as PlanKey) : null;
+    if (!promoPlan) {
+      await clearSession(chatId);
+      return tg.send(chatId, "❌ Сначала выберите тариф, затем введите промокод.", ikb([[btn("💳 К тарифам", "p:sub")]]));
+    }
+    const promoMonthlyPrice = await getTariffPrice(promoPlan);
     let discountText = "";
     if (r.discount_type === "percent") {
-      const discountAmount = Math.round(((priceInfo.price * r.discount_value) / 100) * 100) / 100;
+      const discountAmount = Math.round(((promoMonthlyPrice * r.discount_value) / 100) * 100) / 100;
       discountText = `${r.discount_value}% (-$${discountAmount.toFixed(2)}/мес)`;
     } else {
-      const discountAmount = Math.min(r.discount_value, priceInfo.price);
+      const discountAmount = Math.min(r.discount_value, promoMonthlyPrice);
       discountText = `-$${discountAmount.toFixed(2)}/мес`;
     }
     await setSession(chatId, "sub_promo_applied", {
@@ -2085,23 +2093,22 @@ async function handleText(
       promo_id: r.id,
       discount_type: r.discount_type,
       discount_value: r.discount_value,
+      plan: promoPlan,
     });
     // Show month selection with discounted prices
     const calcPrice = (m: number) => {
-      const total = Math.round(priceInfo.price * m * 100) / 100;
+      const total = Math.round(promoMonthlyPrice * m * 100) / 100;
       let disc = 0;
       if (r.discount_type === "percent") disc = Math.round(total * r.discount_value / 100 * 100) / 100;
       else disc = Math.min(r.discount_value, total);
       return Math.max(0, total - disc);
     };
-    const planForPromo: PlanKey = (["start","basic","premium"] as PlanKey[])
-      .includes(priceInfo.tier as PlanKey) ? (priceInfo.tier as PlanKey) : "start";
     return tg.send(
       chatId,
-      `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
+      `✅ <b>Промокод ${esc(r.code)} применён!</b>\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${promoMonthlyPrice}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${planForPromo}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${planForPromo}:3`)],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${planForPromo}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${planForPromo}:12`)],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${promoPlan}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${promoPlan}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${promoPlan}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${promoPlan}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );
@@ -2593,16 +2600,14 @@ async function handleCallback(
   if (cmd === "delshop") return deleteShopConfirm(tg, chatId, msgId, parts[2]);
   if (cmd === "confirmdelete") return deleteShopExecute(tg, chatId, msgId, parts[2]);
   if (cmd === "pay_sub") {
-    // Поддерживаем 2 формата:
-    //   p:pay_sub:<plan>:<months>  — новый
-    //   p:pay_sub:<months>         — старый (fallback → start)
-    let plan: PlanKey = 'start';
+    // Оплата всегда должна идти после явного выбора тарифа.
+    let plan: PlanKey | null = null;
     let monthsRaw = 1;
     if (parts[2] && ['start','basic','premium'].includes(parts[2])) {
       plan = parts[2] as PlanKey;
       monthsRaw = parseInt(parts[3]) || 1;
     } else {
-      monthsRaw = parseInt(parts[2]) || 1;
+      return showSubscription(tg, chatId, msgId);
     }
     const allowedMonths = [1, 3, 6, 12];
     const validMonths = allowedMonths.includes(monthsRaw) ? monthsRaw : 1;
@@ -2819,7 +2824,8 @@ async function handleCallback(
     }
   }
   if (cmd === "sub_promo") {
-    await setSession(chatId, "sub_promo_input", {});
+    const promoPlan = (["start","basic","premium"] as PlanKey[]).includes(parts[2] as PlanKey) ? (parts[2] as PlanKey) : null;
+    await setSession(chatId, "sub_promo_input", { plan: promoPlan });
     return tg.edit(
       chatId,
       msgId,
@@ -7472,11 +7478,16 @@ async function handleAdmText(
         ikb([[btn("🔄 Попробовать другой", "p:sub_promo")], [btn("◀️ Назад", "p:sub")]]),
       );
     const priceInfo = await getSubscriptionPrice(chatId);
+    if (!["start","basic","premium"].includes(priceInfo.tier)) {
+      await clearSession(chatId);
+      return tg.send(chatId, "❌ Сначала выберите тариф, затем введите промокод.", ikb([[btn("💳 К тарифам", "p:sub")]]));
+    }
     await setSession(chatId, "sub_promo_applied", {
       promo_code: r.code,
       promo_id: r.id,
       discount_type: r.discount_type,
       discount_value: r.discount_value,
+      plan: priceInfo.tier,
     });
     // Show month selection with discounted prices
     const calcPrice = (m: number) => {
@@ -7497,8 +7508,8 @@ async function handleAdmText(
       chatId,
       `✅ Промокод <code>${esc(r.code)}</code> применён!\n\n🏷 Скидка: <b>${discountText}</b>\n💰 Базовая цена: $${priceInfo.price}/мес\n\nВыберите срок подписки:`,
       ikb([
-        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, "p:pay_sub:1"), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, "p:pay_sub:3")],
-        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, "p:pay_sub:6"), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, "p:pay_sub:12")],
+        [btn(`1 мес — $${calcPrice(1).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:1`), btn(`3 мес — $${calcPrice(3).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:3`)],
+        [btn(`6 мес — $${calcPrice(6).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:6`), btn(`12 мес — $${calcPrice(12).toFixed(2)}`, `p:pay_sub:${priceInfo.tier}:12`)],
         [btn("◀️ Без промокода", "p:sub")],
       ]),
     );

@@ -152,10 +152,14 @@ const PlatformProfile: React.FC = () => {
       toast.info('Откройте платформу через Telegram');
       return;
     }
+    if (!plan) {
+      toast.info('Сначала выберите тариф');
+      return;
+    }
     setSubLoading(true);
     try {
       const { data: res, error: err } = await supabase.functions.invoke('create-subscription-invoice', {
-        body: { initData, useBalance, promoCode, months: months || 1, plan: plan || 'start' },
+        body: { initData, useBalance, promoCode, months: months || 1, plan },
       });
       if (err) throw err;
       if (res?.error) throw new Error(res.error);
