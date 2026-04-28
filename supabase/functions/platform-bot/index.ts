@@ -227,6 +227,68 @@ function invalidateSubCache() {
 }
 
 // ─── Subscription Helpers ─────────────────────
+const SUBSCRIPTION_BANNER_URL = "https://nrwkriquwmjpdirihwrz.supabase.co/storage/v1/object/public/bot-avatars/platform/subscription-banner.jpg";
+
+type PlanKey = "start" | "basic" | "premium";
+const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; perks: string[] }> = {
+  start: {
+    emoji: "🚀",
+    label: "Старт",
+    short: "Минимум — для запуска",
+    perks: [
+      "Полный функционал магазина",
+      "Помощь с запуском от куратора",
+    ],
+  },
+  basic: {
+    emoji: "⭐",
+    label: "Базовый",
+    short: "Поддержка и комьюнити",
+    perks: [
+      "Всё из Старт",
+      "Кураторство и помощь в ведении",
+      "Закрытый чат владельцев магазинов",
+      "Поставщики товаров",
+      "Бесплатные товары для базового уровня",
+    ],
+  },
+  premium: {
+    emoji: "💎",
+    label: "Премиум",
+    short: "Максимум возможностей",
+    perks: [
+      "Всё из Базового",
+      "Продажа Telegram Stars и Premium",
+      "AI-аватарка магазина",
+      "Кастомизация магазина под нишу",
+      "Премиум-поддержка",
+    ],
+  },
+};
+
+async function getTariffPrice(plan: PlanKey): Promise<number> {
+  const { data } = await db().from("tariff_prices").select("price_usd, is_enabled").eq("plan", plan).maybeSingle();
+  if (!data || data.is_enabled === false) {
+    // Fallback по умолчанию
+    const fallback = { start: 5, basic: 9, premium: 19 } as Record<PlanKey, number>;
+    return fallback[plan];
+  }
+  return Number(data.price_usd);
+}
+
+async function getAllTariffPrices(): Promise<Record<PlanKey, { price: number; enabled: boolean }>> {
+  const { data } = await db().from("tariff_prices").select("plan, price_usd, is_enabled");
+  const out: Record<PlanKey, { price: number; enabled: boolean }> = {
+    start: { price: 5, enabled: true },
+    basic: { price: 9, enabled: true },
+    premium: { price: 19, enabled: true },
+  };
+  (data || []).forEach((r: any) => {
+    if (r.plan in out) out[r.plan as PlanKey] = { price: Number(r.price_usd), enabled: r.is_enabled !== false };
+  });
+  return out;
+}
+
 async function getSubscriptionPrice(telegramId: number): Promise<{ price: number; tier: string }> {
   const { data: user } = await db()
     .from("platform_users")
@@ -1264,8 +1326,9 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
   const { data: user } = await db().from("platform_users").select("*").eq("telegram_id", chatId).maybeSingle();
   if (!user) return;
   const ss = await getSubSettings();
-  const priceInfo = await getSubscriptionPrice(chatId);
+  const tariffs = await getAllTariffPrices();
   const status = subStatusLabel(user.subscription_status);
+  const currentPlan = (user as any).subscription_plan as PlanKey | null;
   let daysLeftText = "";
   // Don't show days left / expiry for cancelled or blocked statuses
   if (user.subscription_expires_at && !["cancelled", "blocked", "none"].includes(user.subscription_status)) {
@@ -1278,7 +1341,6 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     }
   }
 
-  const tierLabel = priceInfo.tier === "early_3" ? "🎉 Early Bird" : "Стандартный";
   let statusBlock = "";
   if (user.subscription_status === "active") {
     statusBlock = `\n\n✅ <b>Подписка активна</b>\nВы можете продлить её заранее — дни будут добавлены к текущему сроку.`;
@@ -1296,27 +1358,26 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
 
   const supportLink = await getSupportLink();
   const supportUsername = supportLink.replace("https://t.me/", "@");
-  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${daysLeftText}${statusBlock}\n\n──────────────────\n\n💰 Ваша цена: <b>$${priceInfo.price}/мес</b> ${priceInfo.tier === "early_3" ? "🎉" : ""}\n\n<b>Включает:</b>\n• ${ss.max_shops_per_user} магазин\n• Полный функционал магазина\n• Помощь с запуском магазина от ${supportUsername}\n• Бесплатный креатив для оформления товаров\n• Личная настройка под вашу нишу\n\n──────────────────\n\nПодписка открывает твой магазин для покупателей — приём оплаты, автовыдача товаров и полная автоматизация продаж без ручной работы.\n\nДля оплаты по карте обратитесь к ${supportUsername}`;
+  const currentPlanLine = currentPlan
+    ? `\n🎟 Ваш тариф: <b>${PLAN_META[currentPlan].emoji} ${PLAN_META[currentPlan].label}</b>`
+    : "";
+
+  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${currentPlanLine}${daysLeftText}${statusBlock}\n\n──────────────────\n\n<b>Выберите тариф:</b>\n\n${(Object.keys(PLAN_META) as PlanKey[]).map((p) => {
+    const t = tariffs[p];
+    const m = PLAN_META[p];
+    return `${m.emoji} <b>${m.label}</b> — $${t.price.toFixed(2)}/мес\n<i>${m.short}</i>`;
+  }).join("\n\n")}\n\n──────────────────\n\nПодписка открывает магазин для покупателей: приём оплаты, автовыдача товаров и полная автоматизация продаж.\n\nДля оплаты по карте обратитесь к ${supportUsername}`;
 
   const rows: Btn[][] = [];
   const isBlocked = user.subscription_status === "blocked";
   if (!isBlocked) {
-    const isActive = user.subscription_status === "active" || user.subscription_status === "trial";
-    if (isActive) {
-      // For active users — single button that opens duration selection
-      rows.push([btn("🔄 Продлить подписку", "p:sub_renew")]);
-    } else {
-      // For inactive users — show duration buttons directly
-      rows.push([
-        btn(`1 мес — $${priceInfo.price.toFixed(2)}`, "p:pay_sub:1"),
-        btn(`3 мес — $${(priceInfo.price * 3).toFixed(2)}`, "p:pay_sub:3"),
-      ]);
-      rows.push([
-        btn(`6 мес — $${(priceInfo.price * 6).toFixed(2)}`, "p:pay_sub:6"),
-        btn(`12 мес — $${(priceInfo.price * 12).toFixed(2)}`, "p:pay_sub:12"),
-      ]);
-      rows.push([btn("🎫 Ввести промокод", "p:sub_promo")]);
-    }
+    // Кнопки выбора тарифа
+    (Object.keys(PLAN_META) as PlanKey[]).forEach((p) => {
+      if (!tariffs[p].enabled) return;
+      const m = PLAN_META[p];
+      const isCurrent = currentPlan === p;
+      rows.push([btn(`${m.emoji} ${m.label}${isCurrent ? " ✅" : ""} — $${tariffs[p].price.toFixed(2)}/мес`, `p:plan:${p}`)]);
+    });
   }
 
   if (user.subscription_status === "active" || user.subscription_status === "trial") {
@@ -1324,25 +1385,54 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
   }
 
   rows.push([btn("◀️ Назад", "p:profile")]);
-  return tg.edit(chatId, msgId, text, ikb(rows));
+  // Шлём фото-баннер при первом открытии (msgId=0) или редактируем текст обычным сообщением
+  if (!msgId) {
+    const res = await tg.sendPhoto(chatId, SUBSCRIPTION_BANNER_URL, text, ikb(rows));
+    if (!res?.ok) {
+      // Fallback: текст без фото
+      return tg.send(chatId, text, ikb(rows));
+    }
+    return res;
+  }
+  // Редактирование сообщения с фото невозможно — удалить и отправить заново
+  try { await tg.deleteMessage(chatId, msgId); } catch (_) { /* noop */ }
+  const res = await tg.sendPhoto(chatId, SUBSCRIPTION_BANNER_URL, text, ikb(rows));
+  if (!res?.ok) return tg.send(chatId, text, ikb(rows));
+  return res;
+}
+
+// Экран выбора срока для конкретного тарифа
+async function showPlanDurations(tg: ReturnType<typeof TG>, chatId: number, msgId: number, plan: PlanKey) {
+  const meta = PLAN_META[plan];
+  if (!meta) return showSubscription(tg, chatId, 0);
+  const price = await getTariffPrice(plan);
+  const perksText = meta.perks.map((p) => `• ${p}`).join("\n");
+  const text = `${meta.emoji} <b>Тариф «${meta.label}»</b>\n\n💰 Цена: <b>$${price.toFixed(2)}/мес</b>\n\n<b>Что входит:</b>\n${perksText}\n\n──────────────────\n\nВыберите срок оплаты:`;
+  const rows: Btn[][] = [
+    [
+      btn(`1 мес — $${price.toFixed(2)}`, `p:pay_sub:${plan}:1`),
+      btn(`3 мес — $${(price * 3).toFixed(2)}`, `p:pay_sub:${plan}:3`),
+    ],
+    [
+      btn(`6 мес — $${(price * 6).toFixed(2)}`, `p:pay_sub:${plan}:6`),
+      btn(`12 мес — $${(price * 12).toFixed(2)}`, `p:pay_sub:${plan}:12`),
+    ],
+    [btn("🎫 Ввести промокод", "p:sub_promo")],
+    [btn("◀️ К тарифам", "p:sub")],
+  ];
+  if (!msgId) return tg.send(chatId, text, ikb(rows));
+  // Если пред. сообщение было фото — edit упадёт, делаем delete+send
+  const editRes = await tg.edit(chatId, msgId, text, ikb(rows));
+  if (editRes?.ok) return editRes;
+  try { await tg.deleteMessage(chatId, msgId); } catch (_) { /* noop */ }
+  return tg.send(chatId, text, ikb(rows));
 }
 
 async function showRenewOptions(tg: ReturnType<typeof TG>, chatId: number, msgId: number) {
-  const priceInfo = await getSubscriptionPrice(chatId);
-  const text = `🔄 <b>Продление подписки</b>\n\n💰 Ваша цена: <b>$${priceInfo.price}/мес</b>\n\nВыберите срок продления — дни будут добавлены к текущему сроку:`;
-  const rows: Btn[][] = [
-    [
-      btn(`1 мес — $${priceInfo.price.toFixed(2)}`, "p:pay_sub:1"),
-      btn(`3 мес — $${(priceInfo.price * 3).toFixed(2)}`, "p:pay_sub:3"),
-    ],
-    [
-      btn(`6 мес — $${(priceInfo.price * 6).toFixed(2)}`, "p:pay_sub:6"),
-      btn(`12 мес — $${(priceInfo.price * 12).toFixed(2)}`, "p:pay_sub:12"),
-    ],
-    [btn("🎫 Ввести промокод", "p:sub_promo")],
-    [btn("◀️ Назад", "p:sub")],
-  ];
-  return tg.edit(chatId, msgId, text, ikb(rows));
+  // Берём текущий план юзера (или 'start' по умолчанию) и сразу открываем выбор срока
+  const { data: u } = await db().from("platform_users").select("subscription_plan").eq("telegram_id", chatId).maybeSingle();
+  const plan = (((u as any)?.subscription_plan) as PlanKey) || 'start';
+  return showPlanDurations(tg, chatId, msgId, plan);
 }
 
 
@@ -2229,6 +2319,11 @@ async function handleCallback(
   if (cmd === "refpayout") return handleReferralPayout(tg, chatId, msgId);
   if (cmd === "sub") return showSubscription(tg, chatId, msgId);
   if (cmd === "sub_renew") return showRenewOptions(tg, chatId, msgId);
+  if (cmd === "plan") {
+    const plan = (parts[2] as PlanKey);
+    if (!["start","basic","premium"].includes(plan)) return showSubscription(tg, chatId, msgId);
+    return showPlanDurations(tg, chatId, msgId, plan);
+  }
   if (cmd === "privchat") return showPrivateChatInvite(tg, chatId, msgId);
   // p:pay_sub and p:sub_promo are handled below (after shop management callbacks)
   if (cmd === "myshops") return myShops(tg, chatId, msgId, parseInt(parts[2]) || 0);
@@ -2485,13 +2580,22 @@ async function handleCallback(
   if (cmd === "delshop") return deleteShopConfirm(tg, chatId, msgId, parts[2]);
   if (cmd === "confirmdelete") return deleteShopExecute(tg, chatId, msgId, parts[2]);
   if (cmd === "pay_sub") {
-    const months = Math.max(1, parseInt(parts[2]) || 1);
+    // Поддерживаем 2 формата:
+    //   p:pay_sub:<plan>:<months>  — новый
+    //   p:pay_sub:<months>         — старый (fallback → start)
+    let plan: PlanKey = 'start';
+    let monthsRaw = 1;
+    if (parts[2] && ['start','basic','premium'].includes(parts[2])) {
+      plan = parts[2] as PlanKey;
+      monthsRaw = parseInt(parts[3]) || 1;
+    } else {
+      monthsRaw = parseInt(parts[2]) || 1;
+    }
     const allowedMonths = [1, 3, 6, 12];
-    const validMonths = allowedMonths.includes(months) ? months : 1;
+    const validMonths = allowedMonths.includes(monthsRaw) ? monthsRaw : 1;
     const totalDays = validMonths * 30;
 
-    const priceInfo = await getSubscriptionPrice(chatId);
-    const MONTHLY_PRICE = priceInfo.price;
+    const MONTHLY_PRICE = await getTariffPrice(plan);
     const SUBSCRIPTION_PRICE = Math.round(MONTHLY_PRICE * validMonths * 100) / 100;
     const telegramId = chatId;
     const session = await getSession(chatId);
@@ -2537,6 +2641,8 @@ async function handleCallback(
         discount_amount: discountAmount,
         final_amount: toPay,
         status: toPay === 0 ? "paid" : "pending",
+        plan,
+        months: validMonths,
       })
       .select("id")
       .single();
@@ -2576,7 +2682,8 @@ async function handleCallback(
           subscription_status: "active",
           subscription_expires_at: expiresAt,
           billing_price_usd: MONTHLY_PRICE,
-          pricing_tier: priceInfo.tier,
+          pricing_tier: plan,
+          subscription_plan: plan,
           first_paid_at: user.first_paid_at || new Date().toISOString(),
           reminder_sent_at: null,
           expiry_notified_at: null,
@@ -2626,11 +2733,15 @@ async function handleCallback(
         console.error("Platform referral credit error:", e);
       }
       await clearSession(chatId);
-      let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
+      const planLabelDone = `${PLAN_META[plan].emoji} ${PLAN_META[plan].label}`;
+      let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n🎟 Тариф: <b>${planLabelDone}</b>\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
         msg += `\n🎫 Промокод: <code>${esc(promoCode || "")}</code>\n🏷 Скидка: -$${discountAmount.toFixed(2)}`;
       if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
-      return tg.edit(chatId, msgId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
+      const okRes = await tg.edit(chatId, msgId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
+      if (okRes?.ok) return okRes;
+      try { await tg.deleteMessage(chatId, msgId); } catch (_) {}
+      return tg.send(chatId, msg, ikb([[btn("◀️ В меню", "p:home")]]));
     }
 
     // Create CryptoBot invoice for remaining amount
@@ -2650,14 +2761,15 @@ async function handleCallback(
           currency_type: "fiat",
           fiat: "USD",
           amount: toPay.toFixed(2),
-          description: `Подписка ${PLATFORM_NAME} (${monthsLabel})${promoCode ? ` [промо: ${promoCode}]` : ""}`,
+          description: `Подписка ${PLATFORM_NAME} • ${PLAN_META[plan].label} (${monthsLabel})${promoCode ? ` [промо: ${promoCode}]` : ""}`,
           payload: JSON.stringify({
             type: "subscription",
             paymentId: payment.id,
             telegramUserId: telegramId,
             balanceUsed,
             subscriptionPrice: SUBSCRIPTION_PRICE,
-            tier: priceInfo.tier,
+            tier: plan,
+            plan,
             months: validMonths,
           }),
           paid_btn_name: "callback",
@@ -2679,12 +2791,15 @@ async function handleCallback(
         .update({ invoice_id: String(invoice.invoice_id), status: "awaiting" })
         .eq("id", payment.id);
       await clearSession(chatId);
-      let text = `💳 <b>Оплата подписки</b>\n\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
+      let text = `💳 <b>Оплата подписки</b>\n\n🎟 Тариф: <b>${PLAN_META[plan].emoji} ${PLAN_META[plan].label}</b>\n💰 Стоимость: $${SUBSCRIPTION_PRICE.toFixed(2)} (${monthsLabel})`;
       if (discountAmount > 0)
         text += `\n🎫 Промокод: <code>${esc(promoCode || "")}</code>\n🏷 Скидка: -$${discountAmount.toFixed(2)}`;
       if (balanceUsed > 0) text += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
       text += `\n💵 К оплате: <b>$${toPay.toFixed(2)}</b>\n\nНажмите кнопку ниже для оплаты:`;
-      return tg.edit(chatId, msgId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
+      const okRes = await tg.edit(chatId, msgId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
+      if (okRes?.ok) return okRes;
+      try { await tg.deleteMessage(chatId, msgId); } catch (_) {}
+      return tg.send(chatId, text, ikb([[urlBtn("💳 Оплатить", invoice.pay_url)], [btn("◀️ Назад", "p:sub")]]));
     } catch (e) {
       await clearSession(chatId);
       return tg.edit(chatId, msgId, `❌ Ошибка: ${maskToken((e as Error).message)}`, ikb([[btn("◀️ Назад", "p:sub")]]));
