@@ -2665,7 +2665,7 @@ async function handleCallback(
               amount: -balanceUsed,
               balance_after: newBal,
               type: "subscription",
-              comment: `Подписка ${PLATFORM_NAME} (${monthsLabel})`,
+              comment: `Подписка ${PLAN_META[plan].label} (${monthsLabel})`,
             });
         }
       }
