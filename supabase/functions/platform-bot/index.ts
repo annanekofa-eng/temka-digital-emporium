@@ -1036,14 +1036,35 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
     subExtra += `\n\n<i>Для работы магазина оформите подписку $${priceInfo.price}/мес.</i>`;
   }
   const text = `👤 <b>${esc(user.first_name)}${user.last_name ? " " + esc(user.last_name) : ""}</b>${user.username ? `\n🔗 @${esc(user.username)}` : ""}\n\n🏪 Магазинов: <b>${shopCount || 0}</b>\n📊 Подписка: <b>${subLabel}</b>${subExtra}`;
-  const kb = ikb([
+  // 3-tier perks: curator + private chat for basic/premium
+  const plan = (user as any).subscription_plan || "start";
+  const isPaidPlus = ["active", "trial", "grace_period"].includes(user.subscription_status) && (plan === "basic" || plan === "premium");
+  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Базовый" : "🟢 Старт";
+  let perksLine = `\n🎫 Тариф: <b>${planIcon}</b>`;
+  // Global curator
+  let curator = "";
+  if (isPaidPlus) {
+    const { data: cur } = await db().from("platform_settings").select("value").eq("key", "global_curator_username").maybeSingle();
+    if (cur?.value) {
+      curator = String(cur.value).replace(/^@/, "");
+      perksLine += `\n👤 Ваш куратор: <a href="https://t.me/${esc(curator)}">@${esc(curator)}</a>`;
+    }
+  }
+  const fullText = text + perksLine;
+  const kbRows: Btn[][] = [
     [webAppBtn("🌐 Открыть профиль", `${WEBAPP_DOMAIN}/platform/profile`)],
     [btn("💳 Подписка", "p:sub")],
-    [btn("🎁 Реферальная система", "p:ref")],
-    [btn("◀️ Назад", "p:home")],
-  ]);
+  ];
+  if (isPaidPlus) {
+    kbRows.push([btn("🔐 Закрытый чат", "p:privchat")]);
+  }
+  kbRows.push([btn("🎁 Реферальная система", "p:ref")]);
+  kbRows.push([btn("◀️ Назад", "p:home")]);
+  const kb = ikb(kbRows);
+  const finalText = fullText;
   if (msgId) return tg.edit(chatId, msgId, text, kb);
-  return tg.send(chatId, text, kb);
+  if (msgId) return tg.edit(chatId, msgId, finalText, kb);
+  return tg.send(chatId, finalText, kb);
 }
 
 // ═══════════════════════════════════════════════
