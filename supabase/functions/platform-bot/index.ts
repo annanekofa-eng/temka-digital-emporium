@@ -4593,6 +4593,99 @@ async function handleAdmCallback(
   if (cmd === "noop") return;
   if (cmd === "stats") return admStats(tg, chatId, msgId);
 
+  // ─── 3-tier tariffs ────────────────────────
+  if (cmd === "tariffs") return admTariffs(tg, chatId, msgId);
+  if (cmd === "tarstats") return admTariffStats(tg, chatId, msgId);
+  if (cmd === "tarset") {
+    const plan = parts[2];
+    if (!["start", "basic", "premium"].includes(plan)) return;
+    await setSession(chatId, "adm_tariff_price", { plan });
+    return tg.edit(
+      chatId,
+      msgId,
+      `✏️ Введите новую цену для тарифа <b>${plan}</b> (USD, например 9.90):`,
+      ikb([[btn("❌ Отмена", "adm:tariffs")]]),
+    );
+  }
+  if (cmd === "tartog") {
+    const plan = parts[2];
+    if (!["start", "basic", "premium"].includes(plan)) return;
+    const { data: cur } = await db().from("tariff_prices").select("is_active").eq("plan", plan).maybeSingle();
+    const newVal = !(cur?.is_active);
+    await db().from("tariff_prices").update({ is_active: newVal, updated_at: new Date().toISOString() }).eq("plan", plan);
+    await admLog(adminTgId, "toggle_tariff", "tariff", plan, { is_active: newVal });
+    await tg.answer(cbId, newVal ? "✅ Включён" : "🚫 Выключен");
+    return admTariffs(tg, chatId, msgId);
+  }
+
+  // ─── Paid content ──────────────────────────
+  if (cmd === "pcontent") return admPaidContent(tg, chatId, msgId, parseInt(parts[2]) || 0);
+  if (cmd === "pcedit") return admPaidContentEdit(tg, chatId, msgId, parts[2]);
+  if (cmd === "pcadd") {
+    await setSession(chatId, "adm_pc_add_title", {});
+    return tg.edit(chatId, msgId, "✏️ Введите заголовок для нового контента:", ikb([[btn("❌ Отмена", "adm:pcontent:0")]]));
+  }
+  if (cmd === "pcfield") {
+    const field = parts[2]; // title | body
+    const id = parts[3];
+    await setSession(chatId, `adm_pc_set_${field}`, { id });
+    return tg.edit(chatId, msgId, `✏️ Введите новое значение для <b>${field}</b>:`, ikb([[btn("❌ Отмена", `adm:pcedit:${id}`)]]));
+  }
+  if (cmd === "pcplan") {
+    const id = parts[2];
+    const { data: cur } = await db().from("paid_content").select("plan").eq("id", id).maybeSingle();
+    const order = ["start", "basic", "premium"];
+    const idx = order.indexOf(cur?.plan || "basic");
+    const next = order[(idx + 1) % order.length];
+    await db().from("paid_content").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "update_paid_content_plan", "paid_content", id, { plan: next });
+    return admPaidContentEdit(tg, chatId, msgId, id);
+  }
+  if (cmd === "pctog") {
+    const id = parts[2];
+    const { data: cur } = await db().from("paid_content").select("is_active").eq("id", id).maybeSingle();
+    const newVal = !(cur?.is_active);
+    await db().from("paid_content").update({ is_active: newVal, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "toggle_paid_content", "paid_content", id, { is_active: newVal });
+    return admPaidContentEdit(tg, chatId, msgId, id);
+  }
+  if (cmd === "pcdel") {
+    const id = parts[2];
+    await db().from("paid_content").delete().eq("id", id);
+    await admLog(adminTgId, "delete_paid_content", "paid_content", id);
+    return admPaidContent(tg, chatId, msgId, 0);
+  }
+
+  // ─── Platform global (curator/chat) ────────
+  if (cmd === "pglobal") return admPlatformGlobal(tg, chatId, msgId);
+  if (cmd === "pgset") {
+    const key = parts[2];
+    if (!["global_curator_username", "private_chat_id"].includes(key)) return;
+    await setSession(chatId, "adm_pg_set", { key });
+    const hint = key === "global_curator_username" ? "username без @ (например, support_curator)" : "chat_id (например, -1001234567890)";
+    return tg.edit(chatId, msgId, `✏️ Введите ${hint}:`, ikb([[btn("❌ Отмена", "adm:pglobal")]]));
+  }
+
+  // ─── Customization requests ────────────────
+  if (cmd === "custreq") {
+    const sub = parts[2];
+    if (sub === "view") return admCustReqView(tg, chatId, msgId, parts[3]);
+    return admCustReqList(tg, chatId, msgId, sub || "pending", parseInt(parts[3]) || 0);
+  }
+  if (cmd === "crstatus") {
+    const id = parts[2];
+    const status = parts[3];
+    if (!["pending", "in_progress", "done"].includes(status)) return;
+    await db().from("customization_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+    await admLog(adminTgId, "update_custreq_status", "customization_requests", id, { status });
+    return admCustReqView(tg, chatId, msgId, id);
+  }
+  if (cmd === "crresp") {
+    const id = parts[2];
+    await setSession(chatId, "adm_cr_response", { id });
+    return tg.edit(chatId, msgId, "✏️ Введите ответ куратора:", ikb([[btn("❌ Отмена", `adm:custreq:view:${id}`)]]));
+  }
+
   // ─── Referral admin ───────────────────────
   if (cmd === "ref") return admReferral(tg, chatId, msgId);
   if (cmd === "refusers") {
