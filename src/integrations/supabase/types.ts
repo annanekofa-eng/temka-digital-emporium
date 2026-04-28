@@ -2460,6 +2460,10 @@ export type Database = {
         Args: { p_amount: number; p_shop_id: string; p_telegram_id: number }
         Returns: number
       }
+      shop_has_premium_features: {
+        Args: { p_shop_id: string }
+        Returns: boolean
+      }
       validate_platform_subscription_promo: {
         Args: { p_code: string; p_telegram_id: number }
         Returns: Json
