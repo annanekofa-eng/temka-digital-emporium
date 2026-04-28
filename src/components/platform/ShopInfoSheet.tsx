@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { Store, Bot, Wifi, Package, ShoppingCart, Users, DollarSign, Calendar, Sparkles, Palette, Loader2, ImageIcon, ExternalLink } from 'lucide-react';
+import { Store, Bot, Wifi, Package, ShoppingCart, Users, DollarSign, Calendar, Sparkles, Palette, Loader2, ImageIcon, ExternalLink, RefreshCw, Check, Wand2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -50,8 +50,26 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [quota, setQuota] = useState<{ limit: number; used: number; remaining: number } | null>(null);
+  const [editPrompt, setEditPrompt] = useState('');
 
   if (!shop) return null;
+
+  const loadQuota = useCallback(async () => {
+    if (!initData || !shop?.id) return;
+    try {
+      const { data } = await supabase.functions.invoke('generate-shop-avatar', {
+        body: { initData, shopId: shop.id, action: 'quota' },
+      });
+      if ((data as any)?.quota) setQuota((data as any).quota);
+    } catch { /* ignore */ }
+  }, [initData, shop?.id]);
+
+  useEffect(() => {
+    if (open && showAi) loadQuota();
+  }, [open, showAi, loadQuota]);
 
   const handleGenerate = async () => {
     if (!initData) { toast.error('Откройте через Telegram'); return; }
@@ -66,18 +84,71 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
       if (error || (data as any)?.error) {
         const msg = (data as any)?.error || error?.message || 'Не удалось сгенерировать';
         toast.error(msg);
+        if ((data as any)?.quota) setQuota((data as any).quota);
         return;
       }
       const url = (data as any)?.avatarUrl;
       if (url) {
         setPreviewUrl(url);
-        onAvatarUpdated?.(url);
-        toast.success('Аватарка обновлена ✨');
+        setPreviewId((data as any)?.generationId || null);
+        if ((data as any)?.quota) setQuota((data as any).quota);
+        toast.success('Картинка готова — посмотрите превью');
       }
     } catch (e: any) {
       toast.error(e?.message || 'Ошибка генерации');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!initData) { toast.error('Откройте через Telegram'); return; }
+    const text = editPrompt.trim();
+    if (text.length < 3) { toast.error('Опишите изменения (хотя бы 3 символа)'); return; }
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-shop-avatar', {
+        body: { initData, shopId: shop.id, prompt: text, parentId: previewId },
+      });
+      if (error || (data as any)?.error) {
+        const msg = (data as any)?.error || error?.message || 'Не удалось сгенерировать';
+        toast.error(msg);
+        if ((data as any)?.quota) setQuota((data as any).quota);
+        return;
+      }
+      const url = (data as any)?.avatarUrl;
+      if (url) {
+        setPreviewUrl(url);
+        setPreviewId((data as any)?.generationId || null);
+        if ((data as any)?.quota) setQuota((data as any).quota);
+        setEditPrompt('');
+        toast.success('Обновлено ✨');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Ошибка генерации');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!initData || !previewUrl) return;
+    setApplying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-shop-avatar', {
+        body: { initData, shopId: shop.id, action: 'apply', applyImageUrl: previewUrl },
+      });
+      if (error || (data as any)?.error) {
+        toast.error((data as any)?.error || error?.message || 'Не удалось применить');
+        return;
+      }
+      onAvatarUpdated?.(previewUrl);
+      toast.success('Аватарка установлена ✅');
+      setShowAi(false); setPreviewUrl(null); setPreviewId(null); setPrompt(''); setEditPrompt('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Ошибка');
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -184,26 +255,75 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
           {/* Premium tools */}
           <div className="space-y-2">
             <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-purple-400" /> Премиум-инструменты
+              <Sparkles className="w-3 h-3 text-purple-400" /> AI-инструменты
             </p>
 
             {!showAi ? (
               <button
                 type="button"
-                onClick={() => { if (!canUsePremium) { toast.info('Доступно на тарифе Премиум'); return; } setShowAi(true); }}
-                className={`w-full flex items-center justify-between gap-2 rounded-xl border p-3 text-left transition ${canUsePremium ? 'border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100' : 'border-gray-200 bg-gray-50 opacity-70'}`}
+                onClick={() => setShowAi(true)}
+                className="w-full flex items-center justify-between gap-2 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 p-3 text-left transition"
               >
                 <div className="flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-purple-500" />
+                  <Wand2 className="w-4 h-4 text-purple-500" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">AI-аватарка магазина</p>
-                    <p className="text-[11px] text-gray-500">{canUsePremium ? 'Сгенерировать новую аватарку нейросетью' : 'Только для Премиум'}</p>
+                    <p className="text-sm font-medium text-gray-900">🪄 AI-генерация фото магазина</p>
+                    <p className="text-[11px] text-gray-500">3 генерации на цикл подписки</p>
                   </div>
                 </div>
-                {!canUsePremium && <Badge variant="secondary" className="text-[10px]">Premium</Badge>}
+                <Badge className="bg-purple-500 hover:bg-purple-500 text-white text-[10px]">AI</Badge>
               </button>
             ) : (
               <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-2">
+                {quota && (
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-gray-600">Осталось генераций в этом цикле:</span>
+                    <Badge variant={quota.remaining > 0 ? 'default' : 'secondary'} className={quota.remaining > 0 ? 'bg-purple-500 hover:bg-purple-500 text-white' : ''}>
+                      {quota.remaining}/{quota.limit}
+                    </Badge>
+                  </div>
+                )}
+                {previewUrl ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-center">
+                      <img src={previewUrl} alt="Превью" className="w-40 h-40 rounded-2xl object-cover border-2 border-purple-200 shadow-md" />
+                    </div>
+                    <Textarea
+                      value={editPrompt}
+                      onChange={(e) => setEditPrompt(e.target.value)}
+                      placeholder="Что изменить? Например: сделай фон темнее, добавь иконку звезды"
+                      rows={2}
+                      maxLength={300}
+                      disabled={generating || applying}
+                      className="text-sm resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={handleEdit}
+                        disabled={generating || applying || editPrompt.trim().length < 3 || (quota?.remaining ?? 0) <= 0}
+                      >
+                        {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+                        Внести правки
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                        onClick={handleApply}
+                        disabled={generating || applying}
+                      >
+                        {applying ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                        Применить
+                      </Button>
+                    </div>
+                    <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => { setPreviewUrl(null); setPreviewId(null); setEditPrompt(''); }} disabled={generating || applying}>
+                      Начать заново
+                    </Button>
+                  </div>
+                ) : (
+                  <>
                 <p className="text-xs text-gray-600">Опишите ваш магазин — что продаёте, какой стиль и настроение:</p>
                 <Textarea
                   value={prompt}
@@ -223,7 +343,7 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
                     size="sm"
                     className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
                     onClick={handleGenerate}
-                    disabled={generating || prompt.trim().length < 3}
+                    disabled={generating || prompt.trim().length < 3 || (quota?.remaining ?? 1) <= 0}
                   >
                     {generating ? (
                       <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Генерация…</>
@@ -231,10 +351,12 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
                       <><Sparkles className="w-3.5 h-3.5 mr-1" /> Сгенерировать</>
                     )}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setShowAi(false); setPrompt(''); }} disabled={generating}>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowAi(false); setPrompt(''); setPreviewUrl(null); setPreviewId(null); }} disabled={generating}>
                     Отмена
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
             )}
 
