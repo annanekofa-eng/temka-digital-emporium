@@ -6277,6 +6277,104 @@ async function handleAdmText(
     return;
   }
 
+  // ─── Tariff price set ──────────────────────
+  if (state === "adm_tariff_price") {
+    const plan = sData.plan as string;
+    const num = parseFloat(val.replace(",", "."));
+    if (isNaN(num) || num < 0) return tg.send(chatId, "❌ Введите число ≥ 0:");
+    const { data: cur } = await db().from("tariff_prices").select("price_usd").eq("plan", plan).maybeSingle();
+    await db().from("tariff_prices").upsert(
+      { plan, price_usd: num, updated_at: new Date().toISOString() },
+      { onConflict: "plan" },
+    );
+    await admLog(chatId, "update_tariff_price", "tariff", plan, { old: cur?.price_usd, new: num });
+    await clearSession(chatId);
+    return tg.send(chatId, `✅ Тариф <b>${plan}</b>: $${num.toFixed(2)}`, ikb([[btn("◀️ Тарифы", "adm:tariffs")]]));
+  }
+
+  // ─── Paid content add/edit ─────────────────
+  if (state === "adm_pc_add_title") {
+    const title = val.trim().slice(0, 200);
+    if (!title) return tg.send(chatId, "❌ Заголовок не может быть пустым:");
+    await setSession(chatId, "adm_pc_add_body", { title });
+    return tg.send(chatId, "✏️ Введите тело сообщения (HTML поддерживается):");
+  }
+  if (state === "adm_pc_add_body") {
+    const title = sData.title as string;
+    const body = val;
+    const { data: ins, error } = await db()
+      .from("paid_content")
+      .insert({ title, body, plan: "basic", is_active: true })
+      .select("id")
+      .single();
+    await clearSession(chatId);
+    if (error) return tg.send(chatId, `❌ Ошибка: ${error.message}`, ikb([[btn("◀️", "adm:pcontent:0")]]));
+    await admLog(chatId, "create_paid_content", "paid_content", ins.id, { title });
+    return tg.send(chatId, `✅ Создано. По умолчанию план: basic.`, ikb([[btn("📦 Открыть", `adm:pcedit:${ins.id}`)]]));
+  }
+  if (state === "adm_pc_set_title") {
+    const id = sData.id as string;
+    await db().from("paid_content").update({ title: val.trim().slice(0, 200), updated_at: new Date().toISOString() }).eq("id", id);
+    await clearSession(chatId);
+    await admLog(chatId, "update_paid_content_title", "paid_content", id);
+    return tg.send(chatId, "✅ Заголовок обновлён.", ikb([[btn("◀️", `adm:pcedit:${id}`)]]));
+  }
+  if (state === "adm_pc_set_body") {
+    const id = sData.id as string;
+    await db().from("paid_content").update({ body: val, updated_at: new Date().toISOString() }).eq("id", id);
+    await clearSession(chatId);
+    await admLog(chatId, "update_paid_content_body", "paid_content", id);
+    return tg.send(chatId, "✅ Тело обновлено.", ikb([[btn("◀️", `adm:pcedit:${id}`)]]));
+  }
+
+  // ─── Platform global (curator/chat) ────────
+  if (state === "adm_pg_set") {
+    const key = sData.key as string;
+    let value = val.trim();
+    if (key === "global_curator_username") value = value.replace(/^@/, "").slice(0, 64);
+    if (key === "private_chat_id") {
+      if (!/^-?\d+$/.test(value)) return tg.send(chatId, "❌ chat_id должен быть числом:");
+    }
+    await db().from("platform_settings").upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
+    await admLog(chatId, "update_platform_setting", "platform_settings", key, { value });
+    await clearSession(chatId);
+    return tg.send(chatId, `✅ Сохранено: <b>${esc(key)}</b> = <code>${esc(value)}</code>`, ikb([[btn("◀️", "adm:pglobal")]]));
+  }
+
+  // ─── Customization request: curator response ─
+  if (state === "adm_cr_response") {
+    const id = sData.id as string;
+    await db().from("customization_requests").update({
+      curator_response: val,
+      status: "in_progress",
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    await admLog(chatId, "answer_custreq", "customization_requests", id);
+    // Notify owner
+    const { data: r } = await db().from("customization_requests").select("owner_telegram_id").eq("id", id).maybeSingle();
+    if (r?.owner_telegram_id) {
+      try {
+        const token = Deno.env.get("PLATFORM_BOT_TOKEN")!;
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: r.owner_telegram_id,
+            text: `💎 <b>Ответ куратора по вашей заявке на кастомизацию:</b>\n\n${val}`,
+            parse_mode: "HTML",
+          }),
+        });
+      } catch (e) {
+        console.error("notify owner failed:", maskToken((e as Error).message));
+      }
+    }
+    await clearSession(chatId);
+    return tg.send(chatId, "✅ Ответ сохранён и отправлен владельцу.", ikb([[btn("◀️", `adm:custreq:view:${id}`)]]));
+  }
+
   if (state === "adm_user_balance") {
     const targetTgId = sData.target_tg_id as number;
     const match = val.match(/^([+-]?)(\d+(?:\.\d+)?)$/);
