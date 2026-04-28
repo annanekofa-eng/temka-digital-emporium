@@ -251,6 +251,7 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   const balanceUsed = Number(orderData.balanceUsed || 0);
   const subscriptionPrice = Number(orderData.subscriptionPrice || 0);
   const tier = orderData.tier || "standard_5";
+  const plan = ['start','basic','premium'].includes(orderData.plan) ? orderData.plan : 'start';
   const months = Number(orderData.months) || 1;
   const totalDays = months * 30;
 
@@ -283,8 +284,13 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   const expiresAt = new Date(baseDate + totalDays * 24 * 60 * 60 * 1000).toISOString();
   const wasActive = pUser?.subscription_status === 'active';
   
+  // Capture previous plan to detect upgrade
+  const previousPlan = pUser?.subscription_plan || null;
+
   await supabase.from("platform_users").update({
     subscription_status: "active", subscription_expires_at: expiresAt,
+    subscription_plan: plan,
+    current_period_end: expiresAt,
     billing_price_usd: months === 1 ? subscriptionPrice : Math.round(subscriptionPrice / months * 100) / 100,
     pricing_tier: tier,
     first_paid_at: pUser?.first_paid_at || new Date().toISOString(),
@@ -331,7 +337,8 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   const monthsLabel = months === 1 ? "1 мес" : `${months} мес`;
   const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
   if (botToken) {
-    let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel})`;
+    const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+    let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel})`;
     if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
     try {
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -339,6 +346,63 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
         body: JSON.stringify({ chat_id: telegramUserId, text: msg, parse_mode: "HTML" }),
       });
     } catch {}
+  }
+
+  // Deliver paid_content based on plan (idempotent via UNIQUE in paid_content_logs)
+  await deliverPaidContent(supabase, telegramUserId, plan, previousPlan, botToken);
+}
+
+// ─── Deliver paid content (basic/premium) ────────
+async function deliverPaidContent(
+  supabase: any,
+  telegramId: number,
+  newPlan: string,
+  previousPlan: string | null,
+  botToken: string | null,
+) {
+  if (!botToken) return;
+  // Determine which plans the user is now entitled to
+  const eligiblePlans: string[] = [];
+  if (newPlan === 'basic' || newPlan === 'premium') eligiblePlans.push('basic');
+  if (newPlan === 'premium') eligiblePlans.push('premium');
+  if (eligiblePlans.length === 0) return;
+
+  // For upgrades (basic -> premium): only deliver premium content (basic was already sent)
+  // For new subs to basic/premium: deliver everything they're entitled to
+  // Idempotency via UNIQUE(telegram_id, content_id) in paid_content_logs prevents dupes anyway.
+  const { data: items } = await supabase
+    .from('paid_content')
+    .select('id, plan, title, body')
+    .in('plan', eligiblePlans)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  for (const item of items || []) {
+    // Pre-check log to avoid sending message for already-sent content
+    const { data: existing } = await supabase
+      .from('paid_content_logs')
+      .select('id').eq('telegram_id', telegramId).eq('content_id', item.id).maybeSingle();
+    if (existing) continue;
+
+    const text = `🎁 <b>${item.title}</b>\n\n${item.body}`;
+    let ok = false;
+    let errMsg = '';
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: telegramId, text, parse_mode: 'HTML', disable_web_page_preview: true }),
+      });
+      const j = await r.json().catch(() => ({}));
+      ok = !!j?.ok;
+      if (!ok) errMsg = String(j?.description || r.status);
+    } catch (e: any) {
+      errMsg = e?.message || 'send error';
+    }
+    // Log result (UNIQUE prevents dupes on retry)
+    await supabase.from('paid_content_logs').insert({
+      telegram_id: telegramId, content_id: item.id,
+      status: ok ? 'sent' : 'failed', error: ok ? null : errMsg,
+    });
   }
 }
 
