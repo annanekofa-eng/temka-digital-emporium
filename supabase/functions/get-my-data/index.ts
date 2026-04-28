@@ -220,6 +220,24 @@ serve(async (req) => {
         const trialEnabled = settingsMap.sub_trial_enabled ? settingsMap.sub_trial_enabled === "true" : true;
         const maxShops = settingsMap.sub_max_shops_per_user ? parseInt(settingsMap.sub_max_shops_per_user) : 1;
 
+        // Tariffs and global curator
+        const { data: tariffsRows } = await supabase.from("tariff_prices").select("plan, price_usd, is_enabled").order("price_usd", { ascending: true });
+        const { data: curatorRow } = await supabase.from("platform_settings").select("value").eq("key", "global_curator_username").maybeSingle();
+        const curatorUsername = (curatorRow?.value || "").trim().replace(/^@/, "");
+
+        const plan = (pUser as any).subscription_plan || 'start';
+        const isActive = ['active','trial','grace_period'].includes(pUser.subscription_status)
+          && (!pUser.subscription_expires_at || new Date(pUser.subscription_expires_at).getTime() > Date.now());
+        const entitlements = {
+          private_chat: isActive && (plan === 'basic' || plan === 'premium'),
+          curator_help: isActive && (plan === 'basic' || plan === 'premium'),
+          suppliers: isActive && (plan === 'basic' || plan === 'premium'),
+          ai_avatar: isActive && plan === 'premium',
+          shop_customization: isActive && plan === 'premium',
+          sell_telegram_stars: isActive && plan === 'premium',
+          sell_telegram_premium: isActive && plan === 'premium',
+        };
+
         return jsonRes({
           user: {
             id: pUser.id, telegram_id: pUser.telegram_id, first_name: pUser.first_name,
@@ -231,10 +249,15 @@ serve(async (req) => {
             trial_started_at: pUser.trial_started_at, has_used_trial: pUser.has_used_trial,
             pricing_tier: subTier, billing_price_usd: subPrice,
             first_paid_at: pUser.first_paid_at,
+            plan,
+            current_period_end: (pUser as any).current_period_end || pUser.subscription_expires_at,
           },
           balance: Number(pUser.balance) || 0,
           shops: shopsWithStats,
           settings: { trial_days: trialDays, trial_enabled: trialEnabled, max_shops: maxShops },
+          tariffs: tariffsRows || [],
+          curator: curatorUsername ? { username: curatorUsername } : null,
+          entitlements,
         });
       }
 
