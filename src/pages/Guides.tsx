@@ -227,6 +227,7 @@ export default function Guides() {
   const { initData, isReady, isInTelegram } = useTelegram();
   const [userPlan, setUserPlan] = useState<Plan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
 
   // Resolve current user's plan via existing get-my-data (server-side TG verification).
   useEffect(() => {
@@ -293,6 +294,35 @@ export default function Guides() {
 
   const sections = useMemo(() => SECTIONS, []);
 
+  // Scrollspy: highlight tab while scrolling sections
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]?.target?.id) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.25, 0.5, 1] },
+    );
+    SECTIONS.forEach((s) => {
+      const el = document.getElementById(s.id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const handleTabClick = (id: string) => {
+    setActiveSection(id);
+    const el = document.getElementById(id);
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 140;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  };
+
   return (
     <div
       className="min-h-screen antialiased"
@@ -322,6 +352,32 @@ export default function Guides() {
         </div>
       </header>
 
+      {/* Section Tabs */}
+      <div className="sticky top-16 z-40 backdrop-blur-xl bg-white/85 border-b border-[#e2e8f0]/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1">
+            {SECTIONS.map((s) => {
+              const Icon = s.icon;
+              const active = activeSection === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => handleTabClick(s.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap border transition-all duration-200 ${
+                    active
+                      ? "bg-[#0f172a] text-white border-[#0f172a] shadow-md shadow-slate-900/10"
+                      : "bg-white text-[#475569] border-[#e2e8f0] hover:border-[#cbd5e1] hover:text-[#0f172a]"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  {s.title}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Hero */}
       <section className="px-4 sm:px-6 pt-10 sm:pt-16 pb-6 sm:pb-10">
         <div className="max-w-5xl mx-auto text-center">
@@ -346,7 +402,7 @@ export default function Guides() {
           {sections.map((section) => {
             const SectionIcon = section.icon;
             return (
-              <section key={section.id}>
+              <section key={section.id} id={section.id} className="scroll-mt-36">
                 <div className="flex items-start sm:items-center gap-3 mb-5 sm:mb-6">
                   <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#eff6ff] border border-[#bfdbfe] flex items-center justify-center shrink-0">
                     <SectionIcon className="w-5 h-5 text-[#2563eb]" />
