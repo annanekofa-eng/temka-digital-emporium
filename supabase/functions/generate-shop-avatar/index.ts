@@ -25,11 +25,21 @@ function verifyAndExtractUser(initData: string, botToken: string): { id: number 
 }
 
 const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — арт-директор Telegram-магазинов. Создай готовую аватарку магазина, а не общий арт.
-Формат: квадрат 1:1, один крупный центральный знак/маскот/предмет, читаемый внутри круглой аватарки 64×64.
-Без текста, букв, логотипов брендов, водяных знаков, мелких деталей и интерфейсов.
+Формат: квадрат 1:1, композиция должна оставаться читаемой внутри круглой аватарки 64×64.
+Обязательно используй название магазина как главный брендовый элемент: добавь точную крупную надпись с названием, если оно короткое; если название длинное — сделай короткий читаемый бейдж или монограмму и сохрани полное название в стиле бренда, когда пользователь явно просит title/name.
+Текст на изображении должен быть без ошибок, без лишних слов, без водяных знаков, без чужих логотипов и без мелкого нечитаемого текста.
 Стиль: премиальный e-commerce, чистые формы, выразительный силуэт, аккуратный свет, контрастный фон.
-Выбирай визуальную метафору строго по нише магазина. Если пользователь просит game/esports — делай игровую эмблему/контроллер/маскота без надписей.
+Выбирай визуальную метафору строго по нише магазина. Если пользователь просит game/esports — делай игровую эмблему/маскота и крупный заголовок магазина.
 Качество: crisp icon, polished, 4K.`;
+
+function buildAvatarPrompt(shopName: string | null | undefined, prompt: string, isEdit: boolean): string {
+  const name = (shopName || "").trim();
+  const nameInstruction = name
+    ? `Название магазина: "${name}". Напиши это название на аватарке точно так же, без перевода и без опечаток.`
+    : "Название магазина не найдено — если пользователь указал название в описании, используй его как крупный заголовок.";
+  const mode = isEdit ? "Внеси изменения в существующую картинку согласно описанию, сохрани бренд и читаемое название магазина." : "Создай новую аватарку магазина.";
+  return `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${mode}\n${nameInstruction}\nОписание пользователя: ${prompt}`;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -50,7 +60,7 @@ serve(async (req) => {
     // Verify ownership of shop (доступно всем владельцам с любой подпиской)
     const { data: pUser } = await supabase.from("platform_users").select("id").eq("telegram_id", telegramId).maybeSingle();
     if (!pUser?.id) return jsonRes({ error: "Пользователь не найден" }, 404);
-    const { data: shop } = await supabase.from("shops").select("id, owner_id").eq("id", shopId).maybeSingle();
+    const { data: shop } = await supabase.from("shops").select("id, owner_id, name").eq("id", shopId).maybeSingle();
     if (!shop || shop.owner_id !== pUser.id) return jsonRes({ error: "Магазин не найден или не принадлежит вам" }, 403);
 
     // ── action: quota — вернуть лимит ────────
@@ -97,16 +107,16 @@ serve(async (req) => {
     }
 
     const userContent: any[] = [
-      { type: "text", text: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${parentImageUrl ? "Внеси изменения в существующую картинку согласно описанию." : "Описание магазина:"} ${prompt}` },
+      { type: "text", text: buildAvatarPrompt((shop as any)?.name, prompt, Boolean(parentImageUrl)) },
     ];
     if (parentImageUrl) {
       userContent.push({ type: "image_url", image_url: { url: parentImageUrl } });
     }
 
     const models = [
-      "google/gemini-2.5-flash-image",
-      "google/gemini-3.1-flash-image-preview",
       "google/gemini-3-pro-image-preview",
+      "google/gemini-3.1-flash-image-preview",
+      "google/gemini-2.5-flash-image",
     ];
     let aiRes: Response | null = null;
     let dataUrl: string | null = null;
