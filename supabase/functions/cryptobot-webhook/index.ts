@@ -70,6 +70,43 @@ async function markTopupProcessed(supabase: any, invoiceId: string, telegramUser
   });
 }
 
+// Atomic claim: try to INSERT a row into processed_invoices. If the PK
+// conflict fires, another concurrent webhook delivery already won the race
+// and is responsible for processing — we must skip silently.
+// Returns true ONLY if THIS call became the owner of the invoice.
+async function claimInvoice(
+  supabase: any,
+  invoiceId: string,
+  type: string,
+  telegramId: number | null,
+  amount: number,
+  orderId: string | null,
+): Promise<boolean> {
+  const { error } = await supabase.from("processed_invoices").insert({
+    invoice_id: invoiceId,
+    type,
+    order_id: orderId,
+    telegram_id: telegramId,
+    amount,
+  });
+  if (!error) return true;
+  // 23505 = unique_violation in Postgres → already claimed
+  const code = (error as any)?.code;
+  if (code === "23505") return false;
+  // Anything else is a real error — surface it so we don't drop payments silently.
+  throw new Error(`claimInvoice failed: ${error.message || code}`);
+}
+
+// Release a claim if the business logic failed, so CryptoBot's retry can
+// be processed by a future delivery instead of being silently swallowed.
+async function releaseInvoiceClaim(supabase: any, invoiceId: string) {
+  try {
+    await supabase.from("processed_invoices").delete().eq("invoice_id", invoiceId);
+  } catch (e) {
+    console.error(`[cryptobot-webhook] failed to release claim ${invoiceId}:`, e);
+  }
+}
+
 async function sendTopupNotification(botToken: string | null, telegramUserId: number, topupAmount: number, newBalance: number, invoiceId: string) {
   if (!botToken) return;
   try {
