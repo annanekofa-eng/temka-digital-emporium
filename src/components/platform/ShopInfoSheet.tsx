@@ -73,6 +73,18 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
     if (open && showAi) loadQuota();
   }, [open, showAi, loadQuota]);
 
+  useEffect(() => {
+    if (open && autoOpenAi) setShowAi(true);
+    if (!open) {
+      // Reset on close so next open with different shop is clean
+      setShowAi(false);
+      setPreviewUrl(null);
+      setPreviewId(null);
+      setPrompt('');
+      setEditPrompt('');
+    }
+  }, [open, autoOpenAi]);
+
   const handleGenerate = async () => {
     if (!initData) { toast.error('Откройте через Telegram'); return; }
     const text = prompt.trim();
