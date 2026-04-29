@@ -94,6 +94,13 @@ function renderWelcome(raw: string, name: string): string {
   return raw.replace(/\{name\}/gi, esc(name));
 }
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
+const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — генератор логотипов для Telegram-магазинов.
+Создай минималистичный, современный логотип-аватар:
+— квадратный формат, чистая композиция, центральный объект;
+— яркий, узнаваемый цвет;
+— без текста и без водяных знаков;
+— хорошо читается в круге размером 64×64;
+— стиль: flat / soft 3D / glass, премиальный e-commerce.`;
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
@@ -253,7 +260,11 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
   const autoBtn = hasPremium
     ? btn("🤖 Авто-товары", "s:ap")
     : btn("🔒 Авто-товары (Премиум)", "s:ap");
+  const aiBtn = hasPremium
+    ? btn("🪄 AI-аватарка", "s:aiav")
+    : btn("🔒 AI-аватарка (Премиум)", "s:upsell:premium");
   const kb = ikb([
+    [aiBtn],
     [btn("📦 Товары", "s:pl:0"), btn("📁 Категории", "s:cl:0")],
     [btn("🛒 Заказы", "s:ol:0"), btn("👥 Пользователи", "s:ul:0")],
     [btn("🧾 Заявки", "s:rql:0")],
@@ -262,7 +273,6 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
     [btn("⭐ Отзывы", "s:rvl:0")],
     [autoBtn, btn("📲 Авто-заказы", "s:ao:0")],
-    [{ text: "🪄 AI-аватарка магазина", web_app: { url: `${WEBAPP_DOMAIN}/platform/profile?shop=${shopId}&ai=1` } } as Btn],
   ]);
 
   if (msgId) return tg.edit(chatId, msgId, text, kb);
@@ -1343,6 +1353,14 @@ async function handleFSM(
     return true;
   }
 
+  // ─── AI shop avatar prompt ────────────────
+  if (state === "aiav" || state.startsWith("aiav_edit:")) {
+    const parentId = state.startsWith("aiav_edit:") ? state.slice("aiav_edit:".length) : null;
+    await clearSession(cid, shopId);
+    await generateShopAvatarFromPrompt(tg, cid, shopId, adminId, val, parentId);
+    return true;
+  }
+
   // ─── Add product ──────────────────────────
   if (state === "ap:t") {
     await setSession(cid, "ap:p", shopId, { ...sData, title: val });
@@ -2368,6 +2386,122 @@ async function shopOwnerHasPremium(shopId: string): Promise<boolean> {
   }
 }
 
+async function generateShopAvatarFromPrompt(
+  tg: ReturnType<typeof TG>,
+  cid: number,
+  shopId: string,
+  adminId: number,
+  prompt: string,
+  parentId?: string | null,
+) {
+  const text = (prompt || "").trim();
+  if (text.length < 3 || text.length > 300) {
+    await tg.send(cid, "❌ Опишите аватарку текстом от 3 до 300 символов.");
+    return;
+  }
+  if (!(await shopOwnerHasPremium(shopId))) {
+    await tg.send(cid, premiumUpsellBanner(), ikb([[btn("💎 Перейти на Премиум", "s:upsell:premium")], [btn("◀️ Меню", "s:m")]]));
+    return;
+  }
+
+  const quotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+  const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3, cycle_start: null };
+  if (Number(quota.remaining || 0) <= 0) {
+    await tg.send(cid, `❌ Лимит генераций исчерпан: ${quota.used}/${quota.limit}. Лимит обновится при продлении подписки.`, ikb([[btn("◀️ Меню", "s:m")]]));
+    return;
+  }
+
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) {
+    await tg.send(cid, "❌ AI временно не настроен. Сообщите в поддержку.");
+    return;
+  }
+
+  await tg.send(cid, "🪄 Генерирую аватарку, это может занять до минуты…");
+
+  let parentImageUrl: string | null = null;
+  if (parentId) {
+    const { data: parent } = await supabase()
+      .from("shop_ai_avatar_generations")
+      .select("image_url")
+      .eq("id", parentId)
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    parentImageUrl = (parent as any)?.image_url || null;
+  }
+
+  const content: any[] = [
+    { type: "text", text: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${parentImageUrl ? "Внеси изменения в существующую картинку согласно описанию." : "Описание магазина:"} ${text}` },
+  ];
+  if (parentImageUrl) content.push({ type: "image_url", image_url: { url: parentImageUrl } });
+
+  const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [{ role: "user", content }],
+      modalities: ["image", "text"],
+    }),
+  });
+  if (!aiRes.ok) {
+    const errText = await aiRes.text().catch(() => "");
+    console.error("[seller-bot-webhook] avatar AI error:", aiRes.status, errText.slice(0, 200));
+    await tg.send(cid, aiRes.status === 429 ? "❌ Слишком много запросов к AI. Попробуйте позже." : "❌ Не удалось сгенерировать аватарку.");
+    return;
+  }
+
+  const aiJson = await aiRes.json();
+  const dataUrl = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const m = typeof dataUrl === "string" ? dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+  if (!m) {
+    await tg.send(cid, "❌ AI не вернул изображение. Попробуйте другой prompt.");
+    return;
+  }
+
+  const mime = m[1];
+  const ext = mime.split("/")[1] || "png";
+  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  const path = `ai/${shopId}-${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase().storage.from("bot-avatars").upload(path, bytes, { contentType: mime, upsert: false });
+  if (uploadError) {
+    console.error("[seller-bot-webhook] avatar upload error:", uploadError.message);
+    await tg.send(cid, "❌ Не удалось сохранить аватарку.");
+    return;
+  }
+
+  const { data: pub } = supabase().storage.from("bot-avatars").getPublicUrl(path);
+  const publicUrl = pub.publicUrl;
+  const { data: gen } = await supabase()
+    .from("shop_ai_avatar_generations")
+    .insert({
+      shop_id: shopId,
+      owner_telegram_id: adminId,
+      prompt: text,
+      parent_id: parentId || null,
+      image_url: publicUrl,
+      subscription_cycle_start: quota.cycle_start || new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  await supabase().from("shops").update({
+    bot_avatar_url: publicUrl,
+    ai_avatar_generated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", shopId);
+  await logAction(shopId, adminId, "generate_ai_avatar", "shop", shopId, { generation_id: (gen as any)?.id || null });
+
+  const newQuotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+  const newQuota = (newQuotaRes.data as any) || quota;
+  const caption = `✅ <b>AI-аватарка готова и установлена</b>\n\nОсталось генераций: <b>${newQuota.remaining}/${newQuota.limit}</b>`;
+  const rows: Btn[][] = [];
+  if ((gen as any)?.id) rows.push([btn("✨ Внести правки", `s:aiav_edit:${(gen as any).id}`)]);
+  rows.push([btn("🪄 Новая генерация", "s:aiav"), btn("◀️ Меню", "s:m")]);
+  const sent = await tg.sendPhoto(cid, publicUrl, caption, ikb(rows));
+  if (!sent?.ok) await tg.send(cid, `${caption}\n\n${publicUrl}`, ikb(rows));
+}
+
 function premiumUpsellBanner(): string {
   return (
     `🔒 <b>Доступно на тарифе Премиум</b>\n\n` +
@@ -2580,6 +2714,23 @@ async function handleCallback(
 
     if (cmd === "noop") return;
     if (cmd === "m") return adminHome(tg, cid, shopId, mid);
+    if (cmd === "aiav") {
+      if (!(await shopOwnerHasPremium(shopId))) {
+        return tg.edit(cid, mid, premiumUpsellBanner(), ikb([[btn("💎 Перейти на Премиум", "s:upsell:premium")], [btn("◀️ Меню", "s:m")]]));
+      }
+      const quotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+      const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3 };
+      await setSession(cid, "aiav", shopId);
+      return tg.send(
+        cid,
+        `🪄 <b>AI-аватарка магазина</b>\n\nОсталось генераций: <b>${quota.remaining}/${quota.limit}</b>\n\nОпишите аватарку: ниша магазина, стиль, цвета, настроение.\n\n/cancel — отмена`,
+      );
+    }
+    if (cmd === "aiav_edit") {
+      const genId = parts[2];
+      await setSession(cid, `aiav_edit:${genId}`, shopId);
+      return tg.send(cid, "✨ Что изменить в аватарке?\n\nНапример: сделать фон темнее, добавить больше неона, упростить иконку.\n\n/cancel — отмена");
+    }
 
     // Products
     if (cmd === "pl") return productsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
