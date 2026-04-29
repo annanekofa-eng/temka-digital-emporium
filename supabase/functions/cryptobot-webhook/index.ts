@@ -70,6 +70,43 @@ async function markTopupProcessed(supabase: any, invoiceId: string, telegramUser
   });
 }
 
+// Atomic claim: try to INSERT a row into processed_invoices. If the PK
+// conflict fires, another concurrent webhook delivery already won the race
+// and is responsible for processing — we must skip silently.
+// Returns true ONLY if THIS call became the owner of the invoice.
+async function claimInvoice(
+  supabase: any,
+  invoiceId: string,
+  type: string,
+  telegramId: number | null,
+  amount: number,
+  orderId: string | null,
+): Promise<boolean> {
+  const { error } = await supabase.from("processed_invoices").insert({
+    invoice_id: invoiceId,
+    type,
+    order_id: orderId,
+    telegram_id: telegramId,
+    amount,
+  });
+  if (!error) return true;
+  // 23505 = unique_violation in Postgres → already claimed
+  const code = (error as any)?.code;
+  if (code === "23505") return false;
+  // Anything else is a real error — surface it so we don't drop payments silently.
+  throw new Error(`claimInvoice failed: ${error.message || code}`);
+}
+
+// Release a claim if the business logic failed, so CryptoBot's retry can
+// be processed by a future delivery instead of being silently swallowed.
+async function releaseInvoiceClaim(supabase: any, invoiceId: string) {
+  try {
+    await supabase.from("processed_invoices").delete().eq("invoice_id", invoiceId);
+  } catch (e) {
+    console.error(`[cryptobot-webhook] failed to release claim ${invoiceId}:`, e);
+  }
+}
+
 async function sendTopupNotification(botToken: string | null, telegramUserId: number, topupAmount: number, newBalance: number, invoiceId: string) {
   if (!botToken) return;
   try {
@@ -139,31 +176,44 @@ serve(async (req) => {
       } else if (orderData.type === "subscription") {
         await handleSubscriptionPayment(supabase, orderData, invoiceId);
       } else {
-        // Pre-flight idempotency check ONLY (no insert yet) — the insert happens
-        // AFTER successful processing so a transient failure can be retried by
-        // CryptoBot's webhook redelivery instead of being silently swallowed.
-        const { data: alreadyProcessed } = await supabase.from("processed_invoices")
-          .select("invoice_id").eq("invoice_id", invoiceId).maybeSingle();
-        if (alreadyProcessed) {
+        // ATOMIC claim-first idempotency: insert into processed_invoices BEFORE
+        // touching balances/inventory. The PK on invoice_id guarantees that
+        // exactly one concurrent webhook delivery wins. If business logic
+        // throws, we release the claim so CryptoBot can retry safely.
+        const claimed = await claimInvoice(
+          supabase,
+          invoiceId,
+          "payment",
+          orderData.telegramUserId || null,
+          Number(invoice.amount) || 0,
+          orderData.orderId || null,
+        );
+        if (!claimed) {
           return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        let processedOk = false;
-        if (shopId && orderData.orderId) {
-          if (orderData.autoOrder) {
-            processedOk = await handleAutoOrderPayment(supabase, invoice, orderData, shopId);
+        try {
+          let processedOk = false;
+          if (shopId && orderData.orderId) {
+            if (orderData.autoOrder) {
+              processedOk = await handleAutoOrderPayment(supabase, invoice, orderData, shopId);
+            } else {
+              processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+            }
+          } else if (orderData.orderId) {
+            processedOk = await handleOrderPayment(supabase, invoice, orderData);
           } else {
-            processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+            processedOk = true; // nothing to do, but claim is valid
           }
-        } else if (orderData.orderId) {
-          processedOk = await handleOrderPayment(supabase, invoice, orderData);
-        }
 
-        if (processedOk) {
-          await supabase.from("processed_invoices").insert({
-            invoice_id: invoiceId, type: "payment", order_id: orderData.orderId || null,
-            telegram_id: orderData.telegramUserId || null, amount: Number(invoice.amount) || 0,
-          });
+          if (!processedOk) {
+            // Business handler decided this delivery is invalid (e.g. order
+            // not found). Release claim so a later valid delivery can win.
+            await releaseInvoiceClaim(supabase, invoiceId);
+          }
+        } catch (err) {
+          await releaseInvoiceClaim(supabase, invoiceId);
+          throw err;
         }
       }
     }
@@ -183,21 +233,25 @@ async function handleTopup(supabase: any, orderData: any, invoiceId: string, top
   const telegramUserId = Number(orderData.telegramUserId);
   if (!telegramUserId || !topupAmount || topupAmount <= 0) throw new Error(`[topup] invalid payload invoice=${invoiceId}`);
 
-  const { data: existingProcessed } = await supabase.from("processed_invoices")
-    .select("invoice_id, type, processed_at").eq("invoice_id", invoiceId).maybeSingle();
-
   const isShopTopup = !!topupShopId;
-  const historyTable = isPlatformTopup ? "platform_balance_history" : (isShopTopup ? "shop_balance_history" : "balance_history");
 
-  const alreadyCredited = await hasTopupLedgerRecord(supabase, historyTable, invoiceId, telegramUserId, topupAmount, existingProcessed?.processed_at || null, topupShopId);
-
-  if (alreadyCredited) {
-    if (!existingProcessed || existingProcessed.type !== "topup") {
-      await markTopupProcessed(supabase, invoiceId, telegramUserId, topupAmount, Boolean(existingProcessed));
-    }
+  // ATOMIC claim — only the first concurrent delivery proceeds. The PK
+  // on processed_invoices guarantees that parallel webhook deliveries
+  // cannot both credit the balance.
+  const claimed = await claimInvoice(
+    supabase,
+    invoiceId,
+    "topup",
+    telegramUserId,
+    topupAmount,
+    null,
+  );
+  if (!claimed) {
+    // Already processed — safe no-op.
     return;
   }
 
+  try {
   // Credit balance — tenant-scoped or platform
   let newBalance: number;
   if (isPlatformTopup) {
@@ -241,7 +295,12 @@ async function handleTopup(supabase: any, orderData: any, invoiceId: string, top
   if (!botToken) botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || null;
 
   await sendTopupNotification(botToken, telegramUserId, topupAmount, Number(newBalance), invoiceId);
-  await markTopupProcessed(supabase, invoiceId, telegramUserId, topupAmount, Boolean(existingProcessed));
+  } catch (err) {
+    // Business logic failed — release the claim so CryptoBot's retry can
+    // be processed by a subsequent delivery instead of being lost.
+    await releaseInvoiceClaim(supabase, invoiceId);
+    throw err;
+  }
 }
 
 // ─── Subscription payment handler ─────────────
@@ -257,13 +316,30 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 
   if (!telegramUserId || !paymentId) throw new Error(`[subscription] invalid payload invoice=${invoiceId}`);
 
-  // Idempotency check
-  const { error: dedupError } = await supabase.from("processed_invoices").insert({
-    invoice_id: invoiceId, type: "subscription", order_id: null,
-    telegram_id: telegramUserId, amount: subscriptionPrice,
-  });
-  if (dedupError) return; // Already processed
+  // F3: Validate that paymentId references a real, still-pending payment for
+  // this user. Prevents replay attacks where a valid signed webhook for a
+  // different invoice is reused with a swapped paymentId.
+  const { data: paymentRow } = await supabase.from("subscription_payments")
+    .select("id, status, telegram_id, amount").eq("id", paymentId).maybeSingle();
+  if (!paymentRow) {
+    console.error(`[subscription] payment ${paymentId} not found for invoice ${invoiceId}`);
+    return;
+  }
+  if (paymentRow.telegram_id && Number(paymentRow.telegram_id) !== telegramUserId) {
+    console.error(`[subscription] payment ${paymentId} telegram mismatch (expected ${paymentRow.telegram_id}, got ${telegramUserId})`);
+    return;
+  }
+  if (paymentRow.status === "paid") {
+    // Already settled — only ensure idempotency record exists.
+    await claimInvoice(supabase, invoiceId, "subscription", telegramUserId, subscriptionPrice, null);
+    return;
+  }
 
+  // ATOMIC claim — first concurrent delivery wins.
+  const claimed = await claimInvoice(supabase, invoiceId, "subscription", telegramUserId, subscriptionPrice, null);
+  if (!claimed) return;
+
+  try {
   // Deduct balance if used
   if (balanceUsed > 0) {
     const { data: newBal, error: balErr } = await supabase.rpc("platform_deduct_balance", {
@@ -351,6 +427,10 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 
   // Deliver paid_content based on plan (idempotent via UNIQUE in paid_content_logs)
   await deliverPaidContent(supabase, telegramUserId, plan, previousPlan, botToken);
+  } catch (err) {
+    await releaseInvoiceClaim(supabase, invoiceId);
+    throw err;
+  }
 }
 
 // ─── Deliver paid content (basic/premium) ────────
