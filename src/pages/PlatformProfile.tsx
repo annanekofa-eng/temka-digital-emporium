@@ -148,8 +148,8 @@ const PlatformProfile: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const shopId = params.get('shop');
       const ai = params.get('ai');
-      if (!shopId) return;
-      const found = data.shops.find((s) => s.id === shopId);
+      if (!shopId && ai !== '1') return;
+      const found = shopId ? data.shops.find((s) => s.id === shopId) : data.shops[0];
       if (!found) return;
       setSelectedShop(found);
       setAutoOpenAi(ai === '1');
