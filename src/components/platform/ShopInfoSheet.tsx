@@ -188,15 +188,28 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
 
         <div className="px-4 pb-4 space-y-4">
           {/* Avatar preview */}
-          {currentAvatar && (
-            <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+            {currentAvatar ? (
               <img
                 src={currentAvatar}
                 alt="Аватарка магазина"
                 className="w-20 h-20 rounded-2xl object-cover ring-2 ring-blue-100"
               />
-            </div>
-          )}
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center ring-2 ring-blue-100">
+                <ImageIcon className="w-8 h-8 text-blue-300" />
+              </div>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setShowAi(true)}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              <Wand2 className="w-4 h-4 mr-2" />
+              Сгенерировать аватарку магазина
+            </Button>
+          </div>
 
           {/* Status */}
           <div className="flex items-center justify-between">
@@ -269,23 +282,23 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
           {/* Premium tools */}
           <div className="space-y-2">
             <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-purple-400" /> AI-инструменты
+              <Sparkles className="w-3 h-3 text-blue-400" /> AI-инструменты
             </p>
 
             {!showAi ? (
               <button
                 type="button"
                 onClick={() => setShowAi(true)}
-                className="w-full flex items-center justify-between gap-2 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 p-3 text-left transition"
+                className="w-full flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50 hover:from-blue-100 p-3 text-left transition"
               >
                 <div className="flex items-center gap-2">
-                  <Wand2 className="w-4 h-4 text-purple-500" />
+                  <Wand2 className="w-4 h-4 text-blue-500" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">🪄 AI-генерация фото магазина</p>
+                    <p className="text-sm font-medium text-gray-900">🪄 AI-генерация аватарки магазина</p>
                     <p className="text-[11px] text-gray-500">3 генерации на цикл подписки</p>
                   </div>
                 </div>
-                <Badge className="bg-purple-500 hover:bg-purple-500 text-white text-[10px]">AI</Badge>
+                <Badge className="bg-blue-500 hover:bg-blue-500 text-white text-[10px]">AI</Badge>
               </button>
             ) : (
               <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-2">
