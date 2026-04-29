@@ -18,6 +18,13 @@ import {
 import telestoreLogo from "@/assets/telestore-logo-icon.png";
 import { useTelegram } from "@/contexts/TelegramContext";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type Plan = "start" | "basic" | "premium";
 const PLAN_RANK: Record<Plan, number> = { start: 0, basic: 1, premium: 2 };
@@ -207,15 +214,10 @@ function GuideCard({ guide, userPlan, onLockedCTA, onOpen }: { guide: Guide; use
       ) : (
         <button
           onClick={() => onOpen(guide.id)}
-          disabled={guide.soon}
-          className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
-            guide.soon
-              ? "bg-[#f1f5f9] text-[#94a3b8] cursor-not-allowed"
-              : "bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
-          }`}
+          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
         >
-          {guide.soon ? "Скоро" : "Открыть гайд"}
-          {!guide.soon && <ArrowRight className="w-3.5 h-3.5" />}
+          {guide.soon ? "Посмотреть анонс" : "Открыть гайд"}
+          <ArrowRight className="w-3.5 h-3.5" />
         </button>
       )}
     </motion.div>
@@ -228,6 +230,10 @@ export default function Guides() {
   const [userPlan, setUserPlan] = useState<Plan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
+  const [openGuide, setOpenGuide] = useState<Guide | null>(null);
+  const [guideLoading, setGuideLoading] = useState(false);
+  const [guideBody, setGuideBody] = useState<string | null>(null);
+  const [guideError, setGuideError] = useState<string | null>(null);
 
   // Resolve current user's plan via existing get-my-data (server-side TG verification).
   useEffect(() => {
@@ -277,19 +283,42 @@ export default function Guides() {
     navigate("/platform/profile?subscription=1");
   };
 
+  const findGuide = (guideId: string): Guide | null => {
+    for (const s of SECTIONS) {
+      const g = s.guides.find((x) => x.id === guideId);
+      if (g) return g;
+    }
+    return null;
+  };
+
   const handleOpenGuide = async (guideId: string) => {
-    // Server-side check before showing content (placeholder for now)
+    const g = findGuide(guideId);
+    if (!g) return;
+    setOpenGuide(g);
+    setGuideBody(null);
+    setGuideError(null);
+
+    if (g.soon) return; // teaser only
+
+    setGuideLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("get-guide", {
         body: { initData, guideId },
       });
       if (error || !data?.ok) {
-        // either forbidden or other error — silently fail (mocks)
-        return;
+        setGuideError(
+          data?.error === "forbidden"
+            ? "Этот гайд доступен на более высоком тарифе."
+            : "Не удалось загрузить гайд. Попробуйте позже.",
+        );
+      } else {
+        setGuideBody(data.guide?.body || "Контент скоро будет добавлен.");
       }
-      // TODO: open guide reader (modal/page) with data.guide
-      console.log("[guides] opened", data.guide);
-    } catch {}
+    } catch {
+      setGuideError("Не удалось загрузить гайд. Попробуйте позже.");
+    } finally {
+      setGuideLoading(false);
+    }
   };
 
   const sections = useMemo(() => SECTIONS, []);
@@ -474,6 +503,57 @@ export default function Guides() {
           © TeleStore — платформа для Telegram-магазинов
         </div>
       </footer>
+
+      <Dialog open={!!openGuide} onOpenChange={(o) => !o && setOpenGuide(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl">
+          {openGuide && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-2">
+                  <PlanBadge plan={openGuide.required_plan} />
+                  {openGuide.soon && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                      Скоро
+                    </span>
+                  )}
+                </div>
+                <DialogTitle className="text-xl sm:text-2xl font-extrabold text-[#0f172a]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {openGuide.title}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748b]">
+                  {openGuide.description}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4">
+                {openGuide.soon ? (
+                  <div className="rounded-xl border border-dashed border-[#e2e8f0] bg-[#f8fafc] p-6 text-center">
+                    <Sparkles className="w-6 h-6 text-[#2563eb] mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-[#0f172a] mb-1">Гайд готовится</p>
+                    <p className="text-xs text-[#64748b]">
+                      Мы дорабатываем материал. Скоро он появится здесь — следите за обновлениями.
+                    </p>
+                  </div>
+                ) : guideLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-4 w-3/4 rounded bg-[#f1f5f9] animate-pulse" />
+                    <div className="h-4 w-full rounded bg-[#f1f5f9] animate-pulse" />
+                    <div className="h-4 w-5/6 rounded bg-[#f1f5f9] animate-pulse" />
+                  </div>
+                ) : guideError ? (
+                  <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] p-4 text-sm text-[#b91c1c]">
+                    {guideError}
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none text-[#1e293b] whitespace-pre-wrap leading-relaxed">
+                    {guideBody}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
