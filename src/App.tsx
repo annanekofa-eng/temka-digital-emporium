@@ -37,6 +37,7 @@ const PlatformConsent = React.lazy(() => import("./pages/PlatformConsent"));
 const PlatformProfile = React.lazy(() => import("./pages/PlatformProfile"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Landing = React.lazy(() => import("./pages/Landing"));
+const Guides = React.lazy(() => import("./pages/Guides"));
 const ShopLayout = React.lazy(() => import("./pages/ShopLayout"));
 const ShopIndex = React.lazy(() => import("./pages/ShopIndex"));
 const ShopCatalog = React.lazy(() => import("./pages/ShopCatalog"));
@@ -94,6 +95,7 @@ const App = () => (
               <Routes>
                 {/* Platform pages — standalone, no layout */}
                 <Route path="/landing" element={<Landing />} />
+                <Route path="/guides" element={<Guides />} />
                 <Route path="/platform/profile" element={<PlatformProfile />} />
                 <Route path="/platform/terms" element={<PlatformTerms />} />
                 <Route path="/platform/privacy" element={<PlatformPrivacy />} />
