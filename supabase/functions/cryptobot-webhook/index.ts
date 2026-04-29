@@ -427,6 +427,10 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 
   // Deliver paid_content based on plan (idempotent via UNIQUE in paid_content_logs)
   await deliverPaidContent(supabase, telegramUserId, plan, previousPlan, botToken);
+  } catch (err) {
+    await releaseInvoiceClaim(supabase, invoiceId);
+    throw err;
+  }
 }
 
 // ─── Deliver paid content (basic/premium) ────────
