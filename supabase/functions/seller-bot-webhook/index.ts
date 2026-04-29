@@ -2442,7 +2442,7 @@ async function generateShopAvatarFromPrompt(
     return;
   }
   if (!(await shopOwnerHasPremium(shopId))) {
-    await tg.send(cid, premiumUpsellBanner(), ikb([[premiumUpsellBtn()], [btn("◀️ Меню", "s:m")]]));
+    await tg.send(cid, premiumUpsellBanner(), ikb([[await premiumUpsellBtn()], [btn("◀️ Меню", "s:m")]]));
     return;
   }
 
@@ -2604,7 +2604,7 @@ async function autoProductsHome(tg: ReturnType<typeof TG>, cid: number, mid: num
       premiumUpsellBanner() +
       `\n<i>Сейчас покупатели не видят эти разделы в вашем магазине.</i>`;
     return tg.edit(cid, mid, text, ikb([
-      [premiumUpsellBtn()],
+      [await premiumUpsellBtn()],
       [btn("◀️ Меню", "s:m")],
     ]));
   }
@@ -2644,7 +2644,7 @@ async function autoProductView(tg: ReturnType<typeof TG>, cid: number, mid: numb
   }
   if (!(await shopOwnerHasPremium(shopId))) {
     return tg.edit(cid, mid, premiumUpsellBanner(), ikb([
-      [premiumUpsellBtn()],
+      [await premiumUpsellBtn()],
       [btn("◀️ Меню", "s:m")],
     ]));
   }
@@ -2787,7 +2787,7 @@ async function handleCallback(
     if (cmd === "m") return adminHome(tg, cid, shopId, mid);
     if (cmd === "aiav") {
       if (!(await shopOwnerHasPremium(shopId))) {
-        return tg.edit(cid, mid, premiumUpsellBanner(), ikb([[premiumUpsellBtn()], [btn("◀️ Меню", "s:m")]]));
+        return tg.edit(cid, mid, premiumUpsellBanner(), ikb([[await premiumUpsellBtn()], [btn("◀️ Меню", "s:m")]]));
       }
       const quotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
       const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3 };
