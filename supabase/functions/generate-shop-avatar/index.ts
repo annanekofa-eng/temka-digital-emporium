@@ -24,13 +24,12 @@ function verifyAndExtractUser(initData: string, botToken: string): { id: number 
   try { return JSON.parse(params.get("user") || ""); } catch { return null; }
 }
 
-const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — генератор логотипов для Telegram-магазинов.
-Создай минималистичный, современный логотип-аватар:
-— квадратный формат, чистая композиция, центральный объект;
-— яркий, узнаваемый цвет (предпочтительно сине-фиолетовая или градиентная палитра);
-— без текста и без водяных знаков;
-— подходит как аватарка чата (хорошо читается в круге размером 64×64);
-— стиль: flat / soft 3D / glass, премиальный e-commerce.`;
+const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — арт-директор Telegram-магазинов. Создай готовую аватарку магазина, а не общий арт.
+Формат: квадрат 1:1, один крупный центральный знак/маскот/предмет, читаемый внутри круглой аватарки 64×64.
+Без текста, букв, логотипов брендов, водяных знаков, мелких деталей и интерфейсов.
+Стиль: премиальный e-commerce, чистые формы, выразительный силуэт, аккуратный свет, контрастный фон.
+Выбирай визуальную метафору строго по нише магазина. Если пользователь просит game/esports — делай игровую эмблему/контроллер/маскота без надписей.
+Качество: crisp icon, polished, 4K.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -76,8 +75,8 @@ serve(async (req) => {
     }
 
     // ── action: generate (default) ───────
-    if (!prompt || typeof prompt !== "string" || prompt.length < 3 || prompt.length > 300) {
-      return jsonRes({ error: "Опишите магазин (3–300 символов)" }, 400);
+    if (!prompt || typeof prompt !== "string" || prompt.length < 3 || prompt.length > 500) {
+      return jsonRes({ error: "Опишите магазин (3–500 символов)" }, 400);
     }
     if (quota.remaining <= 0) {
       return jsonRes({ error: `Лимит исчерпан: ${quota.used}/${quota.limit} в этом цикле подписки. Лимит обновится при продлении.`, quota }, 402);
@@ -108,7 +107,7 @@ serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+        model: "google/gemini-3.1-flash-image-preview",
         messages: [{ role: "user", content: userContent }],
         modalities: ["image", "text"],
       }),
@@ -148,7 +147,7 @@ serve(async (req) => {
 
     // Записываем генерацию в историю с привязкой к циклу
     const cycleStart = quota.cycle_start || new Date().toISOString();
-    const { data: gen } = await supabase.from("shop_ai_avatar_generations").insert({
+    const { data: gen, error: genError } = await supabase.from("shop_ai_avatar_generations").insert({
       shop_id: shopId,
       owner_telegram_id: telegramId,
       prompt,
@@ -156,6 +155,11 @@ serve(async (req) => {
       image_url: publicUrl,
       subscription_cycle_start: cycleStart,
     }).select("id").single();
+    if (genError) {
+      console.error("[generate-shop-avatar] generation log err:", genError.message);
+      await supabase.storage.from("bot-avatars").remove([path]).catch(() => null);
+      return jsonRes({ error: "Не удалось учесть генерацию. Попробуйте позже." }, 500);
+    }
 
     // Получаем обновлённую квоту
     const newQuotaRes = await supabase.rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
