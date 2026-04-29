@@ -2428,6 +2428,8 @@ async function generateShopAvatarFromPrompt(
 
   await tg.send(cid, "🪄 Генерирую аватарку, это может занять до минуты…");
 
+  const { data: shop } = await supabase().from("shops").select("name").eq("id", shopId).maybeSingle();
+
   let parentImageUrl: string | null = null;
   if (parentId) {
     const { data: parent } = await supabase()
@@ -2440,14 +2442,14 @@ async function generateShopAvatarFromPrompt(
   }
 
   const content: any[] = [
-    { type: "text", text: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${parentImageUrl ? "Внеси изменения в существующую картинку согласно описанию." : "Описание магазина:"} ${text}` },
+    { type: "text", text: buildAvatarPrompt((shop as any)?.name, text, Boolean(parentImageUrl)) },
   ];
   if (parentImageUrl) content.push({ type: "image_url", image_url: { url: parentImageUrl } });
 
   const models = [
-    "google/gemini-2.5-flash-image",
-    "google/gemini-3.1-flash-image-preview",
     "google/gemini-3-pro-image-preview",
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-2.5-flash-image",
   ];
   let aiRes: Response | null = null;
   let dataUrl: string | null = null;
