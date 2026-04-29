@@ -2378,6 +2378,122 @@ async function shopOwnerHasPremium(shopId: string): Promise<boolean> {
   }
 }
 
+async function generateShopAvatarFromPrompt(
+  tg: ReturnType<typeof TG>,
+  cid: number,
+  shopId: string,
+  adminId: number,
+  prompt: string,
+  parentId?: string | null,
+) {
+  const text = (prompt || "").trim();
+  if (text.length < 3 || text.length > 300) {
+    await tg.send(cid, "❌ Опишите аватарку текстом от 3 до 300 символов.");
+    return;
+  }
+  if (!(await shopOwnerHasPremium(shopId))) {
+    await tg.send(cid, premiumUpsellBanner(), ikb([[btn("💎 Перейти на Премиум", "s:upsell:premium")], [btn("◀️ Меню", "s:m")]]));
+    return;
+  }
+
+  const quotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+  const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3, cycle_start: null };
+  if (Number(quota.remaining || 0) <= 0) {
+    await tg.send(cid, `❌ Лимит генераций исчерпан: ${quota.used}/${quota.limit}. Лимит обновится при продлении подписки.`, ikb([[btn("◀️ Меню", "s:m")]]));
+    return;
+  }
+
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) {
+    await tg.send(cid, "❌ AI временно не настроен. Сообщите в поддержку.");
+    return;
+  }
+
+  await tg.send(cid, "🪄 Генерирую аватарку, это может занять до минуты…");
+
+  let parentImageUrl: string | null = null;
+  if (parentId) {
+    const { data: parent } = await supabase()
+      .from("shop_ai_avatar_generations")
+      .select("image_url")
+      .eq("id", parentId)
+      .eq("shop_id", shopId)
+      .maybeSingle();
+    parentImageUrl = (parent as any)?.image_url || null;
+  }
+
+  const content: any[] = [
+    { type: "text", text: `${SHOP_AVATAR_SYSTEM_PROMPT}\n\n${parentImageUrl ? "Внеси изменения в существующую картинку согласно описанию." : "Описание магазина:"} ${text}` },
+  ];
+  if (parentImageUrl) content.push({ type: "image_url", image_url: { url: parentImageUrl } });
+
+  const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [{ role: "user", content }],
+      modalities: ["image", "text"],
+    }),
+  });
+  if (!aiRes.ok) {
+    const errText = await aiRes.text().catch(() => "");
+    console.error("[seller-bot-webhook] avatar AI error:", aiRes.status, errText.slice(0, 200));
+    await tg.send(cid, aiRes.status === 429 ? "❌ Слишком много запросов к AI. Попробуйте позже." : "❌ Не удалось сгенерировать аватарку.");
+    return;
+  }
+
+  const aiJson = await aiRes.json();
+  const dataUrl = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const m = typeof dataUrl === "string" ? dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+  if (!m) {
+    await tg.send(cid, "❌ AI не вернул изображение. Попробуйте другой prompt.");
+    return;
+  }
+
+  const mime = m[1];
+  const ext = mime.split("/")[1] || "png";
+  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  const path = `ai/${shopId}-${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase().storage.from("bot-avatars").upload(path, bytes, { contentType: mime, upsert: false });
+  if (uploadError) {
+    console.error("[seller-bot-webhook] avatar upload error:", uploadError.message);
+    await tg.send(cid, "❌ Не удалось сохранить аватарку.");
+    return;
+  }
+
+  const { data: pub } = supabase().storage.from("bot-avatars").getPublicUrl(path);
+  const publicUrl = pub.publicUrl;
+  const { data: gen } = await supabase()
+    .from("shop_ai_avatar_generations")
+    .insert({
+      shop_id: shopId,
+      owner_telegram_id: adminId,
+      prompt: text,
+      parent_id: parentId || null,
+      image_url: publicUrl,
+      subscription_cycle_start: quota.cycle_start || new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  await supabase().from("shops").update({
+    bot_avatar_url: publicUrl,
+    ai_avatar_generated_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", shopId);
+  await logAction(shopId, adminId, "generate_ai_avatar", "shop", shopId, { generation_id: (gen as any)?.id || null });
+
+  const newQuotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+  const newQuota = (newQuotaRes.data as any) || quota;
+  const caption = `✅ <b>AI-аватарка готова и установлена</b>\n\nОсталось генераций: <b>${newQuota.remaining}/${newQuota.limit}</b>`;
+  const rows: Btn[][] = [];
+  if ((gen as any)?.id) rows.push([btn("✨ Внести правки", `s:aiav_edit:${(gen as any).id}`)]);
+  rows.push([btn("🪄 Новая генерация", "s:aiav"), btn("◀️ Меню", "s:m")]);
+  const sent = await tg.sendPhoto(cid, publicUrl, caption, ikb(rows));
+  if (!sent?.ok) await tg.send(cid, `${caption}\n\n${publicUrl}`, ikb(rows));
+}
+
 function premiumUpsellBanner(): string {
   return (
     `🔒 <b>Доступно на тарифе Премиум</b>\n\n` +
