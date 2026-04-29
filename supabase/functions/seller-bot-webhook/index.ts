@@ -2440,6 +2440,8 @@ async function generateShopAvatarFromPrompt(
     "google/gemini-3-pro-image-preview",
   ];
   let aiRes: Response | null = null;
+  let dataUrl: string | null = null;
+  let lastStatus = 0;
   for (const model of models) {
     aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -2450,21 +2452,30 @@ async function generateShopAvatarFromPrompt(
         modalities: ["image", "text"],
       }),
     });
-    if (aiRes.ok) break;
-    const errText = await aiRes.text().catch(() => "");
-    console.error("[seller-bot-webhook] avatar AI error:", model, aiRes.status, errText.slice(0, 200));
-    if (aiRes.status !== 429 && aiRes.status !== 503) break;
+    lastStatus = aiRes.status;
+    if (!aiRes.ok) {
+      const errText = await aiRes.text().catch(() => "");
+      console.error("[seller-bot-webhook] avatar AI error:", model, aiRes.status, errText.slice(0, 200));
+      if (aiRes.status !== 429 && aiRes.status !== 503) break;
+      continue;
+    }
+    const aiJson = await aiRes.json().catch(() => null);
+    const url = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (typeof url === "string" && url.startsWith("data:image/")) {
+      dataUrl = url;
+      break;
+    }
+    const finishReason = aiJson?.choices?.[0]?.finish_reason;
+    const textResp = aiJson?.choices?.[0]?.message?.content;
+    console.error("[seller-bot-webhook] avatar no image from", model, "finish:", finishReason, "text:", typeof textResp === "string" ? textResp.slice(0, 200) : textResp);
   }
-  if (!aiRes || !aiRes.ok) {
-    await tg.send(cid, aiRes?.status === 429 ? "❌ AI перегружен. Попробуйте через минуту." : "❌ Не удалось сгенерировать аватарку.");
+  if (!dataUrl) {
+    await tg.send(cid, lastStatus === 429 ? "❌ AI перегружен. Попробуйте через минуту." : "❌ AI не вернул изображение. Попробуйте другой prompt (например: 'логотип кофейни с чашкой').");
     return;
   }
-
-  const aiJson = await aiRes.json();
-  const dataUrl = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  const m = typeof dataUrl === "string" ? dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/) : null;
+  const m = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
   if (!m) {
-    await tg.send(cid, "❌ AI не вернул изображение. Попробуйте другой prompt.");
+    await tg.send(cid, "❌ Неверный формат изображения от AI.");
     return;
   }
 

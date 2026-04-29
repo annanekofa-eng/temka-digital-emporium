@@ -109,7 +109,8 @@ serve(async (req) => {
       "google/gemini-3-pro-image-preview",
     ];
     let aiRes: Response | null = null;
-    let lastErr = "";
+    let dataUrl: string | null = null;
+    let lastStatus = 0;
     for (const model of models) {
       aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -120,21 +121,25 @@ serve(async (req) => {
           modalities: ["image", "text"],
         }),
       });
-      if (aiRes.ok) break;
-      lastErr = await aiRes.text().catch(() => "");
-      console.error("[generate-shop-avatar] AI err:", model, aiRes.status, lastErr.slice(0, 200));
-      if (aiRes.status !== 429 && aiRes.status !== 503) break;
+      lastStatus = aiRes.status;
+      if (!aiRes.ok) {
+        const errText = await aiRes.text().catch(() => "");
+        console.error("[generate-shop-avatar] AI err:", model, aiRes.status, errText.slice(0, 200));
+        if (aiRes.status !== 429 && aiRes.status !== 503) break;
+        continue;
+      }
+      const aiJson = await aiRes.json().catch(() => null);
+      const url = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (typeof url === "string" && url.startsWith("data:image/")) {
+        dataUrl = url;
+        break;
+      }
+      console.error("[generate-shop-avatar] no image from", model, "finish:", aiJson?.choices?.[0]?.finish_reason);
     }
-    if (!aiRes || !aiRes.ok) {
-      if (aiRes?.status === 429) return jsonRes({ error: "Слишком много запросов к AI. Попробуйте через минуту." }, 429);
-      if (aiRes?.status === 402) return jsonRes({ error: "Лимит AI исчерпан. Обратитесь в поддержку." }, 402);
-      return jsonRes({ error: "Ошибка генерации" }, 502);
-    }
-
-    const aiJson = await aiRes.json();
-    const dataUrl = aiJson?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!dataUrl || !dataUrl.startsWith("data:image/")) {
-      return jsonRes({ error: "AI не вернул изображение" }, 502);
+    if (!dataUrl) {
+      if (lastStatus === 429) return jsonRes({ error: "Слишком много запросов к AI. Попробуйте через минуту." }, 429);
+      if (lastStatus === 402) return jsonRes({ error: "Лимит AI исчерпан. Обратитесь в поддержку." }, 402);
+      return jsonRes({ error: "AI не вернул изображение. Попробуйте другой prompt." }, 502);
     }
 
     // Upload to bot-avatars bucket
