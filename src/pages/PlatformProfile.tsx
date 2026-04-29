@@ -519,11 +519,12 @@ const PlatformProfile: React.FC = () => {
       <ShopInfoSheet
         shop={selectedShop}
         open={shopSheetOpen}
-        onOpenChange={setShopSheetOpen}
+        onOpenChange={(o) => { setShopSheetOpen(o); if (!o) setAutoOpenAi(false); }}
         canUsePremium={!!(data as any)?.subscription?.entitlements?.ai_avatar}
         initData={initData}
         openTelegramLink={openTelegramLink}
         onAvatarUpdated={() => fetchProfile(true)}
+        autoOpenAi={autoOpenAi}
       />
       <BalanceTopupSheet
         balance={data.balance}
