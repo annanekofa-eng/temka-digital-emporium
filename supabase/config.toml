@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.resolve-telegram-user]
 verify_jwt = false
+
+[functions.get-guide]
+verify_jwt = false

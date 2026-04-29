@@ -162,6 +162,19 @@ const PlatformProfile: React.FC = () => {
     } catch {}
   }, [data?.shops]);
 
+  // Deep-link: ?subscription=1 — auto-open subscription sheet (e.g. from /guides upgrade CTA)
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('subscription') !== '1') return;
+      setSubSheetOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('subscription');
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  }, [data]);
+
   // Cleanup subscription polling
   useEffect(() => {
     return () => {
