@@ -94,6 +94,13 @@ function renderWelcome(raw: string, name: string): string {
   return raw.replace(/\{name\}/gi, esc(name));
 }
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
+const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — генератор логотипов для Telegram-магазинов.
+Создай минималистичный, современный логотип-аватар:
+— квадратный формат, чистая композиция, центральный объект;
+— яркий, узнаваемый цвет;
+— без текста и без водяных знаков;
+— хорошо читается в круге размером 64×64;
+— стиль: flat / soft 3D / glass, премиальный e-commerce.`;
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
@@ -253,7 +260,11 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
   const autoBtn = hasPremium
     ? btn("🤖 Авто-товары", "s:ap")
     : btn("🔒 Авто-товары (Премиум)", "s:ap");
+  const aiBtn = hasPremium
+    ? btn("🪄 AI-аватарка", "s:aiav")
+    : btn("🔒 AI-аватарка (Премиум)", "s:upsell:premium");
   const kb = ikb([
+    [aiBtn],
     [btn("📦 Товары", "s:pl:0"), btn("📁 Категории", "s:cl:0")],
     [btn("🛒 Заказы", "s:ol:0"), btn("👥 Пользователи", "s:ul:0")],
     [btn("🧾 Заявки", "s:rql:0")],
@@ -262,7 +273,6 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
     [btn("⭐ Отзывы", "s:rvl:0")],
     [autoBtn, btn("📲 Авто-заказы", "s:ao:0")],
-    [{ text: "🪄 AI-аватарка магазина", web_app: { url: `${WEBAPP_DOMAIN}/platform/profile?shop=${shopId}&ai=1` } } as Btn],
   ]);
 
   if (msgId) return tg.edit(chatId, msgId, text, kb);
