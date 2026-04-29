@@ -92,6 +92,7 @@ const PlatformProfile: React.FC = () => {
   const [balanceSheetOpen, setBalanceSheetOpen] = useState(false);
   const [shopSheetOpen, setShopSheetOpen] = useState(false);
   const [selectedShop, setSelectedShop] = useState<ShopData | null>(null);
+  const [autoOpenAi, setAutoOpenAi] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
 
   // Polling refs for subscription payment
@@ -139,6 +140,27 @@ const PlatformProfile: React.FC = () => {
     if (!isReady) return;
     fetchProfile();
   }, [isReady, fetchProfile]);
+
+  // Deep-link: ?shop=<id>&ai=1 — open shop sheet with AI panel expanded
+  useEffect(() => {
+    if (!data?.shops?.length) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const shopId = params.get('shop');
+      const ai = params.get('ai');
+      if (!shopId) return;
+      const found = data.shops.find((s) => s.id === shopId);
+      if (!found) return;
+      setSelectedShop(found);
+      setAutoOpenAi(ai === '1');
+      setShopSheetOpen(true);
+      // Clean URL so it doesn't re-open on refresh
+      const url = new URL(window.location.href);
+      url.searchParams.delete('shop');
+      url.searchParams.delete('ai');
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  }, [data?.shops]);
 
   // Cleanup subscription polling
   useEffect(() => {
@@ -497,11 +519,12 @@ const PlatformProfile: React.FC = () => {
       <ShopInfoSheet
         shop={selectedShop}
         open={shopSheetOpen}
-        onOpenChange={setShopSheetOpen}
+        onOpenChange={(o) => { setShopSheetOpen(o); if (!o) setAutoOpenAi(false); }}
         canUsePremium={!!(data as any)?.subscription?.entitlements?.ai_avatar}
         initData={initData}
         openTelegramLink={openTelegramLink}
         onAvatarUpdated={() => fetchProfile(true)}
+        autoOpenAi={autoOpenAi}
       />
       <BalanceTopupSheet
         balance={data.balance}

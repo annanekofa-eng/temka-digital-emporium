@@ -37,6 +37,8 @@ interface Props {
   openTelegramLink?: (url: string) => void;
   /** Callback после успешного обновления аватарки */
   onAvatarUpdated?: (newUrl: string) => void;
+  /** Автоматически раскрыть AI-панель при открытии */
+  autoOpenAi?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -45,7 +47,7 @@ function formatDate(dateStr: string): string {
 
 const SUPPORT_USERNAME = 'telestorehelp';
 
-const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initData, openTelegramLink, onAvatarUpdated }: Props) => {
+const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initData, openTelegramLink, onAvatarUpdated, autoOpenAi = false }: Props) => {
   const [showAi, setShowAi] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -70,6 +72,18 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
   useEffect(() => {
     if (open && showAi) loadQuota();
   }, [open, showAi, loadQuota]);
+
+  useEffect(() => {
+    if (open && autoOpenAi) setShowAi(true);
+    if (!open) {
+      // Reset on close so next open with different shop is clean
+      setShowAi(false);
+      setPreviewUrl(null);
+      setPreviewId(null);
+      setPrompt('');
+      setEditPrompt('');
+    }
+  }, [open, autoOpenAi]);
 
   const handleGenerate = async () => {
     if (!initData) { toast.error('Откройте через Telegram'); return; }

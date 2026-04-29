@@ -1158,17 +1158,39 @@ async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, 
       .maybeSingle();
     const plan = (pUser?.subscription_plan as string) || "trial";
 
-    // Issue a short-lived token (15 minutes)
-    const tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const { error: insErr } = await db().from("curator_chat_invites").insert({
-      token: tokenStr,
-      telegram_id: chatId,
-      plan,
-      status: "issued",
-      expires_at: expiresAt,
-    });
-    if (insErr) throw insErr;
+    // Reuse existing active (issued, not expired) token if any — 1 link per user
+    let tokenStr: string | null = null;
+    const nowIso = new Date().toISOString();
+    const { data: existing } = await db()
+      .from("curator_chat_invites")
+      .select("token, expires_at")
+      .eq("telegram_id", chatId)
+      .eq("status", "issued")
+      .gt("expires_at", nowIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing?.token) {
+      tokenStr = existing.token as string;
+    } else {
+      // Invalidate any stale issued tokens for this user
+      await db()
+        .from("curator_chat_invites")
+        .update({ status: "expired" })
+        .eq("telegram_id", chatId)
+        .eq("status", "issued");
+      // Issue a single short-lived token (15 minutes)
+      tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      const { error: insErr } = await db().from("curator_chat_invites").insert({
+        token: tokenStr,
+        telegram_id: chatId,
+        plan,
+        status: "issued",
+        expires_at: expiresAt,
+      });
+      if (insErr) throw insErr;
+    }
 
     const deepLink = `https://t.me/${curatorUsername}?start=${tokenStr}`;
     const txt =
@@ -1384,14 +1406,6 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
 
   if (user.subscription_status === "active" || user.subscription_status === "trial") {
     rows.push([webAppBtn("🌐 Профиль и подписка", `${WEBAPP_DOMAIN}/platform/profile`)]);
-  }
-
-  // Curator chat access (basic/premium only)
-  if (
-    (user.subscription_status === "active" || user.subscription_status === "grace_period") &&
-    (currentPlan === "basic" || currentPlan === "premium")
-  ) {
-    rows.push([btn("🔑 Войти в чат подписчиков", "p:privchat")]);
   }
 
   rows.push([btn("◀️ Назад", "p:profile")]);
