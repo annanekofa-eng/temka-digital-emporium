@@ -103,21 +103,31 @@ serve(async (req) => {
       userContent.push({ type: "image_url", image_url: { url: parentImageUrl } });
     }
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [{ role: "user", content: userContent }],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (aiRes.status === 429) return jsonRes({ error: "Слишком много запросов к AI. Попробуйте позже." }, 429);
-    if (aiRes.status === 402) return jsonRes({ error: "Лимит AI исчерпан. Обратитесь в поддержку." }, 402);
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      console.error("[generate-shop-avatar] AI err:", aiRes.status, t.slice(0, 200));
+    const models = [
+      "google/gemini-2.5-flash-image",
+      "google/gemini-3.1-flash-image-preview",
+      "google/gemini-3-pro-image-preview",
+    ];
+    let aiRes: Response | null = null;
+    let lastErr = "";
+    for (const model of models) {
+      aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: userContent }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (aiRes.ok) break;
+      lastErr = await aiRes.text().catch(() => "");
+      console.error("[generate-shop-avatar] AI err:", model, aiRes.status, lastErr.slice(0, 200));
+      if (aiRes.status !== 429 && aiRes.status !== 503) break;
+    }
+    if (!aiRes || !aiRes.ok) {
+      if (aiRes?.status === 429) return jsonRes({ error: "Слишком много запросов к AI. Попробуйте через минуту." }, 429);
+      if (aiRes?.status === 402) return jsonRes({ error: "Лимит AI исчерпан. Обратитесь в поддержку." }, 402);
       return jsonRes({ error: "Ошибка генерации" }, 502);
     }
 
