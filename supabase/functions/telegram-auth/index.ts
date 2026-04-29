@@ -28,7 +28,8 @@ function verifyTelegramInitData(initData: string, botToken: string): boolean {
   const authDate = params.get("auth_date");
   if (!authDate) return false;
   const now = Math.floor(Date.now() / 1000);
-  if (now - Number(authDate) > 600) return false;
+  // Align with sensitive endpoints (pay-with-balance etc.) which use 5 min TTL.
+  if (now - Number(authDate) > 300) return false;
 
   return true;
 }
