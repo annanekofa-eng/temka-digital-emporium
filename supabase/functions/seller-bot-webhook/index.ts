@@ -2434,19 +2434,29 @@ async function generateShopAvatarFromPrompt(
   ];
   if (parentImageUrl) content.push({ type: "image_url", image_url: { url: parentImageUrl } });
 
-  const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content }],
-      modalities: ["image", "text"],
-    }),
-  });
-  if (!aiRes.ok) {
+  const models = [
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3-pro-image-preview",
+  ];
+  let aiRes: Response | null = null;
+  for (const model of models) {
+    aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (aiRes.ok) break;
     const errText = await aiRes.text().catch(() => "");
-    console.error("[seller-bot-webhook] avatar AI error:", aiRes.status, errText.slice(0, 200));
-    await tg.send(cid, aiRes.status === 429 ? "❌ Слишком много запросов к AI. Попробуйте позже." : "❌ Не удалось сгенерировать аватарку.");
+    console.error("[seller-bot-webhook] avatar AI error:", model, aiRes.status, errText.slice(0, 200));
+    if (aiRes.status !== 429 && aiRes.status !== 503) break;
+  }
+  if (!aiRes || !aiRes.ok) {
+    await tg.send(cid, aiRes?.status === 429 ? "❌ AI перегружен. Попробуйте через минуту." : "❌ Не удалось сгенерировать аватарку.");
     return;
   }
 
