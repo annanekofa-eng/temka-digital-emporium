@@ -176,31 +176,44 @@ serve(async (req) => {
       } else if (orderData.type === "subscription") {
         await handleSubscriptionPayment(supabase, orderData, invoiceId);
       } else {
-        // Pre-flight idempotency check ONLY (no insert yet) — the insert happens
-        // AFTER successful processing so a transient failure can be retried by
-        // CryptoBot's webhook redelivery instead of being silently swallowed.
-        const { data: alreadyProcessed } = await supabase.from("processed_invoices")
-          .select("invoice_id").eq("invoice_id", invoiceId).maybeSingle();
-        if (alreadyProcessed) {
+        // ATOMIC claim-first idempotency: insert into processed_invoices BEFORE
+        // touching balances/inventory. The PK on invoice_id guarantees that
+        // exactly one concurrent webhook delivery wins. If business logic
+        // throws, we release the claim so CryptoBot can retry safely.
+        const claimed = await claimInvoice(
+          supabase,
+          invoiceId,
+          "payment",
+          orderData.telegramUserId || null,
+          Number(invoice.amount) || 0,
+          orderData.orderId || null,
+        );
+        if (!claimed) {
           return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        let processedOk = false;
-        if (shopId && orderData.orderId) {
-          if (orderData.autoOrder) {
-            processedOk = await handleAutoOrderPayment(supabase, invoice, orderData, shopId);
+        try {
+          let processedOk = false;
+          if (shopId && orderData.orderId) {
+            if (orderData.autoOrder) {
+              processedOk = await handleAutoOrderPayment(supabase, invoice, orderData, shopId);
+            } else {
+              processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+            }
+          } else if (orderData.orderId) {
+            processedOk = await handleOrderPayment(supabase, invoice, orderData);
           } else {
-            processedOk = await handleShopOrderPayment(supabase, invoice, orderData, shopId);
+            processedOk = true; // nothing to do, but claim is valid
           }
-        } else if (orderData.orderId) {
-          processedOk = await handleOrderPayment(supabase, invoice, orderData);
-        }
 
-        if (processedOk) {
-          await supabase.from("processed_invoices").insert({
-            invoice_id: invoiceId, type: "payment", order_id: orderData.orderId || null,
-            telegram_id: orderData.telegramUserId || null, amount: Number(invoice.amount) || 0,
-          });
+          if (!processedOk) {
+            // Business handler decided this delivery is invalid (e.g. order
+            // not found). Release claim so a later valid delivery can win.
+            await releaseInvoiceClaim(supabase, invoiceId);
+          }
+        } catch (err) {
+          await releaseInvoiceClaim(supabase, invoiceId);
+          throw err;
         }
       }
     }
