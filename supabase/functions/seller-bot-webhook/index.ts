@@ -3596,12 +3596,10 @@ async function handleCallback(
     if (cmd === "ap") return autoProductsHome(tg, cid, mid, shopId);
     if (cmd === "apv") return autoProductView(tg, cid, mid, shopId, parts[2]);
     if (cmd === "upsell") {
-      const webapp = Deno.env.get("WEBAPP_URL") || "";
-      const upsellRows: Btn[][] = [];
-      if (webapp) {
-        upsellRows.push([{ text: "💎 Открыть платформу", web_app: { url: webapp } } as Btn]);
-      }
-      upsellRows.push([btn("◀️ Назад", "s:ap")]);
+      const upsellRows: Btn[][] = [
+        [premiumUpsellBtn("💎 Перейти на Премиум")],
+        [btn("◀️ Назад", "s:ap")],
+      ];
       return tg.edit(cid, mid,
         `💎 <b>Тариф Премиум</b>\n\n` +
         `Открывает в вашем магазине разделы Telegram Stars и Telegram Premium для покупателей.\n\n` +
