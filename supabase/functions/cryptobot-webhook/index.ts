@@ -316,13 +316,30 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 
   if (!telegramUserId || !paymentId) throw new Error(`[subscription] invalid payload invoice=${invoiceId}`);
 
-  // Idempotency check
-  const { error: dedupError } = await supabase.from("processed_invoices").insert({
-    invoice_id: invoiceId, type: "subscription", order_id: null,
-    telegram_id: telegramUserId, amount: subscriptionPrice,
-  });
-  if (dedupError) return; // Already processed
+  // F3: Validate that paymentId references a real, still-pending payment for
+  // this user. Prevents replay attacks where a valid signed webhook for a
+  // different invoice is reused with a swapped paymentId.
+  const { data: paymentRow } = await supabase.from("subscription_payments")
+    .select("id, status, telegram_id, amount").eq("id", paymentId).maybeSingle();
+  if (!paymentRow) {
+    console.error(`[subscription] payment ${paymentId} not found for invoice ${invoiceId}`);
+    return;
+  }
+  if (paymentRow.telegram_id && Number(paymentRow.telegram_id) !== telegramUserId) {
+    console.error(`[subscription] payment ${paymentId} telegram mismatch (expected ${paymentRow.telegram_id}, got ${telegramUserId})`);
+    return;
+  }
+  if (paymentRow.status === "paid") {
+    // Already settled — only ensure idempotency record exists.
+    await claimInvoice(supabase, invoiceId, "subscription", telegramUserId, subscriptionPrice, null);
+    return;
+  }
 
+  // ATOMIC claim — first concurrent delivery wins.
+  const claimed = await claimInvoice(supabase, invoiceId, "subscription", telegramUserId, subscriptionPrice, null);
+  if (!claimed) return;
+
+  try {
   // Deduct balance if used
   if (balanceUsed > 0) {
     const { data: newBal, error: balErr } = await supabase.rpc("platform_deduct_balance", {
