@@ -76,6 +76,15 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 // This avoids exceeding Telegram's 64-byte callback_data limit and UUID confusion.
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
+
+/** Button that opens the platform bot (for Premium upsell etc). Falls back to callback if username not configured. */
+const premiumUpsellBtn = (text = "💎 Перейти на Премиум"): Btn => {
+  const username = (Deno.env.get("PLATFORM_BOT_USERNAME") || "").replace(/^@/, "");
+  if (username) {
+    return { text, url: `https://t.me/${username}?start=premium` };
+  }
+  return { text, callback_data: "s:upsell:premium" };
+};
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 /** Unicode-safe truncation: never breaks surrogate pairs / multi-byte chars */
 const safeSlice = (s: string, max: number) => {
