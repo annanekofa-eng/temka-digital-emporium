@@ -2714,6 +2714,23 @@ async function handleCallback(
 
     if (cmd === "noop") return;
     if (cmd === "m") return adminHome(tg, cid, shopId, mid);
+    if (cmd === "aiav") {
+      if (!(await shopOwnerHasPremium(shopId))) {
+        return tg.edit(cid, mid, premiumUpsellBanner(), ikb([[btn("💎 Перейти на Премиум", "s:upsell:premium")], [btn("◀️ Меню", "s:m")]]));
+      }
+      const quotaRes = await supabase().rpc("get_shop_ai_avatar_quota" as any, { p_shop_id: shopId });
+      const quota = (quotaRes.data as any) || { limit: 3, used: 0, remaining: 3 };
+      await setSession(cid, "aiav", shopId);
+      return tg.send(
+        cid,
+        `🪄 <b>AI-аватарка магазина</b>\n\nОсталось генераций: <b>${quota.remaining}/${quota.limit}</b>\n\nОпишите аватарку: ниша магазина, стиль, цвета, настроение.\n\n/cancel — отмена`,
+      );
+    }
+    if (cmd === "aiav_edit") {
+      const genId = parts[2];
+      await setSession(cid, `aiav_edit:${genId}`, shopId);
+      return tg.send(cid, "✨ Что изменить в аватарке?\n\nНапример: сделать фон темнее, добавить больше неона, упростить иконку.\n\n/cancel — отмена");
+    }
 
     // Products
     if (cmd === "pl") return productsList(tg, cid, mid, shopId, parseInt(parts[2]) || 0);
