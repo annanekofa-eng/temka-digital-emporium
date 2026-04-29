@@ -1353,6 +1353,14 @@ async function handleFSM(
     return true;
   }
 
+  // ─── AI shop avatar prompt ────────────────
+  if (state === "aiav" || state.startsWith("aiav_edit:")) {
+    const parentId = state.startsWith("aiav_edit:") ? state.slice("aiav_edit:".length) : null;
+    await clearSession(cid, shopId);
+    await generateShopAvatarFromPrompt(tg, cid, shopId, adminId, val, parentId);
+    return true;
+  }
+
   // ─── Add product ──────────────────────────
   if (state === "ap:t") {
     await setSession(cid, "ap:p", shopId, { ...sData, title: val });
