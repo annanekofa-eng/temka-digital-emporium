@@ -233,21 +233,25 @@ async function handleTopup(supabase: any, orderData: any, invoiceId: string, top
   const telegramUserId = Number(orderData.telegramUserId);
   if (!telegramUserId || !topupAmount || topupAmount <= 0) throw new Error(`[topup] invalid payload invoice=${invoiceId}`);
 
-  const { data: existingProcessed } = await supabase.from("processed_invoices")
-    .select("invoice_id, type, processed_at").eq("invoice_id", invoiceId).maybeSingle();
-
   const isShopTopup = !!topupShopId;
-  const historyTable = isPlatformTopup ? "platform_balance_history" : (isShopTopup ? "shop_balance_history" : "balance_history");
 
-  const alreadyCredited = await hasTopupLedgerRecord(supabase, historyTable, invoiceId, telegramUserId, topupAmount, existingProcessed?.processed_at || null, topupShopId);
-
-  if (alreadyCredited) {
-    if (!existingProcessed || existingProcessed.type !== "topup") {
-      await markTopupProcessed(supabase, invoiceId, telegramUserId, topupAmount, Boolean(existingProcessed));
-    }
+  // ATOMIC claim — only the first concurrent delivery proceeds. The PK
+  // on processed_invoices guarantees that parallel webhook deliveries
+  // cannot both credit the balance.
+  const claimed = await claimInvoice(
+    supabase,
+    invoiceId,
+    "topup",
+    telegramUserId,
+    topupAmount,
+    null,
+  );
+  if (!claimed) {
+    // Already processed — safe no-op.
     return;
   }
 
+  try {
   // Credit balance — tenant-scoped or platform
   let newBalance: number;
   if (isPlatformTopup) {
@@ -291,7 +295,12 @@ async function handleTopup(supabase: any, orderData: any, invoiceId: string, top
   if (!botToken) botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || null;
 
   await sendTopupNotification(botToken, telegramUserId, topupAmount, Number(newBalance), invoiceId);
-  await markTopupProcessed(supabase, invoiceId, telegramUserId, topupAmount, Boolean(existingProcessed));
+  } catch (err) {
+    // Business logic failed — release the claim so CryptoBot's retry can
+    // be processed by a subsequent delivery instead of being lost.
+    await releaseInvoiceClaim(supabase, invoiceId);
+    throw err;
+  }
 }
 
 // ─── Subscription payment handler ─────────────
