@@ -94,13 +94,12 @@ function renderWelcome(raw: string, name: string): string {
   return raw.replace(/\{name\}/gi, esc(name));
 }
 const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://telestore.lovable.app";
-const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — генератор логотипов для Telegram-магазинов.
-Создай минималистичный, современный логотип-аватар:
-— квадратный формат, чистая композиция, центральный объект;
-— яркий, узнаваемый цвет;
-— без текста и без водяных знаков;
-— хорошо читается в круге размером 64×64;
-— стиль: flat / soft 3D / glass, премиальный e-commerce.`;
+const SHOP_AVATAR_SYSTEM_PROMPT = `Ты — арт-директор Telegram-магазинов. Создай готовую аватарку магазина, а не общий арт.
+Формат: квадрат 1:1, один крупный центральный знак/маскот/предмет, читаемый внутри круглой аватарки 64×64.
+Без текста, букв, логотипов брендов, водяных знаков, мелких деталей и интерфейсов.
+Стиль: премиальный e-commerce, чистые формы, выразительный силуэт, аккуратный свет, контрастный фон.
+Выбирай визуальную метафору строго по нише магазина. Если пользователь просит game/esports — делай игровую эмблему/контроллер/маскота без надписей.
+Качество: crisp icon, polished, 4K.`;
 
 function paginate<T>(items: T[], page: number, perPage = 6) {
   const total = Math.max(1, Math.ceil(items.length / perPage));
@@ -2395,8 +2394,8 @@ async function generateShopAvatarFromPrompt(
   parentId?: string | null,
 ) {
   const text = (prompt || "").trim();
-  if (text.length < 3 || text.length > 300) {
-    await tg.send(cid, "❌ Опишите аватарку текстом от 3 до 300 символов.");
+  if (text.length < 3 || text.length > 500) {
+    await tg.send(cid, "❌ Опишите аватарку текстом от 3 до 500 символов.");
     return;
   }
   if (!(await shopOwnerHasPremium(shopId))) {
@@ -2439,7 +2438,7 @@ async function generateShopAvatarFromPrompt(
     method: "POST",
     headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image",
+      model: "google/gemini-3.1-flash-image-preview",
       messages: [{ role: "user", content }],
       modalities: ["image", "text"],
     }),
@@ -2472,7 +2471,7 @@ async function generateShopAvatarFromPrompt(
 
   const { data: pub } = supabase().storage.from("bot-avatars").getPublicUrl(path);
   const publicUrl = pub.publicUrl;
-  const { data: gen } = await supabase()
+  const { data: gen, error: genError } = await supabase()
     .from("shop_ai_avatar_generations")
     .insert({
       shop_id: shopId,
@@ -2484,6 +2483,12 @@ async function generateShopAvatarFromPrompt(
     })
     .select("id")
     .single();
+  if (genError) {
+    console.error("[seller-bot-webhook] avatar generation log error:", genError.message);
+    await supabase().storage.from("bot-avatars").remove([path]).catch(() => null);
+    await tg.send(cid, "❌ Не удалось учесть генерацию. Попробуйте ещё раз позже.");
+    return;
+  }
 
   await supabase().from("shops").update({
     bot_avatar_url: publicUrl,
@@ -2723,7 +2728,7 @@ async function handleCallback(
       await setSession(cid, "aiav", shopId);
       return tg.send(
         cid,
-        `🪄 <b>AI-аватарка магазина</b>\n\nОсталось генераций: <b>${quota.remaining}/${quota.limit}</b>\n\nОпишите аватарку: ниша магазина, стиль, цвета, настроение.\n\n/cancel — отмена`,
+        `🪄 <b>AI-аватарка магазина</b>\n\nОсталось генераций: <b>${quota.remaining}/${quota.limit}</b>\n\nОпишите аватарку: ниша магазина, стиль, цвета, настроение. До 500 символов.\n\n/cancel — отмена`,
       );
     }
     if (cmd === "aiav_edit") {
