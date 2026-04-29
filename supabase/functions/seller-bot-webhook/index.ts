@@ -262,6 +262,7 @@ async function adminHome(tg: ReturnType<typeof TG>, chatId: number, shopId: stri
     [btn("⚙️ Настройки", "s:se"), btn("📢 Рассылка", "s:bc")],
     [btn("⭐ Отзывы", "s:rvl:0")],
     [autoBtn, btn("📲 Авто-заказы", "s:ao:0")],
+    [{ text: "🪄 AI-аватарка магазина", web_app: { url: `${WEBAPP_DOMAIN}/platform/profile?shop=${shopId}&ai=1` } } as Btn],
   ]);
 
   if (msgId) return tg.edit(chatId, msgId, text, kb);
