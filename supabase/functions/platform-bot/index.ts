@@ -2975,6 +2975,7 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("💎 Тарифы и подписка", "adm:tariffs"), btn("⚙️ Настройки", "adm:settings")],
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
     [btn("🎁 Рефералка", "adm:ref")],
+    [webAppBtn("🪄 Генерация аватарки магазина", `${WEBAPP_DOMAIN}/platform/profile?ai=1`)],
     [btn("📦 Платный контент", "adm:pcontent:0"), btn("👤 Куратор/Чат", "adm:pglobal")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);

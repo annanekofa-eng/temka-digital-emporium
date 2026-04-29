@@ -148,8 +148,8 @@ const PlatformProfile: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const shopId = params.get('shop');
       const ai = params.get('ai');
-      if (!shopId) return;
-      const found = data.shops.find((s) => s.id === shopId);
+      if (!shopId && ai !== '1') return;
+      const found = shopId ? data.shops.find((s) => s.id === shopId) : data.shops[0];
       if (!found) return;
       setSelectedShop(found);
       setAutoOpenAi(ai === '1');
@@ -465,9 +465,12 @@ const PlatformProfile: React.FC = () => {
                 {shops.map((shop) => (
                   <div
                     key={shop.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/80 hover:bg-blue-50/50 transition-colors cursor-pointer active:scale-[0.99]"
-                    onClick={() => { haptic.impact('light'); setSelectedShop(shop); setShopSheetOpen(true); }}
+                    className="rounded-xl bg-gray-50/80 hover:bg-blue-50/50 transition-colors active:scale-[0.99] overflow-hidden"
                   >
+                    <div
+                      className="flex items-center gap-3 p-3 cursor-pointer"
+                      onClick={() => { haptic.impact('light'); setSelectedShop(shop); setAutoOpenAi(false); setShopSheetOpen(true); }}
+                    >
                     <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
                       {shop.name[0]?.toUpperCase()}
                     </div>
@@ -486,6 +489,15 @@ const PlatformProfile: React.FC = () => {
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { haptic.impact('light'); setSelectedShop(shop); setAutoOpenAi(true); setShopSheetOpen(true); }}
+                      className="w-full flex items-center justify-center gap-2 border-t border-blue-100 bg-gradient-to-r from-blue-50 to-sky-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:from-blue-100 hover:to-sky-100 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Сгенерировать аватарку магазина
+                    </button>
                   </div>
                 ))}
               </div>
