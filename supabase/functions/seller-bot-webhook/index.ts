@@ -3621,7 +3621,7 @@ async function handleCallback(
     if (cmd === "apv") return autoProductView(tg, cid, mid, shopId, parts[2]);
     if (cmd === "upsell") {
       const upsellRows: Btn[][] = [
-        [premiumUpsellBtn("💎 Перейти на Премиум")],
+        [await premiumUpsellBtn("💎 Перейти на Премиум")],
         [btn("◀️ Назад", "s:ap")],
       ];
       return tg.edit(cid, mid,
