@@ -81,9 +81,13 @@ serve(async (req) => {
     // Owner subscription check
     if (shop.owner_id) {
       const { data: owner } = await supabase.from("platform_users")
-        .select("subscription_status, subscription_expires_at").eq("id", shop.owner_id).maybeSingle();
+        .select("subscription_status, subscription_expires_at, subscription_plan").eq("id", shop.owner_id).maybeSingle();
       if (owner && !["active", "trial", "grace_period"].includes(owner.subscription_status)) {
         return errRes("Магазин временно недоступен");
+      }
+      // Stars/Premium продажа разрешена только владельцам Premium-тарифа
+      if (owner && owner.subscription_plan !== "premium") {
+        return errRes("Этот магазин недоступен для покупки Stars/Premium");
       }
     }
 

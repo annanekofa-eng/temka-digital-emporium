@@ -103,10 +103,14 @@ serve(async (req) => {
     if (shop.owner_id) {
       const { data: owner } = await supabase
         .from("platform_users")
-        .select("subscription_status, subscription_expires_at")
+        .select("subscription_status, subscription_expires_at, subscription_plan")
         .eq("id", shop.owner_id)
         .maybeSingle();
       if (!owner || !["active", "trial", "grace_period"].includes(owner.subscription_status)) {
+        return jsonRes({ error: "Магазин временно недоступен для приёма заказов" }, 400);
+      }
+      // Stars-продажа разрешена только владельцам Premium-тарифа
+      if (owner.subscription_plan !== "premium") {
         return jsonRes({ error: "Магазин временно недоступен для приёма заказов" }, 400);
       }
     }
