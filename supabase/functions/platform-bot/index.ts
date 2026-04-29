@@ -1144,63 +1144,71 @@ async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, 
   }
 
   try {
-    // Get curator bot username (cache via getMe)
-    const meRes = await fetch(`https://api.telegram.org/bot${curatorBotToken}/getMe`);
-    const me = await meRes.json().catch(() => ({}));
-    const curatorUsername: string = me?.result?.username || "";
-    if (!curatorUsername) throw new Error("curator bot username unavailable");
-
-    // Get user plan for context
-    const { data: pUser } = await db()
-      .from("platform_users")
-      .select("subscription_plan")
-      .eq("telegram_id", chatId)
-      .maybeSingle();
-    const plan = (pUser?.subscription_plan as string) || "trial";
-
-    // Reuse existing active (issued, not expired) token if any — 1 link per user
-    let tokenStr: string | null = null;
+    // Reuse existing active invite link if any — 1 link per user
     const nowIso = new Date().toISOString();
     const { data: existing } = await db()
       .from("curator_chat_invites")
-      .select("token, expires_at")
+      .select("invite_link, expires_at")
       .eq("telegram_id", chatId)
       .eq("status", "issued")
       .gt("expires_at", nowIso)
+      .not("invite_link", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (existing?.token) {
-      tokenStr = existing.token as string;
-    } else {
-      // Invalidate any stale issued tokens for this user
+
+    let inviteLink: string | null = (existing?.invite_link as string) || null;
+
+    if (!inviteLink) {
+      // Invalidate stale tokens
       await db()
         .from("curator_chat_invites")
         .update({ status: "expired" })
         .eq("telegram_id", chatId)
         .eq("status", "issued");
-      // Issue a single short-lived token (15 minutes)
-      tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-      const { error: insErr } = await db().from("curator_chat_invites").insert({
+
+      // Create one-time invite link directly via curator bot (which is admin in chat)
+      const expiresUnix = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24h
+      const linkRes = await fetch(`https://api.telegram.org/bot${curatorBotToken}/createChatInviteLink`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: curatorChatId,
+          expire_date: expiresUnix,
+          member_limit: 1,
+          name: `user_${chatId}`,
+        }),
+      });
+      const linkJson = await linkRes.json().catch(() => ({}));
+      if (!linkJson?.ok || !linkJson?.result?.invite_link) {
+        throw new Error(`createChatInviteLink failed: ${JSON.stringify(linkJson)}`);
+      }
+      inviteLink = linkJson.result.invite_link as string;
+
+      const { data: pUser } = await db()
+        .from("platform_users")
+        .select("subscription_plan")
+        .eq("telegram_id", chatId)
+        .maybeSingle();
+      const plan = (pUser?.subscription_plan as string) || "trial";
+
+      const tokenStr = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+      await db().from("curator_chat_invites").insert({
         token: tokenStr,
         telegram_id: chatId,
         plan,
         status: "issued",
-        expires_at: expiresAt,
+        expires_at: new Date(expiresUnix * 1000).toISOString(),
+        invite_link: inviteLink,
       });
-      if (insErr) throw insErr;
     }
 
-    const deepLink = `https://t.me/${curatorUsername}?start=${tokenStr}`;
     const txt =
       `🔐 <b>Закрытый чат владельцев</b>\n\n` +
-      `Нажмите кнопку ниже — бот-куратор @${esc(curatorUsername)} выдаст вам персональную ссылку на вход в чат.\n\n` +
-      `⏱ Запрос действует 15 минут, ссылка — одноразовая.`;
-    const kb = ikb([
-      [{ text: "🔑 Получить приглашение", url: deepLink } as Btn],
-      [btn("◀️ Профиль", "p:profile")],
-    ]);
+      `Ваша персональная ссылка для входа в чат:\n\n` +
+      `<a href="${esc(inviteLink)}">${esc(inviteLink)}</a>\n\n` +
+      `⏱ Ссылка действует 24 часа и рассчитана на одно использование.`;
+    const kb = ikb([[btn("◀️ Профиль", "p:profile")]]);
     return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
   } catch (e) {
     console.error("private chat invite failed:", maskToken((e as Error).message));
