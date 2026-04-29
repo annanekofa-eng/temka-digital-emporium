@@ -77,14 +77,38 @@ type Btn = { text: string; callback_data?: string; url?: string; web_app?: { url
 const btn = (t: string, cb: string): Btn => ({ text: t, callback_data: cb });
 const ikb = (rows: Btn[][]) => ({ inline_keyboard: rows });
 
-/** Button that opens the platform bot (for Premium upsell etc). Falls back to callback if username not configured. */
-const premiumUpsellBtn = (text = "💎 Перейти на Премиум"): Btn => {
-  const username = (Deno.env.get("PLATFORM_BOT_USERNAME") || "").replace(/^@/, "");
+/** Cached username of the platform bot. Resolved via getMe on first use. */
+let _platformBotUsername: string | null = null;
+async function getPlatformBotUsername(): Promise<string> {
+  if (_platformBotUsername !== null) return _platformBotUsername;
+  const fromEnv = (Deno.env.get("PLATFORM_BOT_USERNAME") || "").replace(/^@/, "").trim();
+  if (fromEnv) {
+    _platformBotUsername = fromEnv;
+    return _platformBotUsername;
+  }
+  const token = Deno.env.get("PLATFORM_BOT_TOKEN") || "";
+  if (!token) {
+    _platformBotUsername = "";
+    return "";
+  }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const j = await r.json();
+    _platformBotUsername = (j?.result?.username || "").replace(/^@/, "");
+  } catch (_e) {
+    _platformBotUsername = "";
+  }
+  return _platformBotUsername || "";
+}
+/** Button that opens the platform bot (for Premium upsell etc). Falls back to a t.me search link. */
+async function premiumUpsellBtn(text = "💎 Перейти на Премиум"): Promise<Btn> {
+  const username = await getPlatformBotUsername();
   if (username) {
     return { text, url: `https://t.me/${username}?start=premium` };
   }
-  return { text, callback_data: "s:upsell:premium" };
-};
+  // Last-resort fallback: still a URL button so the click does something
+  return { text, url: "https://t.me/" };
+}
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 /** Unicode-safe truncation: never breaks surrogate pairs / multi-byte chars */
 const safeSlice = (s: string, max: number) => {
