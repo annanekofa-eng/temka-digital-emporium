@@ -89,7 +89,7 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
     if (!initData) { toast.error('Откройте через Telegram'); return; }
     const text = prompt.trim();
     if (text.length < 3) { toast.error('Опишите магазин (хотя бы 3 символа)'); return; }
-    if (text.length > 300) { toast.error('Описание слишком длинное (макс. 300)'); return; }
+    if (text.length > 500) { toast.error('Описание слишком длинное (макс. 500)'); return; }
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-shop-avatar', {
@@ -320,7 +320,7 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
                       onChange={(e) => setEditPrompt(e.target.value)}
                       placeholder="Что изменить? Например: сделай фон темнее, добавь иконку звезды"
                       rows={2}
-                      maxLength={300}
+                      maxLength={500}
                       disabled={generating || applying}
                       className="text-sm resize-none"
                     />
@@ -357,12 +357,12 @@ const ShopInfoSheet = ({ shop, open, onOpenChange, canUsePremium = false, initDa
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Например: магазин аккаунтов и подписок Telegram, минимализм, синий градиент"
                   rows={3}
-                  maxLength={300}
+                  maxLength={500}
                   disabled={generating}
                   className="text-sm resize-none"
                 />
                 <div className="flex items-center justify-between text-[10px] text-gray-400">
-                  <span>{prompt.length}/300</span>
+                  <span>{prompt.length}/500</span>
                   <span>Используется AI Lovable</span>
                 </div>
                 <div className="flex gap-2">
