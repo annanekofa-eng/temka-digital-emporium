@@ -164,14 +164,6 @@ const ShopCheckout = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const fileToDataUrl = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   /**
    * Уменьшаем чек до 1600px по длинной стороне и сжимаем в JPEG ~0.82.
    * Это спасает от лимита размера тела edge-функции (~6MB), из-за которого
