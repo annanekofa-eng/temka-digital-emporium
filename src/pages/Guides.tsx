@@ -13,18 +13,14 @@ import {
   Crown,
   Zap,
   Star,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import telestoreLogo from "@/assets/telestore-logo-icon.png";
 import { useTelegram } from "@/contexts/TelegramContext";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 type Plan = "start" | "basic" | "premium";
 const PLAN_RANK: Record<Plan, number> = { start: 0, basic: 1, premium: 2 };
@@ -505,54 +501,86 @@ export default function Guides() {
       </footer>
 
       <Dialog open={!!openGuide} onOpenChange={(o) => !o && setOpenGuide(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl">
-          {openGuide && (
-            <>
-              <DialogHeader>
-                <div className="flex items-center gap-2 mb-2">
-                  <PlanBadge plan={openGuide.required_plan} />
-                  {openGuide.soon && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
-                      Скоро
-                    </span>
-                  )}
+        <DialogPortal>
+          <DialogOverlay className="bg-white/0" />
+          <DialogPrimitive.Content
+            className="fixed inset-0 z-50 bg-white text-[#0f172a] overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+            aria-describedby={undefined}
+          >
+            {openGuide && (
+              <>
+                {/* Sticky top bar */}
+                <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-[#e2e8f0]">
+                  <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <PlanBadge plan={openGuide.required_plan} />
+                      {openGuide.soon && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                          Скоро
+                        </span>
+                      )}
+                    </div>
+                    <DialogPrimitive.Close
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0] hover:text-[#0f172a] transition-colors"
+                      aria-label="Закрыть"
+                    >
+                      <X className="w-4 h-4" />
+                    </DialogPrimitive.Close>
+                  </div>
                 </div>
-                <DialogTitle className="text-xl sm:text-2xl font-extrabold text-[#0f172a]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {openGuide.title}
-                </DialogTitle>
-                <DialogDescription className="text-sm text-[#64748b]">
-                  {openGuide.description}
-                </DialogDescription>
-              </DialogHeader>
 
-              <div className="mt-4">
-                {openGuide.soon ? (
-                  <div className="rounded-xl border border-dashed border-[#e2e8f0] bg-[#f8fafc] p-6 text-center">
-                    <Sparkles className="w-6 h-6 text-[#2563eb] mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-[#0f172a] mb-1">Гайд готовится</p>
-                    <p className="text-xs text-[#64748b]">
-                      Мы дорабатываем материал. Скоро он появится здесь — следите за обновлениями.
-                    </p>
-                  </div>
-                ) : guideLoading ? (
-                  <div className="space-y-2">
-                    <div className="h-4 w-3/4 rounded bg-[#f1f5f9] animate-pulse" />
-                    <div className="h-4 w-full rounded bg-[#f1f5f9] animate-pulse" />
-                    <div className="h-4 w-5/6 rounded bg-[#f1f5f9] animate-pulse" />
-                  </div>
-                ) : guideError ? (
-                  <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] p-4 text-sm text-[#b91c1c]">
-                    {guideError}
-                  </div>
-                ) : (
-                  <div className="prose prose-sm max-w-none text-[#1e293b] whitespace-pre-wrap leading-relaxed">
-                    {guideBody}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
+                {/* Article */}
+                <article className="max-w-3xl mx-auto px-5 sm:px-8 pt-8 sm:pt-12 pb-20">
+                  <DialogPrimitive.Title asChild>
+                    <h1
+                      className="text-[26px] sm:text-[40px] font-extrabold leading-[1.15] tracking-tight text-[#0f172a] mb-3 sm:mb-4"
+                      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                    >
+                      {openGuide.title}
+                    </h1>
+                  </DialogPrimitive.Title>
+                  <p className="text-base sm:text-lg text-[#64748b] leading-relaxed mb-8 sm:mb-10">
+                    {openGuide.description}
+                  </p>
+
+                  <div className="h-px bg-[#e2e8f0] mb-8 sm:mb-10" />
+
+                  {openGuide.soon ? (
+                    <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-8 sm:p-10 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-[#eff6ff] border border-[#bfdbfe] flex items-center justify-center mx-auto mb-4">
+                        <Sparkles className="w-6 h-6 text-[#2563eb]" />
+                      </div>
+                      <p className="text-lg font-bold text-[#0f172a] mb-1.5">Гайд готовится</p>
+                      <p className="text-sm text-[#64748b] max-w-sm mx-auto">
+                        Мы дорабатываем материал. Скоро он появится здесь — следите за обновлениями.
+                      </p>
+                    </div>
+                  ) : guideLoading ? (
+                    <div className="space-y-3">
+                      <div className="h-5 w-3/4 rounded bg-[#f1f5f9] animate-pulse" />
+                      <div className="h-5 w-full rounded bg-[#f1f5f9] animate-pulse" />
+                      <div className="h-5 w-11/12 rounded bg-[#f1f5f9] animate-pulse" />
+                      <div className="h-5 w-5/6 rounded bg-[#f1f5f9] animate-pulse" />
+                      <div className="h-5 w-2/3 rounded bg-[#f1f5f9] animate-pulse" />
+                    </div>
+                  ) : guideError ? (
+                    <div className="rounded-2xl border border-[#fecaca] bg-[#fef2f2] p-5 text-sm text-[#b91c1c]">
+                      {guideError}
+                    </div>
+                  ) : (
+                    <div
+                      className="text-[16px] sm:text-[17px] text-[#1e293b] whitespace-pre-wrap"
+                      style={{ lineHeight: 1.75, fontFamily: "'Inter', 'Georgia', serif" }}
+                    >
+                      {guideBody}
+                    </div>
+                  )}
+                </article>
+              </>
+            )}
+          </DialogPrimitive.Content>
+        </DialogPortal>
       </Dialog>
     </div>
   );
