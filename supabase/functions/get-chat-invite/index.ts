@@ -52,11 +52,12 @@ serve(async (req) => {
     const { data: entitled } = await supabase.rpc("has_entitlement", { p_telegram_id: telegramId, p_feature: "private_chat" });
     if (!entitled) return jsonRes({ error: "Доступ к закрытому чату только для тарифов Базовый и Премиум" }, 403);
 
-    // Reuse existing valid invite (not expired, not used)
+    // Reuse existing invite for this user — 1 link per user, navсегда.
+    // Старые ссылки специально НЕ протухают, чтобы по обновлённой ссылке
+    // не заходили посторонние, которым она когда-то «утекла».
     const { data: existing } = await supabase.from("chat_invites")
-      .select("id, invite_link, expires_at, used")
-      .eq("telegram_id", telegramId).eq("used", false)
-      .gt("expires_at", new Date().toISOString())
+      .select("id, invite_link, expires_at")
+      .eq("telegram_id", telegramId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (existing?.invite_link) {
       return jsonRes({ inviteLink: existing.invite_link, expiresAt: existing.expires_at });
@@ -67,16 +68,14 @@ serve(async (req) => {
     const chatId = (chatRow?.value || "").trim();
     if (!chatId) return jsonRes({ error: "Закрытый чат не настроен. Обратитесь к администратору." }, 503);
 
-    const expireSec = 3600; // 1 hour
-    const expireTs = Math.floor(Date.now() / 1000) + expireSec;
-
+    // Persistent one-time link: без expire_date, member_limit=1.
+    // Telegram сам инвалидирует ссылку после одного успешного входа.
     const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/createChatInviteLink`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        expire_date: expireTs,
         member_limit: 1,
-        name: `u${telegramId}_${Date.now()}`.slice(0, 32),
+        name: `u${telegramId}`.slice(0, 32),
       }),
     });
     const tgJson = await tgRes.json().catch(() => ({}));
@@ -86,7 +85,8 @@ serve(async (req) => {
     }
 
     const inviteLink = tgJson.result.invite_link as string;
-    const expiresAt = new Date(expireTs * 1000).toISOString();
+    // Сохраняем символический «срок действия» далеко в будущем — колонка NOT NULL.
+    const expiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000 * 10).toISOString();
 
     await supabase.from("chat_invites").insert({
       telegram_id: telegramId, invite_link: inviteLink, expires_at: expiresAt, used: false,
