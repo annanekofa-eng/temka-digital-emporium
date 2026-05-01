@@ -234,7 +234,7 @@ const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; 
   start: {
     emoji: "🚀",
     label: "Старт",
-    short: "Минимум — для запуска",
+    short: "Минимум для запуска",
     perks: [
       "Полный функционал магазина",
       "Помощь с запуском от куратора",
@@ -243,7 +243,7 @@ const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; 
   basic: {
     emoji: "⭐",
     label: "Плюс",
-    short: "Поддержка и комьюнити",
+    short: "Масштабирование и кураторство",
     perks: [
       "Всё из Старт",
       "Кураторство и помощь в ведении",
@@ -1397,7 +1397,7 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     const t = tariffs[p];
     const m = PLAN_META[p];
     return `${m.emoji} <b>${m.label}</b> — $${t.price.toFixed(2)}/мес · <i>${m.short}</i>`;
-  }).join("\n")}\n\nМагазин: оплата, автовыдача, автоматизация.\n💳 Карта — ${supportUsername}`;
+  }).join("\n")}\n\nПодписка открывает магазин для покупателей: приём оплаты, автовыдача товаров и полная автоматизация продаж.\n\n💳 Оплата по карте — ${supportUsername}`;
 
   const rows: Btn[][] = [];
   const isBlocked = user.subscription_status === "blocked";
