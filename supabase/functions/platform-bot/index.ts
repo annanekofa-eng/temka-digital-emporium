@@ -227,7 +227,7 @@ function invalidateSubCache() {
 }
 
 // ─── Subscription Helpers ─────────────────────
-const SUBSCRIPTION_BANNER_URL = "https://nrwkriquwmjpdirihwrz.supabase.co/storage/v1/object/public/bot-avatars/platform/subscription-banner-v2.jpg";
+const SUBSCRIPTION_BANNER_URL = "https://nrwkriquwmjpdirihwrz.supabase.co/storage/v1/object/public/bot-avatars/platform/subscription-banner-v3.jpg";
 
 type PlanKey = "start" | "basic" | "premium";
 const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; perks: string[] }> = {
@@ -878,7 +878,7 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   const ss = await getSubSettings();
   const startPrice = await getTariffPrice("start");
   const text = `📖 <b>Как это работает?</b>\n\n1️⃣ <b>Создай магазин</b> — пройди простой онбординг из 7 шагов\n\n2️⃣ <b>Добавь товары</b> — загрузи инвентарь прямо в бота\n\n3️⃣ <b>Подключи оплату</b> — CryptoBot и/или СБП (перевод на карту)\n\n4️⃣ <b>Поделись ссылкой</b> — клиенты покупают через mini-app\n\n5️⃣ <b>Автовыдача 24/7</b> — товар доставляется мгновенно после оплаты\n\n🔗 <b>Пример магазина:</b> @TeleStoreTestBot\n❓ <b>FAQ / Частые вопросы:</b> <a href="https://telegra.ph/FAQ--TeleStore-03-17">открыть</a>\n🚀 <b>В чём преимущество Mini App:</b> <a href="https://telegra.ph/V-chem-preimushchestvo-magazina-Mini-App-03-17">читать</a>\n\n💰 Стоимость: от <b>$${startPrice.toFixed(2)}/мес</b> — ${ss.max_shops_per_user} магазин на пользователя\n🆓 ${ss.trial_enabled ? `${ss.trial_days} дней бесплатного пробного периода` : "Пробный период недоступен"}`;
-  const photoUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/product-images/platform/how-it-works-v2.jpg`;
+  const photoUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/product-images/platform/how-it-works-v3.jpg`;
   console.log("howItWorks called, chatId:", chatId, "photoUrl:", photoUrl);
   try { await tg.deleteMessage(chatId, msgId); } catch { /* ignore */ }
   const result = await tg.sendPhoto(
