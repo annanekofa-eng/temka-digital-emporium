@@ -75,7 +75,15 @@ const SECTIONS: Section[] = [
     title: "Работа с клиентами",
     subtitle: "Сервис, поддержка и удержание",
     icon: Users,
-    guides: [],
+    guides: [
+      {
+        id: "audience-management",
+        title: "👥 Гайд по работе с аудиторией",
+        description: "Как удерживать пользователей через обязательную подписку, контент и рассылки — чтобы трафик не уходил впустую.",
+        required_plan: "start",
+        public: true,
+      },
+    ],
   },
   {
     id: "revenue",
