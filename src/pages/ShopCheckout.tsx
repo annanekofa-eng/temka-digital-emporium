@@ -70,7 +70,7 @@ const ShopCheckout = () => {
         .select('method, enabled, config_masked')
         .eq('shop_id', shopId);
       if (error) throw error;
-      return (data || []) as Array<{ method: string; enabled: boolean; config_masked: any }>;
+      return ((data as unknown) || []) as Array<{ method: string; enabled: boolean; config_masked: any }>;
     },
     enabled: !!shopId,
     staleTime: 60_000,
