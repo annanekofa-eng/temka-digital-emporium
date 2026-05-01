@@ -57,6 +57,18 @@ const TG = (token: string) => {
       return { ok: false, description: `Network error: ${method}` };
     }
   };
+  const callForm = async (method: string, body: FormData) => {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        body,
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(`TG API form call failed (${method}):`, maskToken(String(e)));
+      return { ok: false, description: `Network error: ${method}` };
+    }
+  };
   return {
     send: (chatId: number, text: string, markup?: unknown) =>
       call("sendMessage", {
@@ -106,6 +118,12 @@ const TG = (token: string) => {
         ...(caption ? { caption, parse_mode: "HTML" } : {}),
         ...(markup ? { reply_markup: markup } : {}),
       }),
+    sendPhotoFile: (chatId: number, photo: Blob, filename = "how-it-works.jpg") => {
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      form.append("photo", photo, filename);
+      return callForm("sendPhoto", form);
+    },
     sendVideo: (chatId: number, video: string, caption?: string, markup?: unknown) =>
       call("sendVideo", {
         chat_id: chatId,
