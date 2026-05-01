@@ -3,15 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    // Auth: accept either ENFORCE_JOB_SECRET (cron / manual) via x-enforce-secret
-    // header, or service-role bearer token (internal calls).
+    // Auth: accept ENFORCE_JOB_SECRET via x-enforce-secret (manual admin trigger),
+    // service-role bearer token, OR anon apikey (used by pg_cron http_post).
     const jobSecret = Deno.env.get("ENFORCE_JOB_SECRET") || "";
     const headerSecret = req.headers.get("x-enforce-secret") || req.headers.get("x-retention-secret") || "";
     const authHeader = req.headers.get("authorization") || "";
+    const apiKeyHeader = req.headers.get("apikey") || "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const isServiceCall = serviceKey && authHeader === `Bearer ${serviceKey}`;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+    const isServiceCall = serviceKey && (authHeader === `Bearer ${serviceKey}` || apiKeyHeader === serviceKey);
+    const isAnonCall = anonKey && (apiKeyHeader === anonKey || authHeader === `Bearer ${anonKey}`);
     const secretOk = jobSecret && headerSecret === jobSecret;
-    if (!secretOk && !isServiceCall) {
+    if (!secretOk && !isServiceCall && !isAnonCall) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
