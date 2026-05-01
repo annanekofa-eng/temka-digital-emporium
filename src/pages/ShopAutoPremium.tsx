@@ -50,13 +50,13 @@ const ShopAutoPremium = () => {
     enabled: !!shop?.id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('shop_payment_methods')
+        .from('public_shop_payment_methods' as any)
         .select('enabled')
         .eq('shop_id', shop!.id)
         .eq('method', 'sbp_card')
         .maybeSingle();
       if (error) return false;
-      return !!data?.enabled;
+      return !!(data as any)?.enabled;
     },
   });
 

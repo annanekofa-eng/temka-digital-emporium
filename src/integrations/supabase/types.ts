@@ -2356,6 +2356,42 @@ export type Database = {
           },
         ]
       }
+      public_shop_payment_methods: {
+        Row: {
+          config_masked: Json | null
+          enabled: boolean | null
+          method: string | null
+          shop_id: string | null
+        }
+        Insert: {
+          config_masked?: Json | null
+          enabled?: boolean | null
+          method?: string | null
+          shop_id?: string | null
+        }
+        Update: {
+          config_masked?: Json | null
+          enabled?: boolean | null
+          method?: string | null
+          shop_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_payment_methods_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "public_shop_storefront"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_payment_methods_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_shop_reviews: {
         Row: {
           author: string | null
