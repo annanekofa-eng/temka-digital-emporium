@@ -52,7 +52,7 @@ const MONTH_OPTIONS = [
 
 const PLAN_META: Record<string, { label: string; emoji: string; desc: string }> = {
   start:   { label: 'Старт',    emoji: '🚀', desc: 'Магазин + поддержка + помощь куратора при запуске' },
-  basic:   { label: 'Базовый',  emoji: '⭐', desc: '+ кураторство, закрытый чат, поставщики, бесплатные товары' },
+  basic:   { label: 'Плюс',     emoji: '⭐', desc: '+ кураторство, закрытый чат, поставщики, бесплатные товары' },
   premium: { label: 'Премиум',  emoji: '💎', desc: '+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент' },
 };
 
