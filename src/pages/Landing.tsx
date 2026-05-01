@@ -367,6 +367,17 @@ export default function Landing() {
               </motion.p>
             </AnimatedSection>
 
+            <AnimatedSection className="mb-8 sm:mb-12">
+              <motion.img
+                variants={fadeUp}
+                custom={0}
+                src={howItWorksImage}
+                alt="Создай свой mini-app магазин за 10 минут — 3 шага: создание, настройка, готово"
+                loading="lazy"
+                className="w-full h-auto rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/10 border border-[#e2e8f0]"
+              />
+            </AnimatedSection>
+
             <div
               className="flex sm:grid sm:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide"
               style={{ touchAction: "pan-x", overscrollBehaviorY: "contain" }}
