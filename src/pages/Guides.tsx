@@ -59,7 +59,14 @@ const SECTIONS: Section[] = [
     title: "Привлечение",
     subtitle: "Где брать первых и постоянных покупателей",
     icon: Megaphone,
-    guides: [],
+    guides: [
+      {
+        id: "mailing-manual",
+        title: "📩 Мануал по рассылке",
+        description: "Пошаговая схема прогрева аккаунта и безопасной рассылки в чатах через отложку.",
+        required_plan: "start",
+      },
+    ],
   },
   {
     id: "clients",
