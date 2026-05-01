@@ -5,7 +5,7 @@ import screenshotCatalog from "@/assets/screenshot-catalog.png";
 import screenshotCart from "@/assets/screenshot-cart.png";
 import screenshotProfile from "@/assets/screenshot-profile.png";
 import howItWorksImage from "@/assets/how-it-works.jpeg";
-import subscriptionPlansImage from "@/assets/subscription-plans.jpeg";
+// subscription-plans image is now expressed as live cards
 import { motion, useInView, type Variants } from "framer-motion";
 import {
   Bot,
@@ -654,7 +654,7 @@ export default function Landing() {
 
         {/* ═══ 8. PRICING ═══ */}
         <section className="py-12 sm:py-28 px-4 sm:px-6 bg-gradient-to-b from-[#f8fafc] to-white">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             <AnimatedSection className="text-center mb-8 sm:mb-12">
               <motion.h2
                 variants={fadeUp}
@@ -662,77 +662,119 @@ export default function Landing() {
                 className="text-2xl sm:text-4xl font-extrabold text-[#0f172a] mb-2 sm:mb-4"
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                Простая и честная цена
+                Выбери свой тариф
               </motion.h2>
               <motion.p variants={fadeUp} custom={1} className="text-[#64748b] text-sm sm:text-lg max-w-xl mx-auto">
-                Вы платите не за абстрактную подписку, а за готовую торговую систему
+                Три тарифа под любой этап развития магазина. 3 дня бесплатно для новых пользователей.
               </motion.p>
             </AnimatedSection>
 
-            <AnimatedSection className="mb-8 sm:mb-12">
-              <motion.img
-                variants={fadeUp}
-                custom={0}
-                src={subscriptionPlansImage}
-                alt="Тарифы TeleStore — Старт $5/мес, Плюс $7/мес, Премиум $13/мес"
-                loading="lazy"
-                className="w-full h-auto rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/10 border border-[#e2e8f0]"
-              />
-            </AnimatedSection>
-
             <AnimatedSection>
-              <motion.div
-                variants={fadeUp}
-                custom={0}
-                className="bg-white rounded-2xl sm:rounded-3xl border-2 border-[#2563eb]/20 shadow-xl shadow-blue-500/5 p-5 sm:p-10 relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 bg-gradient-to-l from-[#2563eb] to-[#3b82f6] text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
-                  Пробный период
-                </div>
-
-                <div className="text-center mb-5 sm:mb-8">
-                  <h3
-                    className="font-bold text-xl sm:text-2xl text-[#0f172a] mb-2"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                {[
+                  {
+                    name: "Старт",
+                    price: "$5",
+                    tagline: "Что входит:",
+                    features: [
+                      "Полный функционал магазина",
+                      "Помощь с запуском от куратора",
+                    ],
+                    highlighted: false,
+                  },
+                  {
+                    name: "Плюс",
+                    price: "$7",
+                    tagline: "Всё из Старта, ещё:",
+                    features: [
+                      "Кураторство и помощь в ведении",
+                      "Закрытый чат владельцев магазинов",
+                      "Поставщики товаров",
+                      "Бесплатные товары для базового уровня",
+                    ],
+                    highlighted: true,
+                    badge: "Выбирают чаще всего",
+                  },
+                  {
+                    name: "Премиум",
+                    price: "$13",
+                    tagline: "Всё из Плюс, ещё:",
+                    features: [
+                      "Продажа Telegram Stars и Premium",
+                      "AI-аватарка магазина",
+                      "Кастомизация магазина под нишу",
+                      "Премиум-поддержка",
+                    ],
+                    highlighted: false,
+                  },
+                ].map((plan, i) => (
+                  <motion.div
+                    key={plan.name}
+                    variants={fadeUp}
+                    custom={i}
+                    className={`relative bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 flex flex-col ${
+                      plan.highlighted
+                        ? "border-2 border-[#2563eb] shadow-2xl shadow-blue-500/20 md:scale-[1.03]"
+                        : "border border-[#e2e8f0] shadow-md shadow-blue-500/5"
+                    }`}
                   >
-                    TeleStore
-                  </h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-[#0f172a]">от $5</span>
-                    <span className="text-[#94a3b8] text-base sm:text-lg">/мес</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-[#64748b] mt-2">3 дня бесплатно для новых пользователей</p>
-                </div>
+                    {plan.highlighted && plan.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#2563eb] to-[#3b82f6] text-white text-[11px] sm:text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-lg shadow-blue-500/30">
+                        {plan.badge}
+                      </div>
+                    )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-6 sm:mb-8">
-                  {[
-                    "1 Telegram-магазин",
-                    "Собственный бот",
-                    "Свое Mini-App",
-                    "Приём оплат: CryptoBot + СБП",
-                    "Автовыдача 24/7",
-                    "Управление через /admin",
-                    "Промокоды и рассылки",
-                    "Поддержка платформы",
-                  ].map((feature, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs sm:text-sm text-[#1e293b]">
-                      <CheckCircle2 className="w-4.5 h-4.5 text-[#2563eb] shrink-0" />
-                      {feature}
+                    <div className="mb-4 sm:mb-5">
+                      <div
+                        className={`text-sm sm:text-base font-bold mb-2 ${
+                          plan.highlighted ? "text-[#2563eb]" : "text-[#3b82f6]"
+                        }`}
+                      >
+                        {plan.name}
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span
+                          className="text-3xl sm:text-4xl font-extrabold text-[#0f172a]"
+                          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                        >
+                          {plan.price}
+                        </span>
+                        <span className="text-[#94a3b8] text-sm sm:text-base font-medium">/мес</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
 
-                <div className="text-center">
-                  <a
-                    href={PLATFORM_BOT_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2.5 px-6 sm:px-10 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#3b82f6] text-white text-sm sm:text-base font-bold shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] transition-all duration-200"
-                  >
-                    <Send className="w-5 h-5" /> Начать бесплатно
-                  </a>
-                </div>
-              </motion.div>
+                    <div className="h-px bg-gradient-to-r from-[#e2e8f0] via-[#cbd5e1] to-transparent mb-4" />
+
+                    <div className="text-sm sm:text-base font-bold text-[#0f172a] mb-3">{plan.tagline}</div>
+
+                    <ul className="space-y-2.5 mb-6 flex-1">
+                      {plan.features.map((f, fi) => (
+                        <li key={fi} className="flex items-start gap-2 text-xs sm:text-sm text-[#1e293b] leading-snug">
+                          <CheckCircle2 className="w-4 h-4 text-[#2563eb] shrink-0 mt-0.5" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <a
+                      href={PLATFORM_BOT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`mt-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                        plan.highlighted
+                          ? "bg-gradient-to-r from-[#2563eb] to-[#3b82f6] text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02]"
+                          : "bg-[#f1f5f9] text-[#0f172a] hover:bg-[#e2e8f0]"
+                      }`}
+                    >
+                      <Send className="w-4 h-4" /> Выбрать
+                    </a>
+                  </motion.div>
+                ))}
+              </div>
+
+              <p className="text-center text-xs sm:text-sm text-[#64748b] mt-6 sm:mt-8">
+                3 дня бесплатно для новых пользователей · Оплата через CryptoBot или СБП
+              </p>
             </AnimatedSection>
           </div>
         </section>
