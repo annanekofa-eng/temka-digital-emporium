@@ -17,7 +17,52 @@ type Plan = "start" | "basic" | "premium";
 const PLAN_RANK: Record<Plan, number> = { start: 0, basic: 1, premium: 2 };
 
 /** Guides catalog. Add new entries here when ready. */
-const GUIDES: Record<string, { required_plan: Plan; section: string; title: string; body: string }> = {};
+const GUIDES: Record<string, { required_plan: Plan; section: string; title: string; body: string; public?: boolean }> = {
+  "mailing-manual": {
+    required_plan: "start",
+    section: "attraction",
+    title: "📩 Мануал по рассылке",
+    public: true,
+    body: [
+      "📩 <b>Мануал по рассылке</b>",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "🕐 <b>Шаг 1. Выбор интервала</b>",
+      "Работай блоками по <b>~2 часа</b>.",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "⚙️ <b>Шаг 2. Настройка отправки</b>",
+      "• Расставь сообщения во все нужные чаты",
+      "• Используй <b>отложенную отправку</b> с ежедневным КД",
+      "  <i>(нужен Telegram Premium)</i>",
+      "• Интервал между сообщениями: <b>15–20 минут</b>",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "💤 <b>Шаг 3. После блока</b>",
+      "Дай аккаунту отдохнуть <b>пару часов</b>.",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "🔁 <b>Шаг 4. Повтор</b>",
+      "После паузы запускай следующий цикл.",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "📅 <b>Ежедневная работа</b>",
+      "• Ставь рассылки заранее через отложку",
+      "  с ежедневным КД при помощи <b>Telegram Premium</b>",
+      "• Если аккаунт новый — <b>2–3 цикла</b> в день",
+      "• Дальше увеличивай по мере прогрева аккаунта",
+      "",
+      "━━━━━━━━━━━━━━━━━━",
+      "",
+      "✅ <b>Главное правило:</b> прогревай аккаунт постепенно, не спеши с объёмами.",
+    ].join("\n"),
+  },
+};
 
 function verifyTelegramInitData(initData: string, botToken: string): { ok: boolean; userId?: number } {
   try {
@@ -84,7 +129,9 @@ serve(async (req) => {
     }
 
     const required = guide.required_plan;
-    const hasAccess = userPlan !== null && PLAN_RANK[userPlan] >= PLAN_RANK[required];
+    const hasAccess =
+      guide.public === true ||
+      (userPlan !== null && PLAN_RANK[userPlan] >= PLAN_RANK[required]);
 
     if (!hasAccess) {
       return json({
