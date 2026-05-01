@@ -1262,7 +1262,8 @@ async function shopView(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     ? `\n🤖 Бот: @${shop.bot_username}\n\n✅ Mini App и кнопки в боте уже настроены — переходите в @${shop.bot_username} и продавайте!`
     : "";
   const helpBlock = `\n\n📘 <b>Центр помощи</b>\nЕсли возникнут вопросы по настройке и работе магазина:\nhttps://telegra.ph/Centr-pomoshchi-TeleStore-03-17`;
-  const text = `🏪 <b>${esc(shop.name)}</b>\n\n📊 Статус: ${shop.status === "active" ? "активен" : "остановлен"} ${statusEmoji}\n🔗 ${esc(shopUrl)}\n📦 Товаров: ${productCount || 0}\n🛍 Продаж: ${orderCount || 0}${botLine}${helpBlock}`;
+  const guidesBlock = `\n\n📚 <b>Гайды и мануалы для тебя</b>\nhttps://t.me/Tele_Store_Robot/guides`;
+  const text = `🏪 <b>${esc(shop.name)}</b>\n\n📊 Статус: ${shop.status === "active" ? "активен" : "остановлен"} ${statusEmoji}\n🔗 ${esc(shopUrl)}\n📦 Товаров: ${productCount || 0}\n🛍 Продаж: ${orderCount || 0}${botLine}${helpBlock}${guidesBlock}`;
   return tg.edit(
     chatId,
     msgId,
