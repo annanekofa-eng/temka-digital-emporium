@@ -43,6 +43,7 @@ interface Guide {
   description: string;
   required_plan: Plan;
   soon?: boolean;
+  public?: boolean;
 }
 
 interface Section {
@@ -59,7 +60,15 @@ const SECTIONS: Section[] = [
     title: "Привлечение",
     subtitle: "Где брать первых и постоянных покупателей",
     icon: Megaphone,
-    guides: [],
+    guides: [
+      {
+        id: "mailing-manual",
+        title: "📩 Мануал по рассылке",
+        description: "Пошаговая схема прогрева аккаунта и безопасной рассылки в чатах через отложку.",
+        required_plan: "start",
+          public: true,
+      },
+    ],
   },
   {
     id: "clients",
@@ -99,7 +108,7 @@ function PlanBadge({ plan }: { plan: Plan }) {
 }
 
 function GuideCard({ guide, userPlan, onLockedCTA, onOpen }: { guide: Guide; userPlan: Plan | null; onLockedCTA: () => void; onOpen: (id: string) => void }) {
-  const hasAccess = userPlan !== null && PLAN_RANK[userPlan] >= PLAN_RANK[guide.required_plan];
+  const hasAccess = guide.public === true || (userPlan !== null && PLAN_RANK[userPlan] >= PLAN_RANK[guide.required_plan]);
   const locked = !hasAccess;
 
   return (
