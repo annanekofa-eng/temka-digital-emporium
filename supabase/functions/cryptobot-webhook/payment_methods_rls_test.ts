@@ -15,7 +15,11 @@ const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE
 const SUPABASE_ANON_KEY = Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!;
 
 function anonClient() {
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Disable token auto-refresh in tests so the supabase-js client doesn't
+  // leave a background setInterval running that trips Deno's leak detector.
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 const testOpts = { sanitizeOps: false, sanitizeResources: false } as const;
