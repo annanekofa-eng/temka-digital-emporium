@@ -172,6 +172,65 @@ const ShopCheckout = () => {
       reader.readAsDataURL(file);
     });
 
+  /**
+   * Уменьшаем чек до 1600px по длинной стороне и сжимаем в JPEG ~0.82.
+   * Это спасает от лимита размера тела edge-функции (~6MB), из-за которого
+   * раньше возвращался "Edge Function returned a non-2xx status code".
+   * iPhone-скриншоты часто весят 5–8MB, после сжатия — 200–500KB.
+   */
+  const compressReceiptToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      // PDF и HEIC и не-image форматы оставляем как есть
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          const MAX = 1600;
+          let { width, height } = img;
+          if (width > MAX || height > MAX) {
+            if (width >= height) {
+              height = Math.round((height * MAX) / width);
+              width = MAX;
+            } else {
+              width = Math.round((width * MAX) / height);
+              height = MAX;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            URL.revokeObjectURL(url);
+            return reject(new Error('canvas-unsupported'));
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          URL.revokeObjectURL(url);
+          resolve(dataUrl);
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          reject(e);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        // Фоллбек: исходный файл как dataURL
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      };
+      img.src = url;
+    });
+
   const handleSbpConfirm = async () => {
     if (!receiptFile) {
       setError('Пожалуйста, загрузите чек об оплате');
@@ -190,7 +249,9 @@ const ShopCheckout = () => {
         productPrice: Number(item.product.price),
         quantity: item.quantity,
       }));
-      const receiptDataUrl = await fileToDataUrl(receiptFile);
+      // Сжимаем чек, чтобы уложиться в лимит body edge-функции
+      const receiptDataUrl = await compressReceiptToDataUrl(receiptFile);
+      const isCompressed = receiptDataUrl.startsWith('data:image/jpeg');
 
       const { data, error: fnError } = await supabase.functions.invoke('create-sbp-request', {
         body: {
@@ -203,19 +264,28 @@ const ShopCheckout = () => {
           amountUsd: toPay,
           amountRub: rubRate ? Number((toPay * rubRate).toFixed(2)) : null,
           receiptBase64: receiptDataUrl,
-          receiptMime: receiptFile.type || 'image/jpeg',
-          receiptFileName: receiptFile.name || 'receipt.jpg',
+          receiptMime: isCompressed ? 'image/jpeg' : (receiptFile.type || 'image/jpeg'),
+          receiptFileName: isCompressed
+            ? (receiptFile.name || 'receipt').replace(/\.[^.]+$/, '') + '.jpg'
+            : (receiptFile.name || 'receipt.jpg'),
           description,
         },
       });
-      if (fnError) throw new Error(fnError.message);
+      if (fnError) {
+        // Понятное сообщение для пользователя вместо тех. ошибки edge-функции
+        const raw = String(fnError.message || '').toLowerCase();
+        if (raw.includes('non-2xx') || raw.includes('failed to send') || raw.includes('network')) {
+          throw new Error('Не удалось отправить чек. Проверьте интернет и попробуйте ещё раз.');
+        }
+        throw new Error(fnError.message || 'Не удалось отправить чек');
+      }
       if (data?.error) throw new Error(data.error);
       setSubmittedOrderNumber(data?.orderNumber || orderNumber);
       setSbpStep('submitted');
       clearCart();
       haptic.notification('success');
     } catch (err: any) {
-      setError(err.message || 'Ошибка при отправке чека');
+      setError(err?.message || 'Не удалось отправить чек. Попробуйте ещё раз.');
       setSbpStep('confirm');
       haptic.notification('error');
     }
