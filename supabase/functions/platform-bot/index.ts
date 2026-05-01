@@ -57,6 +57,18 @@ const TG = (token: string) => {
       return { ok: false, description: `Network error: ${method}` };
     }
   };
+  const callForm = async (method: string, body: FormData) => {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        body,
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(`TG API form call failed (${method}):`, maskToken(String(e)));
+      return { ok: false, description: `Network error: ${method}` };
+    }
+  };
   return {
     send: (chatId: number, text: string, markup?: unknown) =>
       call("sendMessage", {
@@ -106,6 +118,12 @@ const TG = (token: string) => {
         ...(caption ? { caption, parse_mode: "HTML" } : {}),
         ...(markup ? { reply_markup: markup } : {}),
       }),
+    sendPhotoFile: (chatId: number, photo: Blob, filename = "how-it-works.jpg") => {
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      form.append("photo", photo, filename);
+      return callForm("sendPhoto", form);
+    },
     sendVideo: (chatId: number, video: string, caption?: string, markup?: unknown) =>
       call("sendVideo", {
         chat_id: chatId,
@@ -881,7 +899,9 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   const photoUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/product-images/platform/how-it-works-new.jpg`;
   console.log("howItWorks called, chatId:", chatId, "photoUrl:", photoUrl);
   try { await tg.deleteMessage(chatId, msgId); } catch { /* ignore */ }
-  const result = await tg.sendPhoto(chatId, photoUrl);
+  const photoResponse = await fetch(photoUrl);
+  const photoBlob = photoResponse.ok ? await photoResponse.blob() : null;
+  const result = photoBlob ? await tg.sendPhotoFile(chatId, photoBlob) : await tg.sendPhoto(chatId, photoUrl);
   console.log("howItWorks sendPhoto result:", JSON.stringify(result));
   if (!result?.ok) {
     // Fallback: send as text message without photo
