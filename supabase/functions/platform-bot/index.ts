@@ -899,7 +899,9 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   const photoUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/product-images/platform/how-it-works-new.jpg`;
   console.log("howItWorks called, chatId:", chatId, "photoUrl:", photoUrl);
   try { await tg.deleteMessage(chatId, msgId); } catch { /* ignore */ }
-  const result = await tg.sendPhoto(chatId, photoUrl);
+  const photoResponse = await fetch(photoUrl);
+  const photoBlob = photoResponse.ok ? await photoResponse.blob() : null;
+  const result = photoBlob ? await tg.sendPhotoFile(chatId, photoBlob) : await tg.sendPhoto(chatId, photoUrl);
   console.log("howItWorks sendPhoto result:", JSON.stringify(result));
   if (!result?.ok) {
     // Fallback: send as text message without photo
