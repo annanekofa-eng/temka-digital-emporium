@@ -422,7 +422,7 @@ const PlatformProfile: React.FC = () => {
                 <span className="font-medium text-gray-700">
                   {(() => {
                     const p = (subscription as any).plan as string;
-                    const map: Record<string, string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+                    const map: Record<string, string> = { start: '🚀 Старт', basic: '⭐ Плюс', premium: '💎 Премиум' };
                     return map[p] || p;
                   })()}
                 </span>
