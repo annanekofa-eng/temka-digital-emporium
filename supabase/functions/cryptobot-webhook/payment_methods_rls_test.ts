@@ -18,7 +18,9 @@ function anonClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-Deno.test("anon CANNOT read shop_payment_methods (encrypted tokens table)", async () => {
+const testOpts = { sanitizeOps: false, sanitizeResources: false } as const;
+
+Deno.test("anon CANNOT read shop_payment_methods (encrypted tokens table)", testOpts, async () => {
   const supabase = anonClient();
   const { data, error } = await supabase
     .from("shop_payment_methods")
@@ -34,7 +36,7 @@ Deno.test("anon CANNOT read shop_payment_methods (encrypted tokens table)", asyn
   assertEquals((data || []).length, 0, "anon must not see any encrypted tokens");
 });
 
-Deno.test("anon CANNOT read shop_payment_requests (payment status table)", async () => {
+Deno.test("anon CANNOT read shop_payment_requests (payment status table)", testOpts, async () => {
   const supabase = anonClient();
   const { data, error } = await supabase
     .from("shop_payment_requests")
@@ -47,7 +49,7 @@ Deno.test("anon CANNOT read shop_payment_requests (payment status table)", async
   assertEquals((data || []).length, 0, "anon must not see any payment requests");
 });
 
-Deno.test("public_shop_payment_methods view does NOT expose config_encrypted", async () => {
+Deno.test("public_shop_payment_methods view does NOT expose config_encrypted", testOpts, async () => {
   const supabase = anonClient();
   // Selecting the encrypted column from the view must fail — the view
   // intentionally omits it. If this query ever succeeds, the view was
@@ -59,7 +61,7 @@ Deno.test("public_shop_payment_methods view does NOT expose config_encrypted", a
   assert(error, "config_encrypted must NOT be selectable via the public view");
 });
 
-Deno.test("public_shop_payment_methods exposes only safe columns to anon", async () => {
+Deno.test("public_shop_payment_methods exposes only safe columns to anon", testOpts, async () => {
   const supabase = anonClient();
   // Safe columns we promise to expose. This shape is part of the public
   // contract — storefront pages depend on it.
