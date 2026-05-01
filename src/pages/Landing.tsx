@@ -4,7 +4,7 @@ import telestoreLogo from "@/assets/telestore-logo-icon.png";
 import screenshotCatalog from "@/assets/screenshot-catalog.png";
 import screenshotCart from "@/assets/screenshot-cart.png";
 import screenshotProfile from "@/assets/screenshot-profile.png";
-import howItWorksImage from "@/assets/how-it-works-uploaded.jpeg";
+
 // subscription-plans image is now expressed as live cards
 import { motion, useInView, type Variants } from "framer-motion";
 import {
@@ -365,17 +365,6 @@ export default function Landing() {
               <motion.p variants={fadeUp} custom={2} className="text-[#64748b] text-sm sm:text-lg max-w-xl mx-auto">
                 От идеи до работающего магазина — 5 простых шагов
               </motion.p>
-            </AnimatedSection>
-
-            <AnimatedSection className="mb-8 sm:mb-12">
-              <motion.img
-                variants={fadeUp}
-                custom={0}
-                src={howItWorksImage}
-                alt="Создай свой mini-app магазин за 10 минут — 3 шага: создание, настройка, готово"
-                loading="lazy"
-                className="w-full h-auto rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/10 border border-[#e2e8f0]"
-              />
             </AnimatedSection>
 
             <div
