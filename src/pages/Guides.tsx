@@ -532,9 +532,12 @@ export default function Guides() {
                     <div
                       className="text-[16px] sm:text-[17px] text-[#1e293b] whitespace-pre-wrap"
                       style={{ lineHeight: 1.75, fontFamily: "'Inter', 'Georgia', serif" }}
-                    >
-                      {guideBody}
-                    </div>
+                      // Allow only basic formatting tags from server-trusted guide body.
+                      dangerouslySetInnerHTML={{
+                        __html: (guideBody || "")
+                          .replace(/<(?!\/?(b|strong|i|em|u|br)\b)[^>]*>/gi, "")
+                      }}
+                    />
                   )}
                 </article>
               </>
