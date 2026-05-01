@@ -4,6 +4,8 @@ import telestoreLogo from "@/assets/telestore-logo-icon.png";
 import screenshotCatalog from "@/assets/screenshot-catalog.png";
 import screenshotCart from "@/assets/screenshot-cart.png";
 import screenshotProfile from "@/assets/screenshot-profile.png";
+import howItWorksImage from "@/assets/how-it-works.jpeg";
+import subscriptionPlansImage from "@/assets/subscription-plans.jpeg";
 import { motion, useInView, type Variants } from "framer-motion";
 import {
   Bot,
