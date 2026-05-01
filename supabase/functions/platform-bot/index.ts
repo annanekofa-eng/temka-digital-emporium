@@ -1375,17 +1375,17 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
 
   let statusBlock = "";
   if (user.subscription_status === "active") {
-    statusBlock = `\n\n✅ <b>Подписка активна</b>\nВы можете продлить её заранее — дни будут добавлены к текущему сроку.`;
+    statusBlock = `\n\n✅ <b>Активна.</b> Можно продлить заранее — дни суммируются.`;
   } else if (user.subscription_status === "trial") {
-    statusBlock = `\n\n✅ <b>Подписка активна</b>\n🆓 Сейчас действует бесплатный пробный период.\nПосле окончания потребуется продление.`;
+    statusBlock = `\n\n🆓 <b>Пробный период.</b> После окончания нужно продление.`;
   } else if (user.subscription_status === "none") {
-    statusBlock = `\n\n⏳ <b>Подписка не активна</b>\nОформите подписку для работы магазина.`;
+    statusBlock = `\n\n⏳ <b>Не активна.</b> Оформите для запуска магазина.`;
   } else if (user.subscription_status === "cancelled") {
-    statusBlock = `\n\n🚫 <b>Подписка отменена</b>\nМагазины приостановлены. Оформите подписку заново для возобновления.`;
+    statusBlock = `\n\n🚫 <b>Отменена.</b> Магазины на паузе — оформите заново.`;
   } else if (user.subscription_status === "expired") {
-    statusBlock = `\n\n⚠️ <b>Подписка истекла</b>\nМагазины приостановлены. Продлите подписку для возобновления.`;
+    statusBlock = `\n\n⚠️ <b>Истекла.</b> Магазины на паузе — продлите подписку.`;
   } else if (user.subscription_status === "grace_period") {
-    statusBlock = `\n\n⏰ <b>Льготный период</b>\nСкоро магазины будут приостановлены. Продлите подписку.`;
+    statusBlock = `\n\n⏰ <b>Льготный период.</b> Скоро пауза — продлите.`;
   }
 
   const supportLink = await getSupportLink();
@@ -1394,11 +1394,11 @@ async function showSubscription(tg: ReturnType<typeof TG>, chatId: number, msgId
     ? `\n🎟 Ваш тариф: <b>${PLAN_META[currentPlan].emoji} ${PLAN_META[currentPlan].label}</b>`
     : "";
 
-  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n📊 Статус: <b>${status}</b>${currentPlanLine}${daysLeftText}${statusBlock}\n\n──────────────────\n\n<b>Выберите тариф:</b>\n\n${(Object.keys(PLAN_META) as PlanKey[]).map((p) => {
+  const text = `💳 <b>Подписка ${PLATFORM_NAME}</b>\n\n<b>${status}</b>${currentPlanLine}${daysLeftText}${statusBlock}\n\n──────────────────\n\n<b>Тарифы:</b>\n\n${(Object.keys(PLAN_META) as PlanKey[]).map((p) => {
     const t = tariffs[p];
     const m = PLAN_META[p];
     return `${m.emoji} <b>${m.label}</b> — $${t.price.toFixed(2)}/мес\n<i>${m.short}</i>`;
-  }).join("\n\n")}\n\n──────────────────\n\nПодписка открывает магазин для покупателей: приём оплаты, автовыдача товаров и полная автоматизация продаж.\n\nДля оплаты по карте обратитесь к ${supportUsername}`;
+  }).join("\n\n")}\n\n──────────────────\n\nПодписка включает магазин: оплата, автовыдача и автоматизация продаж.\n\n💳 Оплата картой — ${supportUsername}`;
 
   const rows: Btn[][] = [];
   const isBlocked = user.subscription_status === "blocked";
