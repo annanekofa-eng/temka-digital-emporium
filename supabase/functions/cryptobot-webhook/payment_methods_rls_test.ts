@@ -9,7 +9,6 @@
 // anon key. It is intentionally a black-box test — if RLS is ever
 // loosened back to `public`, this test will fail loudly.
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE_URL")!;
