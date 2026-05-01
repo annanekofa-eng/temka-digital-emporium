@@ -669,6 +669,17 @@ export default function Landing() {
               </motion.p>
             </AnimatedSection>
 
+            <AnimatedSection className="mb-8 sm:mb-12">
+              <motion.img
+                variants={fadeUp}
+                custom={0}
+                src={subscriptionPlansImage}
+                alt="Тарифы TeleStore — Старт $5/мес, Плюс $7/мес, Премиум $13/мес"
+                loading="lazy"
+                className="w-full h-auto rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-500/10 border border-[#e2e8f0]"
+              />
+            </AnimatedSection>
+
             <AnimatedSection>
               <motion.div
                 variants={fadeUp}
