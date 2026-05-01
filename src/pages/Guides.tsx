@@ -222,7 +222,7 @@ function GuideCard({ guide, userPlan, onLockedCTA, onOpen }: { guide: Guide; use
 
 export default function Guides() {
   const navigate = useNavigate();
-  const { initData, isReady, isInTelegram } = useTelegram();
+  const { initData, isReady, isInTelegram, webApp } = useTelegram();
   const [userPlan, setUserPlan] = useState<Plan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
@@ -230,6 +230,17 @@ export default function Guides() {
   const [guideLoading, setGuideLoading] = useState(false);
   const [guideBody, setGuideBody] = useState<string | null>(null);
   const [guideError, setGuideError] = useState<string | null>(null);
+
+  // TMA: настраиваем шапку/фон под лендинг (важно, если /guides открыт внутри Telegram)
+  useEffect(() => {
+    if (!webApp) return;
+    try {
+      webApp.setHeaderColor('#ffffff');
+      webApp.setBackgroundColor('#ffffff');
+      webApp.expand();
+      webApp.BackButton?.hide?.();
+    } catch {}
+  }, [webApp]);
 
   // Resolve current user's plan via existing get-my-data (server-side TG verification).
   useEffect(() => {
@@ -275,8 +286,14 @@ export default function Guides() {
   }, [isReady, isInTelegram, initData]);
 
   const handleUpgrade = () => {
-    // Goes to platform profile and auto-opens subscription sheet
-    navigate("/platform/profile?subscription=1");
+    // Полный редирект, чтобы Telegram WebApp корректно проинициализировал
+    // /platform/profile (initData/headerColor) и edge-функция профиля сработала.
+    // SPA-переход иногда оставляет stale-контекст — поэтому именно hard nav.
+    if (isInTelegram) {
+      window.location.assign("/platform/profile?subscription=1");
+    } else {
+      navigate("/platform/profile?subscription=1");
+    }
   };
 
   const findGuide = (guideId: string): Guide | null => {

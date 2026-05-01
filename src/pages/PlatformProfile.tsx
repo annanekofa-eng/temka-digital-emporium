@@ -112,7 +112,7 @@ const PlatformProfile: React.FC = () => {
 
   const fetchProfile = useCallback(async (silent = false) => {
     if (!initData) {
-      if (!silent) setError('Откройте профиль через Telegram');
+      if (!silent) setError('Откройте профиль через Telegram-бота');
       if (!silent) setLoading(false);
       return;
     }
@@ -120,9 +120,23 @@ const PlatformProfile: React.FC = () => {
     if (silent) setRefreshing(true); else setLoading(true);
 
     try {
-      const { data: res, error: err } = await supabase.functions.invoke('get-my-data', {
-        body: { initData, action: 'platform-profile' },
-      });
+      // Иногда первый invoke сразу после навигации/перезагрузки TMA падает
+      // сетевой ошибкой ("Failed to send a request to the Edge Function").
+      // Делаем один автоматический ретрай, чтобы это не било по UX.
+      let res: any = null;
+      let err: any = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const r = await supabase.functions.invoke('get-my-data', {
+          body: { initData, action: 'platform-profile' },
+        });
+        res = r.data;
+        err = r.error;
+        if (!err && !res?.error) break;
+        // Ретраим только сетевые ошибки, не бизнес-ошибки от функции.
+        const msg = (err?.message || '').toLowerCase();
+        if (!msg.includes('failed to send') && !msg.includes('network')) break;
+        await new Promise((r) => setTimeout(r, 600));
+      }
       if (err) throw err;
       if (res?.error) throw new Error(res.error);
       if (res?.user && !res.user.photo_url && tgUser?.photoUrl) {
