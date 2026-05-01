@@ -355,7 +355,11 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   }
 
   // Activate subscription — preserve remaining days
-  const { data: pUser } = await supabase.from("platform_users").select("first_paid_at, id, subscription_status, subscription_expires_at").eq("telegram_id", telegramUserId).maybeSingle();
+  const { data: pUser } = await supabase
+    .from("platform_users")
+    .select("first_paid_at, id, subscription_status, subscription_expires_at, subscription_plan")
+    .eq("telegram_id", telegramUserId)
+    .maybeSingle();
   const currentExpiry = pUser?.subscription_expires_at ? new Date(pUser.subscription_expires_at).getTime() : 0;
   const baseDate = Math.max(currentExpiry, Date.now());
   const expiresAt = new Date(baseDate + totalDays * 24 * 60 * 60 * 1000).toISOString();
