@@ -242,7 +242,7 @@ const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; 
   },
   basic: {
     emoji: "⭐",
-    label: "Базовый",
+    label: "Плюс",
     short: "Поддержка и комьюнити",
     perks: [
       "Всё из Старт",
@@ -257,7 +257,7 @@ const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; 
     label: "Премиум",
     short: "Максимум возможностей",
     perks: [
-      "Всё из Базового",
+      "Всё из Плюс",
       "Продажа Telegram Stars и Premium",
       "AI-аватарка магазина",
       "Кастомизация магазина под нишу",
@@ -1099,7 +1099,7 @@ async function showProfile(tg: ReturnType<typeof TG>, chatId: number, msgId?: nu
   // 3-tier perks: curator + private chat for basic/premium
   const plan = ((user as any).subscription_plan || null) as PlanKey | null;
   const isPaidPlus = ["active", "grace_period"].includes(user.subscription_status) && (plan === "basic" || plan === "premium");
-  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Базовый" : plan === "start" ? "🟢 Старт" : "—";
+  const planIcon = plan === "premium" ? "🟣 Премиум" : plan === "basic" ? "🔵 Плюс" : plan === "start" ? "🟢 Старт" : "—";
   let perksLine = plan ? `\n🎫 Тариф: <b>${planIcon}</b>` : `\n🎫 Тариф: <b>не назначен</b>`;
   // Global curator
   let curator = "";
@@ -1130,7 +1130,7 @@ async function showPrivateChatInvite(tg: ReturnType<typeof TG>, chatId: number, 
   // Verify entitlement server-side
   const { data: hasIt } = await db().rpc("has_entitlement" as any, { p_telegram_id: chatId, p_feature: "private_chat" });
   if (!hasIt) {
-    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nДоступен на тарифах 🔵 Базовый и 🟣 Премиум.`;
+    const txt = `🔐 <b>Закрытый чат владельцев</b>\n\nДоступен на тарифах 🔵 Плюс и 🟣 Премиум.`;
     const kb = ikb([[btn("💳 К подписке", "p:sub")], [btn("◀️ Профиль", "p:profile")]]);
     return msgId ? tg.edit(chatId, msgId, txt, kb) : tg.send(chatId, txt, kb);
   }
@@ -3128,7 +3128,7 @@ async function admStats(tg: ReturnType<typeof TG>, chatId: number, msgId: number
     `💵 Tenant выручка: <b>$${totalRevenue.toFixed(2)}</b>\n\n` +
     `💳 Подписок: ${subPayments || 0}\n` +
     `💰 Выручка подписок: <b>$${subTotalRevenue.toFixed(2)}</b>\n` +
-    `   🟢 Старт: $${planRevenue.start.toFixed(2)} • 🔵 Базовый: $${planRevenue.basic.toFixed(2)} • 🟣 Премиум: $${planRevenue.premium.toFixed(2)}\n` +
+    `   🟢 Старт: $${planRevenue.start.toFixed(2)} • 🔵 Плюс: $${planRevenue.basic.toFixed(2)} • 🟣 Премиум: $${planRevenue.premium.toFixed(2)}\n` +
     `📈 MRR: <b>$${mrrTotal.toFixed(2)}</b>\n` +
     `   🟢 $${mrrByPlan.start.toFixed(2)} • 🔵 $${mrrByPlan.basic.toFixed(2)} • 🟣 $${mrrByPlan.premium.toFixed(2)}\n\n` +
     `🧾 Инвойсов: ${invoiceCount || 0}\n` +
@@ -3193,7 +3193,7 @@ async function admTariffs(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
     `📋 <b>Подписка — глобальные настройки</b>\n\n` +
     `<b>💰 Цены:</b>\n` +
     `  🟢 Старт: ${fmt("start")}\n` +
-    `  🔵 Базовый: ${fmt("basic")}\n` +
+    `  🔵 Плюс: ${fmt("basic")}\n` +
     `  🟣 Премиум: ${fmt("premium")}\n\n` +
     `<b>🆓 Trial:</b>\n` +
     `  Trial: ${ss.trial_enabled ? "✅" : "❌"} (${ss.trial_days} дн.)\n` +
@@ -3345,7 +3345,7 @@ async function admPlatformGlobal(tg: ReturnType<typeof TG>, chatId: number, msgI
   const text =
     `👤 <b>Глобальные настройки</b>\n\n` +
     `Куратор (username): <b>${esc(curator)}</b>\n` +
-    `<i>Показывается всем подписчикам Базового/Премиум.</i>\n\n` +
+    `<i>Показывается всем подписчикам Плюс/Премиум.</i>\n\n` +
     `Закрытый чат (chat_id): <b>${esc(chat)}</b>\n` +
     `<i>Бот должен быть админом в чате. Используется для одноразовых инвайтов.</i>`;
   return tg.edit(
@@ -4592,13 +4592,13 @@ async function admScPrices(tg: ReturnType<typeof TG>, chatId: number, msgId: num
     `💰 <b>Цены тарифов</b>\n\n` +
     `🟢 Старт: ${fmt("start")}\n` +
     `   <i>магазин + поддержка + помощь куратора при запуске</i>\n\n` +
-    `🔵 Базовый: ${fmt("basic")}\n` +
+    `🔵 Плюс: ${fmt("basic")}\n` +
     `   <i>+ кураторство, закрытый чат, поставщики, бесплатные товары</i>\n\n` +
     `🟣 Премиум: ${fmt("premium")}\n` +
     `   <i>+ Stars/Premium, AI-аватарка, кастомизация, премиум-контент</i>`;
   return tg.edit(chatId, msgId, text, ikb([
     [btn("✏️ Цена Старт", "adm:tarset:start"), btn(map.start?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:start")],
-    [btn("✏️ Цена Базовый", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
+    [btn("✏️ Цена Плюс", "adm:tarset:basic"), btn(map.basic?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:basic")],
     [btn("✏️ Цена Премиум", "adm:tarset:premium"), btn(map.premium?.active ? "❌ Выкл" : "✅ Вкл", "adm:tartog:premium")],
     [btn("◀️ Назад", "adm:tariffs")],
   ]));
@@ -5142,7 +5142,7 @@ async function handleAdmCallback(
     const subLabel = subStatusLabel(pu.subscription_status);
     const priceInfo = await getSubscriptionPrice(tgId);
     let details = `📊 Статус: <b>${subLabel}</b>\n`;
-    const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+    const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Плюс', premium: '💎 Премиум' };
     const curPlan = (pu as any).subscription_plan || null;
     details += `🎟 Тариф: <b>${curPlan ? (planLabelMap[curPlan] || curPlan) : '— не назначен'}</b>\n`;
     if (pu.subscription_expires_at) {
@@ -5174,7 +5174,7 @@ async function handleAdmCallback(
     const text = `🎟 <b>Выберите тариф для активации</b>\n\nПользователь [${tgId}] — подписка будет активирована на 30 дней с указанным тарифом.`;
     return tg.edit(chatId, msgId, text, ikb([
       [btn("🚀 Старт", `adm:usub_act:${tgId}:start`)],
-      [btn("⭐ Базовый", `adm:usub_act:${tgId}:basic`)],
+      [btn("⭐ Плюс", `adm:usub_act:${tgId}:basic`)],
       [btn("💎 Премиум", `adm:usub_act:${tgId}:premium`)],
       [btn("◀️ Назад", `adm:usub:${tgId}`)],
     ]));
@@ -5185,7 +5185,7 @@ async function handleAdmCallback(
     const text = `🎟 <b>Сменить тариф</b>\n\nПользователю [${tgId}] будет изменён тариф без изменения срока подписки.`;
     return tg.edit(chatId, msgId, text, ikb([
       [btn("🚀 Старт", `adm:usub_setplan:${tgId}:start`)],
-      [btn("⭐ Базовый", `adm:usub_setplan:${tgId}:basic`)],
+      [btn("⭐ Плюс", `adm:usub_setplan:${tgId}:basic`)],
       [btn("💎 Премиум", `adm:usub_setplan:${tgId}:premium`)],
       [btn("◀️ Назад", `adm:usub:${tgId}`)],
     ]));
@@ -5206,7 +5206,7 @@ async function handleAdmCallback(
     const tokenN = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (tokenN) {
       try {
-        const planLabelN: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+        const planLabelN: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Плюс', premium: '💎 Премиум' };
         await fetch(`https://api.telegram.org/bot${tokenN}/sendMessage`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5282,7 +5282,7 @@ async function handleAdmCallback(
     const token = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (token) {
       try {
-        const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Базовый', premium: '💎 Премиум' };
+        const planLabelMap: Record<string,string> = { start: '🚀 Старт', basic: '⭐ Плюс', premium: '💎 Премиум' };
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -345,7 +345,7 @@ async function checkSubscriptionPayment(params: {
     const monthsLabel = months === 1 ? "1 мес" : `${months} мес`;
     const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
     if (botToken) {
-      const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+      const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Плюс' : '🚀 Старт';
       let msg = `✅ <b>Подписка ${pUser?.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 До: ${new Date(expiresAt).toLocaleDateString("ru")} (${monthsLabel})`;
       if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
       try { await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: telegramId, text: msg, parse_mode: "HTML" }) }); } catch {}

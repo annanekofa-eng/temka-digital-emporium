@@ -202,7 +202,7 @@ serve(async (req) => {
       // Notify
       const platformBotToken = Deno.env.get("PLATFORM_BOT_TOKEN");
       if (platformBotToken) {
-        const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+        const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Плюс' : '🚀 Старт';
         let msg = `✅ <b>Подписка ${pUser.subscription_status === 'active' ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel(months)})`;
         if (discountAmount > 0) msg += `\n🎫 Скидка: -$${discountAmount.toFixed(2)}`;
         if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;

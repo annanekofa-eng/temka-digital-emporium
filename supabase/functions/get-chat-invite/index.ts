@@ -50,7 +50,7 @@ serve(async (req) => {
 
     // Check entitlement
     const { data: entitled } = await supabase.rpc("has_entitlement", { p_telegram_id: telegramId, p_feature: "private_chat" });
-    if (!entitled) return jsonRes({ error: "Доступ к закрытому чату только для тарифов Базовый и Премиум" }, 403);
+    if (!entitled) return jsonRes({ error: "Доступ к закрытому чату только для тарифов Плюс и Премиум" }, 403);
 
     // Reuse existing invite for this user — 1 link per user, navсегда.
     // Старые ссылки специально НЕ протухают, чтобы по обновлённой ссылке
