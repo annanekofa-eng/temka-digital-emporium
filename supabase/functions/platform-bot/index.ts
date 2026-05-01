@@ -6241,13 +6241,20 @@ async function handleAdmCallback(
     // Trigger the retention-check function manually
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-      await fetch(`${supabaseUrl}/functions/v1/retention-check`, {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const enforceSecret = Deno.env.get("ENFORCE_JOB_SECRET") || "";
+      const resp = await fetch(`${supabaseUrl}/functions/v1/retention-check`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${anonKey}` },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+          "x-enforce-secret": enforceSecret,
+        },
         body: JSON.stringify({ manual: true }),
       });
-      return tg.edit(chatId, msgId, `✅ Retention-проверка запущена вручную.`, ikb([[btn("◀️ Retention", "adm:retention")]]));
+      const result = await resp.json().catch(() => ({}));
+      const info = result?.skipped ? `пропущено (${result.reason || "?"})` : `отправлено: ${result?.sent ?? 0}`;
+      return tg.edit(chatId, msgId, `✅ Retention-проверка запущена. ${info}`, ikb([[btn("◀️ Retention", "adm:retention")]]));
     } catch (e) {
       return tg.edit(chatId, msgId, `❌ Ошибка запуска: ${maskToken((e as Error).message)}`, ikb([[btn("◀️ Retention", "adm:retention")]]));
     }

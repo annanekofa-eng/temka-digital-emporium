@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.get-guide]
 verify_jwt = false
+
+[functions.retention-check]
+verify_jwt = false
