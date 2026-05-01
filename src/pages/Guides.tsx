@@ -27,7 +27,7 @@ const PLAN_RANK: Record<Plan, number> = { start: 0, basic: 1, premium: 2 };
 
 const PLAN_LABEL: Record<Plan, string> = {
   start: "Start",
-  basic: "Basic",
+  basic: "Plus",
   premium: "Premium",
 };
 

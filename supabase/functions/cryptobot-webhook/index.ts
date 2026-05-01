@@ -346,7 +346,7 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
       p_telegram_id: telegramUserId, p_amount: balanceUsed,
     });
     if (!balErr) {
-      const planLabelComment = plan === 'premium' ? 'Премиум' : plan === 'basic' ? 'Базовый' : 'Старт';
+      const planLabelComment = plan === 'premium' ? 'Премиум' : plan === 'basic' ? 'Плюс' : 'Старт';
       await supabase.from("platform_balance_history").insert({
         telegram_id: telegramUserId, amount: -balanceUsed, balance_after: newBal,
         type: "subscription", comment: `Подписка ${planLabelComment} (invoice:${invoiceId})`,
@@ -355,7 +355,11 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   }
 
   // Activate subscription — preserve remaining days
-  const { data: pUser } = await supabase.from("platform_users").select("first_paid_at, id, subscription_status, subscription_expires_at").eq("telegram_id", telegramUserId).maybeSingle();
+  const { data: pUser } = await supabase
+    .from("platform_users")
+    .select("first_paid_at, id, subscription_status, subscription_expires_at, subscription_plan")
+    .eq("telegram_id", telegramUserId)
+    .maybeSingle();
   const currentExpiry = pUser?.subscription_expires_at ? new Date(pUser.subscription_expires_at).getTime() : 0;
   const baseDate = Math.max(currentExpiry, Date.now());
   const expiresAt = new Date(baseDate + totalDays * 24 * 60 * 60 * 1000).toISOString();
@@ -414,7 +418,7 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
   const monthsLabel = months === 1 ? "1 мес" : `${months} мес`;
   const botToken = Deno.env.get("PLATFORM_BOT_TOKEN");
   if (botToken) {
-    const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Базовый' : '🚀 Старт';
+    const planLabel = plan === 'premium' ? '💎 Премиум' : plan === 'basic' ? '⭐ Плюс' : '🚀 Старт';
     let msg = `✅ <b>Подписка ${wasActive ? 'продлена' : 'активирована'}!</b>\n\n${planLabel}\n📅 Действует до: ${new Date(expiresAt).toLocaleDateString("ru")}\n💰 Стоимость: $${subscriptionPrice.toFixed(2)} (${monthsLabel})`;
     if (balanceUsed > 0) msg += `\n💳 С баланса: -$${balanceUsed.toFixed(2)}`;
     try {
