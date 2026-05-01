@@ -904,17 +904,8 @@ async function howItWorks(tg: ReturnType<typeof TG>, chatId: number, msgId: numb
   const result = photoBlob ? await tg.sendPhotoFile(chatId, photoBlob) : await tg.sendPhoto(chatId, photoUrl);
   console.log("howItWorks sendPhoto result:", JSON.stringify(result));
   if (!result?.ok) {
-    // Fallback: send as text message without photo
     console.error("sendPhoto failed, falling back to text:", result?.description);
-    return tg.send(
-      chatId,
-      text,
-      ikb([
-        [urlBtn("📚 Подробная информация", "https://telestore-two.vercel.app/landing")],
-        [btn("🏪 Создать магазин", "p:create")],
-        [btn("◀️ Назад", "p:home")],
-      ]),
-    );
+    return tg.send(chatId, `❌ Фото не отправилось: ${esc(String(result?.description || "unknown error"))}`);
   }
   return tg.send(
     chatId,
