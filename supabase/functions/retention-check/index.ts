@@ -3,13 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    const jobSecret = Deno.env.get("RETENTION_JOB_SECRET");
-    const headerSecret = req.headers.get("x-retention-secret");
-    if (!jobSecret || headerSecret !== jobSecret) {
+    // Auth: accept either ENFORCE_JOB_SECRET (cron / manual) via x-enforce-secret
+    // header, or service-role bearer token (internal calls).
+    const jobSecret = Deno.env.get("ENFORCE_JOB_SECRET") || "";
+    const headerSecret = req.headers.get("x-enforce-secret") || req.headers.get("x-retention-secret") || "";
+    const authHeader = req.headers.get("authorization") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const isServiceCall = serviceKey && authHeader === `Bearer ${serviceKey}`;
+    const secretOk = jobSecret && headerSecret === jobSecret;
+    if (!secretOk && !isServiceCall) {
       return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), { status: 403 });
     }
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const db = createClient(supabaseUrl, serviceKey);
 
     // Check if retention is enabled
