@@ -58,17 +58,19 @@ const ShopCheckout = () => {
   const balanceUsed = Math.min(balance, totalAfterDiscount);
   const toPay = Math.max(0, totalAfterDiscount - balanceUsed);
 
-  // Available payment methods for this shop (from shop_payment_methods)
+  // Available payment methods for this shop.
+  // SECURITY: read from the public-safe view, not the raw table — the table
+  // also contains encrypted provider tokens that anon must never see.
   const { data: paymentMethods } = useQuery({
     queryKey: ['shop-payment-methods', shopId],
     queryFn: async () => {
       if (!shopId) return [] as Array<{ method: string; enabled: boolean; config_masked: any }>;
       const { data, error } = await supabase
-        .from('shop_payment_methods')
+        .from('public_shop_payment_methods' as any)
         .select('method, enabled, config_masked')
         .eq('shop_id', shopId);
       if (error) throw error;
-      return data || [];
+      return (data || []) as Array<{ method: string; enabled: boolean; config_masked: any }>;
     },
     enabled: !!shopId,
     staleTime: 60_000,
