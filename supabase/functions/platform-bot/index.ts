@@ -258,9 +258,9 @@ const PLAN_META: Record<PlanKey, { emoji: string; label: string; short: string; 
     short: "Максимум возможностей",
     perks: [
       "Всё из Плюса",
-      "Продажа Telegram Stars и Premium",
-      "AI-аватарка магазина",
-      "Кастомизация магазина под нишу",
+      "Возможность продажи Telegram Stars и Premium",
+      "Генерация AI-аватарки магазина",
+      "Кастомизация магазина по запросу",
       "Премиум-поддержка",
     ],
   },
