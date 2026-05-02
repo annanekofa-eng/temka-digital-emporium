@@ -352,7 +352,12 @@ export default function Guides() {
         setGuideBody(data.guide?.body || "Контент скоро будет добавлен.");
       }
     } catch {
-      setGuideError("Не удалось загрузить гайд. Попробуйте позже.");
+      const fallbackBody = g.public ? PUBLIC_GUIDE_BODIES[guideId] : null;
+      if (fallbackBody) {
+        setGuideBody(fallbackBody);
+      } else {
+        setGuideError("Не удалось загрузить гайд. Попробуйте позже.");
+      }
     } finally {
       setGuideLoading(false);
     }
@@ -616,7 +621,7 @@ export default function Guides() {
                       // Allow only basic formatting tags from server-trusted guide body.
                       dangerouslySetInnerHTML={{
                         __html: (guideBody || "")
-                          .replace(/<(?!\/?(b|strong|i|em|u|br)\b)[^>]*>/gi, "")
+                          .replace(/<(?!\/?(b|strong|i|em|u|br|code)\b)[^>]*>/gi, "")
                       }}
                     />
                   )}
