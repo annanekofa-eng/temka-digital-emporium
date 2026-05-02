@@ -337,6 +337,12 @@ export default function Guides() {
 
     if (g.soon) return; // teaser only
 
+    const localPublicBody = g.public ? PUBLIC_GUIDE_BODIES[guideId] : null;
+    if (localPublicBody) {
+      setGuideBody(localPublicBody);
+      return;
+    }
+
     setGuideLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("get-guide", {
@@ -352,9 +358,8 @@ export default function Guides() {
         setGuideBody(data.guide?.body || "Контент скоро будет добавлен.");
       }
     } catch {
-      const fallbackBody = g.public ? PUBLIC_GUIDE_BODIES[guideId] : null;
-      if (fallbackBody) {
-        setGuideBody(fallbackBody);
+      if (localPublicBody) {
+        setGuideBody(localPublicBody);
       } else {
         setGuideError("Не удалось загрузить гайд. Попробуйте позже.");
       }
