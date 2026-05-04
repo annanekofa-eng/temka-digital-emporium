@@ -316,18 +316,22 @@ async function handleSubscriptionPayment(supabase: any, orderData: any, invoiceI
 
   if (!telegramUserId || !paymentId) throw new Error(`[subscription] invalid payload invoice=${invoiceId}`);
 
-  // F3: Validate that paymentId references a real, still-pending payment for
-  // this user. Prevents replay attacks where a valid signed webhook for a
-  // different invoice is reused with a swapped paymentId.
+  // F3: Validate that paymentId references a real subscription_payment owned
+  // by this telegram user. Joins through platform_users since the payments
+  // table stores user_id (uuid), not telegram_id.
   const { data: paymentRow } = await supabase.from("subscription_payments")
-    .select("id, status, telegram_id, amount").eq("id", paymentId).maybeSingle();
+    .select("id, status, user_id, amount").eq("id", paymentId).maybeSingle();
   if (!paymentRow) {
     console.error(`[subscription] payment ${paymentId} not found for invoice ${invoiceId}`);
     return;
   }
-  if (paymentRow.telegram_id && Number(paymentRow.telegram_id) !== telegramUserId) {
-    console.error(`[subscription] payment ${paymentId} telegram mismatch (expected ${paymentRow.telegram_id}, got ${telegramUserId})`);
-    return;
+  if (paymentRow.user_id) {
+    const { data: ownerRow } = await supabase.from("platform_users")
+      .select("telegram_id").eq("id", paymentRow.user_id).maybeSingle();
+    if (ownerRow?.telegram_id && Number(ownerRow.telegram_id) !== telegramUserId) {
+      console.error(`[subscription] payment ${paymentId} telegram mismatch (expected ${ownerRow.telegram_id}, got ${telegramUserId})`);
+      return;
+    }
   }
   if (paymentRow.status === "paid") {
     // Already settled — only ensure idempotency record exists.
