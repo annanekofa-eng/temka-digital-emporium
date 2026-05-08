@@ -2994,6 +2994,7 @@ async function admHome(tg: ReturnType<typeof TG>, chatId: number, msgId?: number
     [btn("👮 Администраторы", "adm:admins"), btn("⏰ Retention", "adm:retention")],
     [btn("🎁 Рефералка", "adm:ref")],
     [btn("📦 Платный контент", "adm:pcontent:0"), btn("👤 Куратор/Чат", "adm:pglobal")],
+    [btn("Привет", "adm:noop")],
   ]);
   if (msgId) return tg.edit(chatId, msgId, text, kb);
   return tg.send(chatId, text, kb);
