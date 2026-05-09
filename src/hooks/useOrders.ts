@@ -13,15 +13,15 @@ async function fetchMyData(initData: string, action: string, extra?: Record<stri
   return data;
 }
 
-export const useOrders = (shopId?: string) => {
+export const useOrders = () => {
   const { user, initData } = useTelegram();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['orders', user?.id, shopId],
+    queryKey: ['orders', user?.id],
     queryFn: async () => {
       if (!initData) return [];
-      const result = await fetchMyData(initData, 'orders', { shopId });
+      const result = await fetchMyData(initData, 'orders');
       return (result.orders || []) as DbOrder[];
     },
     enabled: !!user?.id && !!initData,
@@ -30,64 +30,60 @@ export const useOrders = (shopId?: string) => {
   useEffect(() => {
     if (!user?.id) return;
     const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ['orders', user.id, shopId] });
+      queryClient.invalidateQueries({ queryKey: ['orders', user.id] });
     }, 15000);
     return () => clearInterval(interval);
-  }, [user?.id, queryClient, shopId]);
+  }, [user?.id, queryClient]);
 
   return query;
 };
 
-export const useOrderItems = (orderId: string, shopId?: string) => {
+export const useOrderItems = (orderId: string) => {
   const { initData } = useTelegram();
-
   return useQuery({
-    queryKey: ['order-items', orderId, shopId],
+    queryKey: ['order-items', orderId],
     queryFn: async () => {
       if (!initData) return [];
-      const result = await fetchMyData(initData, 'order-items', { orderId, shopId });
+      const result = await fetchMyData(initData, 'order-items', { orderId });
       return (result.items || []) as DbOrderItem[];
     },
     enabled: !!orderId && !!initData,
   });
 };
 
-export const useOrderInventoryItems = (orderId: string, shopId?: string) => {
+export const useOrderInventoryItems = (orderId: string) => {
   const { initData } = useTelegram();
-
   return useQuery({
-    queryKey: ['order-inventory', orderId, shopId],
+    queryKey: ['order-inventory', orderId],
     queryFn: async () => {
       if (!initData) return [];
-      const result = await fetchMyData(initData, 'order-inventory', { orderId, shopId });
+      const result = await fetchMyData(initData, 'order-inventory', { orderId });
       return (result.items || []) as DbInventoryItem[];
     },
     enabled: !!orderId && !!initData,
   });
 };
 
-export const useUserStats = (shopId?: string) => {
+export const useUserStats = () => {
   const { user, initData } = useTelegram();
-
   return useQuery({
-    queryKey: ['user-stats', user?.id, shopId],
+    queryKey: ['user-stats', user?.id],
     queryFn: async () => {
       if (!initData) return { orderCount: 0, totalSpent: 0 };
-      const result = await fetchMyData(initData, 'stats', { shopId });
+      const result = await fetchMyData(initData, 'stats');
       return result.stats as { orderCount: number; totalSpent: number };
     },
     enabled: !!user?.id && !!initData,
   });
 };
 
-export const useUserProfile = (shopId?: string) => {
+export const useUserProfile = () => {
   const { user, initData } = useTelegram();
-
   return useQuery({
-    queryKey: ['user-profile', user?.id, shopId],
+    queryKey: ['user-profile', user?.id],
     queryFn: async () => {
       if (!initData) return null;
-      const result = await fetchMyData(initData, 'profile', { shopId });
+      const result = await fetchMyData(initData, 'profile');
       return result.profile as { balance: number; role: string; is_blocked: boolean } | null;
     },
     enabled: !!user?.id && !!initData,
@@ -96,14 +92,13 @@ export const useUserProfile = (shopId?: string) => {
   });
 };
 
-export const useBalanceHistory = (shopId?: string) => {
+export const useBalanceHistory = () => {
   const { user, initData } = useTelegram();
-
   return useQuery({
-    queryKey: ['balance-history', user?.id, shopId],
+    queryKey: ['balance-history', user?.id],
     queryFn: async () => {
       if (!initData) return [];
-      const result = await fetchMyData(initData, 'balance-history', { shopId });
+      const result = await fetchMyData(initData, 'balance-history');
       return (result.history || []) as DbBalanceHistory[];
     },
     enabled: !!user?.id && !!initData,
