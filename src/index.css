@@ -7,62 +7,63 @@
 @layer base {
   /* ─── Dark theme (default — used by tenant shops) ─── */
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 222 40% 10%;
-    --card-foreground: 210 40% 96%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 222 40% 10%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 0 84% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 222 30% 14%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 222 25% 14%;
-    --muted-foreground: 215 20% 60%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 0 84% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 25% 16%;
-    --input: 222 25% 14%;
-    --ring: 0 84% 60%;
+    --border: 0 0% 15%;
+    --input: 0 0% 11%;
+    --ring: 0 0% 80%;
 
     --radius: 0.875rem;
 
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 0 84% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 14%;
-    --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 222 25% 16%;
-    --sidebar-ring: 0 84% 60%;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 6%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 0 0% 80%;
 
     /* Custom tokens */
-    --surface: 222 30% 12%;
-    --surface-foreground: 210 40% 90%;
+    --surface: 0 0% 8%;
+    --surface-foreground: 0 0% 90%;
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 0%;
-    --success: 142 70% 45%;
-    --success-foreground: 0 0% 100%;
-    --gold: 45 93% 58%;
-    --gold-foreground: 222 47% 6%;
+    --success: 142 60% 50%;
+    --success-foreground: 0 0% 0%;
+    --gold: 0 0% 98%;
+    --gold-foreground: 0 0% 6%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(0, 84%, 60%), hsl(0, 75%, 50%));
-    --gradient-surface: linear-gradient(135deg, hsl(222, 30%, 12%), hsl(222, 30%, 16%));
-    --gradient-hero: linear-gradient(135deg, hsl(222, 47%, 6%) 0%, hsl(222, 40%, 10%) 50%, hsl(222, 47%, 6%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(0, 0%, 100%), hsl(0, 0%, 88%));
+    --gradient-surface: linear-gradient(135deg, hsl(0, 0%, 7%), hsl(0, 0%, 10%));
+    --gradient-hero: radial-gradient(120% 80% at 50% 0%, hsl(0, 0%, 12%) 0%, hsl(0, 0%, 4%) 60%);
 
-    --shadow-glow: 0 0 32px hsl(0, 84%, 60%, 0.35);
-    --shadow-card: 0 4px 24px hsl(0, 0%, 0%, 0.35);
-    --shadow-card-hover: 0 8px 32px hsl(0, 84%, 60%, 0.25), 0 8px 32px hsl(0, 0%, 0%, 0.4);
+    /* Subtle white glow — refined, not aggressive */
+    --shadow-glow: 0 0 0 1px hsl(0, 0%, 100%, 0.08), 0 8px 24px hsl(0, 0%, 100%, 0.06);
+    --shadow-card: 0 1px 0 hsl(0, 0%, 100%, 0.04) inset, 0 8px 24px hsl(0, 0%, 0%, 0.5);
+    --shadow-card-hover: 0 1px 0 hsl(0, 0%, 100%, 0.06) inset, 0 12px 32px hsl(0, 0%, 0%, 0.6);
 
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Inter', sans-serif;
@@ -187,12 +188,12 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  /* White neon button effect — apply via className="neon" on primary CTAs */
+  /* Refined white neon — soft halo, hairline border */
   .neon {
-    box-shadow: var(--shadow-glow);
-    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 0 0 1px hsl(0, 0%, 100%, 0.12), 0 6px 20px hsl(0, 0%, 100%, 0.08);
+    transition: box-shadow 0.25s ease, transform 0.2s ease;
   }
   .neon:hover {
-    box-shadow: 0 0 32px hsl(0, 0%, 100%, 0.8), 0 0 64px hsl(0, 0%, 100%, 0.4);
+    box-shadow: 0 0 0 1px hsl(0, 0%, 100%, 0.2), 0 10px 28px hsl(0, 0%, 100%, 0.14);
   }
 }
