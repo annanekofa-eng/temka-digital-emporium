@@ -6,7 +6,6 @@ import CasesSection from '@/components/CasesSection';
 import ProductShowcase from '@/components/ProductShowcase';
 import { useProjects, useSiteSettings } from '@/hooks/useShop';
 import { Skeleton } from '@/components/ui/skeleton';
-import hustlifyLogo from '@/assets/logo-hustlify.jpg';
 
 const Index = () => {
   const { data: projects, isLoading } = useProjects();
