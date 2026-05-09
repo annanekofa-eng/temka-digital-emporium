@@ -1,88 +1,169 @@
-## Контекст и важные предупреждения
 
-Ты просишь переключить этот проект на production Supabase (`tpcnmeerhxmdvbaenfvm`) перед заменой репозитория в Vercel. Прежде чем выполнять — два предупреждения, которые надо учитывать:
+# План разработки: Telegram Mini App — Shop + NFT Marketplace
 
-### ⚠️ Предупреждение 1: `.env` нельзя редактировать вручную
-Файл `.env` в Lovable-проектах **управляется системой** и синхронизируется с подключённым Lovable Cloud (текущий ref: `nrwkriquwmjpdirihwrz`). Любая ручная правка будет перезаписана. Кроме того, `.env` находится в `.gitignore` и **не попадает в репозиторий** — Vercel его не видит.
-
-**Правильный способ задать prod-креды для Vercel** — Vercel Dashboard → Settings → Environment Variables (Production):
-- `VITE_SUPABASE_URL = https://tpcnmeerhxmdvbaenfvm.supabase.co`
-- `VITE_SUPABASE_PUBLISHABLE_KEY = eyJhbGciOiJIUzI1NiIs...goNzglqxKSc-VoLiKS16vFUGHemhhpa97iOfC3EsnH0`
-- `VITE_SUPABASE_PROJECT_ID = tpcnmeerhxmdvbaenfvm`
-
-Поэтому **пункт 2 из задачи я выполнять не буду** — он бесполезен и может сломать локальную работу этого Lovable-проекта.
-
-### ⚠️ Предупреждение 2: правка `config.toml` тоже рискованная
-Поле `project_id` в `supabase/config.toml` определяет, в какой Supabase-проект Lovable деплоит edge functions из **этого** проекта. Если поменять его на `tpcnmeerhxmdvbaenfvm`, то:
-- Lovable перестанет корректно деплоить функции в текущий привязанный backend (`nrwkriquwmjpdirihwrz`).
-- Все функции, которые сохраняются «деплой при сохранении», начнут уезжать в чужой проект (или ломаться).
-
-Обычно production-репозиторий — это **отдельный Lovable-проект**, привязанный к prod Supabase через Lovable Cloud, а не переписанный `config.toml`. Если у тебя такой prod-проект уже есть отдельно, то править `config.toml` здесь **не нужно**.
-
-Если ты всё же хочешь использовать **этот** проект как prod-репозиторий и отключаешь его от dev-бэкенда — план ниже выполнит правки. Но я **прошу подтвердить понимание рисков** перед применением.
+Разбит на 8 этапов. Каждый этап — самостоятельный, проверяемый кусок. После каждого этапа можно тестировать результат в Telegram.
 
 ---
 
-## Что будет сделано (если подтвердишь)
+## Этап 1. Фундамент данных и админ-доступ
 
-### 1. `supabase/config.toml`
-Заменить `project_id`. Блок `[functions.admin-reset-webhooks]` сохраняется.
+Цель: подготовить БД и роли под новую структуру магазина.
 
-**Diff:**
-```diff
-- project_id = "nrwkriquwmjpdirihwrz"
-+ project_id = "tpcnmeerhxmdvbaenfvm"
+**Схема БД (миграции):**
+- `projects` — FLUX / VIETO / CURSOR (slug, title, banner, description, sort_order, is_active)
+- Расширить `categories`: добавить `project_id` (FK), `parent_id` (для подкатегорий VIETO)
+- Расширить `products`: `project_id`, `product_type` (`simple` | `premium_term` | `nft_variant` | `stars` | `nft_rent` | `nft_buy`), `external_link`, `gallery` (jsonb), `min_qty`, `max_qty`, `term_options` (jsonb), `nft_variants` (jsonb)
+- `cart_items` — серверная корзина (telegram_id, product_id, params jsonb, qty, unit_price)
+- `site_settings` — key/value: `shop_name`, `marquee_text`, `faq_url`, `policy_url`, `support_username`
+- Расширить `orders`: `project_id`, добавить статусы (`new`, `pending_payment`, `paid`, `processing`, `done`, `cancelled`, `error`), `external_ref` (для GetGems)
+- Расширить `order_items`: `params` jsonb, `external_payload` jsonb
+- `message_templates` — шаблоны для `/rep` и автосообщений (key, text, is_active)
+- `admin_log` — лог действий админов (admin_id, action, target, meta, created_at)
+- `app_admins` — telegram_id админов (вместо ENV-секрета — управляемый список)
 
-  [functions.admin-reset-webhooks]
-  verify_jwt = false
-```
-
-### 2. `.env` — НЕ ТРОГАЕМ
-Причины см. выше. Вместо этого: задать переменные в Vercel Dashboard.
-
-### 3. `supabase/functions/platform-bot/index.ts` (строка 135)
-Заменить fallback-домен в `WEBAPP_DOMAIN`. Основной источник (`Deno.env.get("WEBAPP_URL")`) не трогаем.
-
-**Diff:**
-```diff
-  const PLATFORM_NAME = "TeleStore";
-- const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://temka-digital-vault.lovable.app";
-+ const WEBAPP_DOMAIN = Deno.env.get("WEBAPP_URL") || "https://tele-store.lovable.app";
-  const SUPPORT_LINK_DEFAULT = "https://t.me/TeleStoreHelp";
-```
-
-После сохранения функция `platform-bot` автоматически передеплоится в текущий Cloud (`nrwkriquwmjpdirihwrz`). Это **повлияет на live-бота прямо сейчас**, если у него секрет `WEBAPP_URL` не выставлен и он реально уходит в fallback. Если `WEBAPP_URL` задан корректно — изменение чисто косметическое (на случай отсутствия переменной).
+**RLS:** публичный SELECT для `projects`, `categories`, `products`, `site_settings`, `message_templates` (только активные). Остальное — service_role.
 
 ---
 
-## Что НЕ трогаем (по твоему запросу)
+## Этап 2. Бот и приветствие
 
-- Миграции в `supabase/migrations/`
-- Username ботов и channel ID
-- Бизнес-логику и UI
-- Файл `src/integrations/supabase/client.ts` (генерируется автоматически)
-- Файл `src/integrations/supabase/types.ts` (генерируется автоматически)
+Цель: рабочий вход в мини-апп через `/start`.
 
----
-
-## Рекомендуемый порядок действий
-
-1. **Подтверди**, что ты понимаешь:
-   - `.env` Lovable перезапишет → задавай креды в Vercel Dashboard.
-   - `config.toml` после правки отвяжет edge-functions деплой от dev-бэкенда; убедись, что это именно то, чего ты хочешь.
-2. После подтверждения я применю **только** правки 1 и 3 (config.toml + platform-bot fallback).
-3. Покажу итоговые diff после применения.
-4. Ты заходишь в Vercel и:
-   - Подключаешь новый репозиторий.
-   - В Environment Variables → Production добавляешь 3 переменные `VITE_SUPABASE_*` для `tpcnmeerhxmdvbaenfvm`.
-   - Запускаешь Production deploy.
+- Edge function `telegram-bot` (уже есть, доработать):
+  - `/start` → приветствие из `site_settings.welcome_text` + кнопка WebApp
+  - Регистрация webhook
+  - Базовая обработка `/help`
+- Edge function `admin-rep` (вызывается ботом):
+  - Команда `/rep #N` — только для `app_admins`
+  - Поиск заказа, отправка шаблона из `message_templates` пользователю
+  - Логирование в `admin_log`
+  - Обработка ошибок (заказ не найден, юзер закрыл ЛС)
 
 ---
 
-## Альтернатива (рекомендую)
-Если у тебя уже есть отдельный Lovable-проект под prod (привязанный к `tpcnmeerhxmdvbaenfvm` через Cloud), то:
-- В этом dev-проекте **ничего не менять**.
-- Перенести изменения в prod-проект через @-меншен (по плану из предыдущих сообщений).
-- Vercel переключить на репозиторий prod-проекта.
+## Этап 3. Главный экран мини-аппа
 
-Скажи, какой вариант выбираешь — и я применю изменения (или не применю, если выберешь альтернативу).
+Цель: новый Home по ТЗ §2.
+
+- Хедер: `shop_name` из `site_settings`
+- Бегущая строка `MarqueeBanner` (текст из `site_settings.marquee_text`)
+- Верхний блок «featured» товары (горизонтальный скролл, клик → карточка)
+- Блок проектов: 3 карточки FLUX / VIETO / CURSOR из `projects`
+- Блок отзывов (слайдер из `reviews where moderation_status='approved'`)
+- Футер: ссылки Политика и FAQ из `site_settings`
+- Иконка корзины — глобально, плавающая в шапке
+
+---
+
+## Этап 4. Раздел FLUX
+
+Цель: проектная страница + карточки услуг.
+
+- Страница `/p/flux`:
+  - Верхний блок (banner / title / description из `projects`)
+  - Список товаров проекта без фото (только название + цена)
+- Карточка товара FLUX:
+  - Banner, title, description
+  - Кнопка-цена → добавить в корзину (цена из БД)
+  - Галерея «Примеры работ» (`product.gallery`) — клик открывает внешнюю ссылку
+- Toast-уведомление при добавлении
+
+---
+
+## Этап 5. Раздел VIETO
+
+Цель: каталог с категориями (мерч).
+
+- Страница `/p/vieto`:
+  - Верхний блок проекта
+  - Список категорий (Футболки, Худи, …) из `categories where project_id=vieto`
+- Страница категории: список товаров без фото
+- Карточка товара VIETO: banner, title, description, кнопка-цена → корзина
+
+---
+
+## Этап 6. Раздел CURSOR (сложная логика)
+
+Цель: 5 типов товаров с разной логикой.
+
+- Страница `/p/cursor` — список разделов: Premium / НФТ / Звёзды / NFT Аренда / NFT Покупка
+- **Premium** (`product_type='premium_term'`):
+  - Слайдер срока (3/6/9 мес) из `term_options`
+  - Динамический пересчёт цены
+  - Кнопка добавления активна только после выбора
+- **НФТ** (`product_type='nft_variant'`):
+  - Сетка кнопок-вариантов из `nft_variants` (label + price)
+  - Клик добавляет конкретный вариант
+- **Звёзды** (`product_type='stars'`):
+  - Слайдер количества (1…max, default 10000)
+  - Динамическая цена = qty × unit_price
+  - Кнопка появляется при qty > 0
+
+---
+
+## Этап 7. Интеграция GetGems (NFT Аренда / Покупка)
+
+Цель: подключить внешний маркет.
+
+- Edge function `getgems-proxy`:
+  - `list-rentable` / `list-buyable` — кэш 60 сек
+  - `reserve` (после оплаты) — связка с заказом
+  - Обработка недоступности API (graceful fallback, статус заказа `processing` для ручной обработки)
+- UI:
+  - Список товаров с ценой в RUB (через `get-exchange-rate`)
+  - Кнопка «Добавить» с зафиксированной ценой
+  - Empty state при недоступности API
+- В корзине для NFT Аренда — селектор срока аренды над товаром
+
+**Требуется от пользователя:** API-ключ GetGems (или подтвердить, что используется их публичный API без ключа).
+
+---
+
+## Этап 8. Корзина, оплата, заказы, админ-контент
+
+**8.1 Корзина:**
+- Серверный `cart_items` + локальный кэш
+- Edit qty / params, удаление, пересчёт суммы
+- NFT Аренда: выбор срока влияет на цену
+- Кнопка «Оплатить» внизу
+
+**8.2 Оплата:**
+- Использовать существующий `create-invoice` + `cryptobot-webhook` + `check-payment`
+- Создание заказа со статусами по ТЗ §8.3
+- Авто-сообщение пользователю после оплаты NFT Аренда (инструкция по привязке)
+- Обработка сценариев ошибок (§8.4): отмена, изменение цены, недоступность API/товара
+
+**8.3 Админ-панель** (страница `/admin`, доступ по `app_admins`):
+- Контент: shop_name, marquee, баннеры, FAQ-ссылка, политика, support
+- CRUD: проекты, категории, товары, варианты, цены, отзывы, шаблоны сообщений, внешние ссылки
+- Просмотр заказов + смена статуса вручную
+- Лог действий
+
+---
+
+## Технические заметки
+
+- **Стек:** существующий (React + Vite + Tailwind + Supabase Edge Functions). Темная тема (текущая) — без изменений.
+- **Маршруты:** `/`, `/p/:projectSlug`, `/p/:projectSlug/c/:categoryId`, `/product/:id`, `/cart`, `/checkout`, `/order/:id`, `/account`, `/admin/*`
+- **Серверная валидация цен:** при создании заказа цены пересчитываются на бэке из БД, фронту не доверяем
+- **Безопасность:** `verify_jwt=false` + проверка Telegram `initData` HMAC во всех edge-функциях
+- **Логирование:** создание заказа, оплата, `/rep`, ошибки API GetGems, ошибки доставки — в `admin_log`
+- **i18n:** все тексты UI в одном словаре (RU по умолчанию)
+
+---
+
+## Что нужно от пользователя перед стартом
+
+1. Подтверждение, что **существующие данные products / orders можно дропнуть** (текущий «цифровой маркетплейс» уйдёт под новую структуру).
+2. **API GetGems**: нужен ли ключ, или используем публичный endpoint? Дайте ссылку на доку.
+3. **Telegraph-ссылка для FAQ** и **ссылка на Политику** (можно временные).
+4. **Список Telegram ID администраторов** для `app_admins`.
+5. Контент для seed: названия/описания/цены для FLUX (услуги), VIETO (категории мерча), CURSOR (Premium тарифы 3/6/9, варианты НФТ, цена за звезду).
+
+---
+
+## Порядок выполнения
+
+Этапы идут последовательно, но **1 → 2 → 3** дают рабочий приветственный поток уже после ~30% работы. После этого можно параллелить FLUX/VIETO/CURSOR. GetGems (Этап 7) и админка (Этап 8) — в конце, т.к. зависят от всех схем.
+
+Начинаем с Этапа 1 после ваших ответов на 5 вопросов выше.
