@@ -51,23 +51,21 @@ const Index = () => {
       {/* Projects */}
       <section className="pt-8">
         <div className="container-main mx-auto max-w-2xl px-4">
-          <h2 className="font-display text-lg font-bold mb-4 px-1">Наши проекты</h2>
+          <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
+          {isLoading ? (
+            <div className="grid gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {projects?.map((p, i) => (
+                <ProjectCard key={p.id} project={p} index={i} />
+              ))}
+            </div>
+          )}
         </div>
-        {isLoading ? (
-          <div className="flex gap-4 overflow-x-auto px-4 pb-4 scrollbar-hide snap-x snap-mandatory">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-56 w-[85%] sm:w-[420px] shrink-0 rounded-2xl snap-center" />
-            ))}
-          </div>
-        ) : (
-          <div className="flex gap-4 overflow-x-auto px-4 pb-4 scrollbar-hide snap-x snap-mandatory">
-            {projects?.map((p, i) => (
-              <div key={p.id} className="w-[85%] sm:w-[420px] shrink-0 snap-center">
-                <ProjectCard project={p} index={i} />
-              </div>
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );
