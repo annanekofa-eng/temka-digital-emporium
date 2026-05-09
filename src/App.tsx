@@ -38,14 +38,15 @@ const PageLoader = () => (
 
 const MainLayoutInner = () => {
   const { cartCount, searchQuery, setSearchQuery } = useStore();
+  const { data: settings } = useSiteSettings();
+  const shopName = settings?.shop_name || 'TEMKA SHOP';
 
   return (
-    <StorefrontProvider basePath="" cartCount={cartCount} shopName="TeleStore" supportLink="https://t.me/TeleStoreHelp">
+    <StorefrontProvider basePath="" cartCount={cartCount} shopName={shopName} supportLink={settings?.support_username ? `https://t.me/${settings.support_username.replace('@', '')}` : 'https://t.me/TeleStoreHelp'}>
       <div className="min-h-screen flex flex-col theme-light">
         <Header
-          name="YOUR"
-          nameInitial="Y"
-          nameHighlight=".STORE"
+          name={shopName}
+          nameInitial={shopName[0] || 'T'}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
         />
