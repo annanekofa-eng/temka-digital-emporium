@@ -1,32 +1,35 @@
-import { Link } from 'react-router-dom';
-import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
+import { useStorefront } from '@/contexts/StorefrontContext';
+import { useSiteSettings } from '@/hooks/useShop';
 
 const Footer = () => {
   const { shopName } = useStorefront();
-  const buildPath = useStorefrontPath();
-  const displayName = shopName || 'TeleStore';
+  const { data: settings } = useSiteSettings();
+  const displayName = settings?.shop_name || shopName || 'TEMKA SHOP';
+  const faqUrl = settings?.faq_url;
+  const policyUrl = settings?.policy_url;
+  const support = settings?.support_username;
 
   return (
-    <footer className="border-t border-border/30 bg-card/30 pb-20">
-      <div className="container-main mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div>
-            <h4 className="font-display font-semibold text-xs mb-2">Информация</h4>
-            <ul className="space-y-1">
-              <li><Link to={buildPath('/about')} className="text-xs text-muted-foreground hover:text-primary transition-colors">О нас</Link></li>
-              <li><Link to={buildPath('/faq')} className="text-xs text-muted-foreground hover:text-primary transition-colors">FAQ</Link></li>
-              <li><Link to={buildPath('/delivery')} className="text-xs text-muted-foreground hover:text-primary transition-colors">Доставка</Link></li>
-              <li><Link to={buildPath('/guarantees')} className="text-xs text-muted-foreground hover:text-primary transition-colors">Гарантии</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-display font-semibold text-xs mb-2">Документы</h4>
-            <ul className="space-y-1">
-              <li><Link to={buildPath('/terms')} className="text-xs text-muted-foreground hover:text-primary transition-colors">Условия и отказ</Link></li>
-            </ul>
-          </div>
+    <footer className="border-t border-border/40 bg-card/40 pb-20 mt-8">
+      <div className="container-main mx-auto px-4 py-8">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+          {faqUrl && (
+            <a href={faqUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+              FAQ
+            </a>
+          )}
+          {policyUrl && (
+            <a href={policyUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+              Политика
+            </a>
+          )}
+          {support && (
+            <a href={`https://t.me/${support.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+              Поддержка
+            </a>
+          )}
         </div>
-        <p className="mt-4 text-center text-[10px] text-muted-foreground/60">© {displayName}</p>
+        <p className="mt-4 text-center text-xs text-muted-foreground/70">© {displayName}</p>
       </div>
     </footer>
   );

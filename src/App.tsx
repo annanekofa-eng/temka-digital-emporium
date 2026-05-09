@@ -7,6 +7,7 @@ import { StoreProvider, useStore } from "@/contexts/StoreContext";
 import { TelegramProvider } from "@/contexts/TelegramContext";
 import { StorefrontProvider } from "@/contexts/StorefrontContext";
 import Header from "@/components/Header";
+import { useSiteSettings } from "@/hooks/useShop";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { Outlet } from "react-router-dom";
@@ -14,6 +15,7 @@ import React, { Suspense } from "react";
 import ScrollToTop from "@/components/ScrollToTop";
 
 const Index = React.lazy(() => import("./pages/Index"));
+const Project = React.lazy(() => import("./pages/Project"));
 const Catalog = React.lazy(() => import("./pages/Catalog"));
 const ProductDetails = React.lazy(() => import("./pages/ProductDetails"));
 const Cart = React.lazy(() => import("./pages/Cart"));
@@ -37,14 +39,15 @@ const PageLoader = () => (
 
 const MainLayoutInner = () => {
   const { cartCount, searchQuery, setSearchQuery } = useStore();
+  const { data: settings } = useSiteSettings();
+  const shopName = settings?.shop_name || 'TEMKA SHOP';
 
   return (
-    <StorefrontProvider basePath="" cartCount={cartCount} shopName="TeleStore" supportLink="https://t.me/TeleStoreHelp">
+    <StorefrontProvider basePath="" cartCount={cartCount} shopName={shopName} supportLink={settings?.support_username ? `https://t.me/${settings.support_username.replace('@', '')}` : 'https://t.me/TeleStoreHelp'}>
       <div className="min-h-screen flex flex-col theme-light">
         <Header
-          name="YOUR"
-          nameInitial="Y"
-          nameHighlight=".STORE"
+          name={shopName}
+          nameInitial={shopName[0] || 'T'}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
         />
@@ -75,6 +78,7 @@ const App = () => (
               <Routes>
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Index />} />
+                  <Route path="/p/:id" element={<Project />} />
                   <Route path="/catalog" element={<Catalog />} />
                   <Route path="/product/:id" element={<ProductDetails />} />
                   <Route path="/cart" element={<Cart />} />
