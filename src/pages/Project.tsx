@@ -121,7 +121,7 @@ const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
 };
 
 const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const [open, setOpen] = useState(false);
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -131,21 +131,10 @@ const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
           <p className="text-xs text-muted-foreground line-clamp-1">{product.subtitle || 'Подарки Telegram'}</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {product.nft_variants?.map((v) => (
-          <button
-            key={v.key}
-            onClick={() => {
-              addToCart({ ...product, price: v.price, title: `${product.title} · ${v.label}` } as any);
-              toast.success(`${v.label} в корзине`);
-            }}
-            className="rounded-xl border border-border bg-secondary/40 p-3 text-left hover:border-primary/40 transition-all"
-          >
-            <div className="text-sm font-medium leading-tight">{v.label}</div>
-            <div className="font-display font-bold text-base mt-1">${v.price}</div>
-          </button>
-        ))}
-      </div>
+      <Button className="w-full" onClick={() => setOpen(true)}>
+        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
+      </Button>
+      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode="gift" />
     </div>
   );
 };
