@@ -81,8 +81,8 @@ const Account = () => {
   const MIN_TOPUP = 0.1;
   const MAX_TOPUP = 1000;
   const pendingTopupStorageKey = useMemo(
-    () => `pending-topup-${shopId || 'platform'}-${user?.id || 'anon'}`,
-    [shopId, user?.id],
+    () => `pending-topup-${user?.id || 'anon'}`,
+    [user?.id],
   );
 
   useEffect(() => {
@@ -108,7 +108,7 @@ const Account = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('check-payment', {
-        body: { invoiceId: pendingTopupInvoiceId, initData, shopId },
+        body: { invoiceId: pendingTopupInvoiceId, initData },
       });
 
       if (error || data?.error) return;
@@ -130,7 +130,7 @@ const Account = () => {
     } catch {
       // ignore polling errors
     }
-  }, [pendingTopupInvoiceId, initData, shopId, clearPendingTopup, queryClient, haptic]);
+  }, [pendingTopupInvoiceId, initData, clearPendingTopup, queryClient, haptic]);
 
   useEffect(() => {
     if (!pendingTopupInvoiceId || !initData) return;
@@ -156,7 +156,7 @@ const Account = () => {
     setTopupProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-topup-invoice', {
-        body: { initData, amount, shopId },
+        body: { initData, amount },
       });
       // Edge function non-2xx: error is set, but data may also contain the parsed JSON body
       if (error) {
@@ -401,8 +401,6 @@ const Account = () => {
         </div>
       </a>
 
-      {/* Referral System */}
-      <ReferralCard shopId={shopId} />
 
       {/* "All" Drawer */}
       <Drawer open={showAll} onOpenChange={setShowAll}>
@@ -431,7 +429,6 @@ const Account = () => {
         order={selectedOrder}
         open={!!selectedOrder}
         onOpenChange={open => { if (!open) setSelectedOrder(null); }}
-        shopId={shopId}
       />
       <BalanceDetailSheet
         entry={selectedBalance}
