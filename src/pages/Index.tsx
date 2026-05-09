@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import MarqueeBanner from '@/components/MarqueeBanner';
 import ProjectCard from '@/components/ProjectCard';
+import CasesSection from '@/components/CasesSection';
 import { useProjects, useSiteSettings } from '@/hooks/useShop';
 import { Skeleton } from '@/components/ui/skeleton';
 
