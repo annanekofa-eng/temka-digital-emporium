@@ -40,7 +40,7 @@ const PageLoader = () => (
 const MainLayoutInner = () => {
   const { cartCount, searchQuery, setSearchQuery } = useStore();
   const { data: settings } = useSiteSettings();
-  const shopName = settings?.shop_name || 'TEMKA SHOP';
+  const shopName = settings?.shop_name || 'Hustlify';
 
   return (
     <StorefrontProvider basePath="" cartCount={cartCount} shopName={shopName} supportLink={settings?.support_username ? `https://t.me/${settings.support_username.replace('@', '')}` : 'https://t.me/TeleStoreHelp'}>
