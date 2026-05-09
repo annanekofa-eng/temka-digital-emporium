@@ -35,14 +35,6 @@ const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setS
             loading="lazy"
             className="w-7 h-7 rounded-lg object-cover bg-black"
           />
-          <div
-            className="w-7 h-7 rounded-lg bg-primary items-center justify-center"
-            style={{ display: avatarUrl ? 'none' : 'flex' }}
-          >
-            <span className="text-primary-foreground font-bold text-xs font-display">
-              {nameInitial || 'T'}
-            </span>
-          </div>
           <span className="font-display font-bold text-base tracking-tight">
             {nameHighlight ? (
               <>{name}<span className="text-primary">{nameHighlight}</span></>
