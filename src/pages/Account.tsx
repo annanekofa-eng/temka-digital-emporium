@@ -4,7 +4,6 @@ import { Package, CheckCircle2, Clock, MessageCircle, ChevronRight, AlertCircle,
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
-const useShopOptional = () => null as null | { shop?: { id?: string } };
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useOrders, useUserStats, useUserProfile, useBalanceHistory } from '@/hooks/useOrders';
 import { useSupportUsername } from '@/hooks/useSupportUsername';
@@ -16,7 +15,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@
 import { Input } from '@/components/ui/input';
 import OrderDetailSheet from '@/components/OrderDetailSheet';
 import BalanceDetailSheet from '@/components/BalanceDetailSheet';
-import ReferralCard from '@/components/ReferralCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -56,14 +54,11 @@ const Account = () => {
   const { supportLink, basePath } = useStorefront();
   const buildPath = useStorefrontPath();
   const { user, isInTelegram, openTelegramLink, haptic, initData } = useTelegram();
-  const shopCtx = useShopOptional();
 
-  // Use shop UUID from ShopContext (not slug from URL)
-  const shopId = shopCtx?.shop?.id;
-  const { data: orders, isLoading: ordersLoading } = useOrders(shopId);
-  const { data: balanceHistory, isLoading: balanceLoading } = useBalanceHistory(shopId);
-  const { data: stats, isLoading: statsLoading } = useUserStats(shopId);
-  const { data: profile, isLoading: profileLoading } = useUserProfile(shopId);
+  const { data: orders, isLoading: ordersLoading } = useOrders();
+  const { data: balanceHistory, isLoading: balanceLoading } = useBalanceHistory();
+  const { data: stats, isLoading: statsLoading } = useUserStats();
+  const { data: profile, isLoading: profileLoading } = useUserProfile();
   const queryClient = useQueryClient();
   const { data: supportUsername } = useSupportUsername();
 
