@@ -68,46 +68,52 @@
     --font-body: 'Inter', sans-serif;
   }
 
-  /* ─── Light theme (template / platform store) ─── */
+  /* ─── Light theme — monochrome black & white ─── */
   .theme-light {
-    --background: 216 30% 97%;
-    --foreground: 222 47% 11%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 0 0% 7%;
 
-    --primary: 217 91% 60%;
+    --primary: 0 0% 7%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 20%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
 
-    --muted: 214 20% 93%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 217 80% 56%;
+    --accent: 0 0% 12%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 0% 20%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 91%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 90%;
+    --input: 0 0% 94%;
+    --ring: 0 0% 7%;
 
-    --surface: 214 25% 95%;
-    --surface-foreground: 222 47% 20%;
+    --surface: 0 0% 97%;
+    --surface-foreground: 0 0% 20%;
+    --warning: 0 0% 35%;
+    --warning-foreground: 0 0% 100%;
+    --success: 0 0% 15%;
+    --success-foreground: 0 0% 100%;
+    --gold: 0 0% 25%;
+    --gold-foreground: 0 0% 100%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(199, 89%, 48%));
-    --gradient-surface: linear-gradient(135deg, hsl(214, 25%, 95%), hsl(214, 32%, 91%));
-    --gradient-hero: linear-gradient(135deg, hsl(216, 30%, 97%) 0%, hsl(214, 40%, 94%) 50%, hsl(216, 30%, 97%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(0, 0%, 7%), hsl(0, 0%, 30%));
+    --gradient-surface: linear-gradient(135deg, hsl(0, 0%, 97%), hsl(0, 0%, 92%));
+    --gradient-hero: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 96%) 50%, hsl(0, 0%, 100%) 100%);
 
-    --shadow-glow: 0 0 40px hsl(217, 91%, 60%, 0.15);
-    --shadow-card: 0 4px 24px hsl(222, 47%, 11%, 0.06);
-    --shadow-card-hover: 0 8px 32px hsl(222, 47%, 11%, 0.1);
+    --shadow-glow: 0 0 40px hsl(0, 0%, 0%, 0.08);
+    --shadow-card: 0 4px 24px hsl(0, 0%, 0%, 0.06);
+    --shadow-card-hover: 0 8px 32px hsl(0, 0%, 0%, 0.12);
   }
 }
 
