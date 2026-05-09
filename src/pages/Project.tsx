@@ -201,26 +201,27 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
 };
 
 const NftLinkCard = ({ product, mode }: { product: ExtendedProduct; mode: 'rent' | 'buy' }) => {
-  // Mock GetGems link
-  const url = product.external_link || `https://getgems.io/?mode=${mode}`;
-  const label = mode === 'rent' ? 'Перейти в аренду' : 'Перейти к покупке';
-  const emoji = mode === 'rent' ? '🔄' : '💎';
+  const [open, setOpen] = useState(false);
+  const isRent = mode === 'rent';
+  const title = isRent ? 'Аренда NFT' : 'Аренда username';
+  const subtitle = isRent
+    ? product.subtitle || 'Аренда NFT-подарков на срок'
+    : product.subtitle || 'Аренда красивых @username';
+  const logo = isRent ? logoNft : logoStars;
+  const catalogMode = isRent ? 'nft_rent' : 'username_rent';
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-2xl">{emoji}</div>
+        <LogoBox src={logo} alt={title} />
         <div className="flex-1 min-w-0">
-          <h3 className="font-display font-bold text-base">{product.title}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {product.subtitle || 'Через GetGems · оплата на платформе'}
-          </p>
+          <h3 className="font-display font-bold text-base">{product.title || title}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-2">{subtitle}</p>
         </div>
       </div>
-      <a href={url} target="_blank" rel="noopener noreferrer">
-        <Button className="w-full" variant="outline">
-          <ExternalLink className="w-4 h-4 mr-2" /> {label}
-        </Button>
-      </a>
+      <Button className="w-full" onClick={() => setOpen(true)}>
+        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
+      </Button>
+      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode={catalogMode} />
     </div>
   );
 };
