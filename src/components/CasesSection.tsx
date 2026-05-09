@@ -1,0 +1,128 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Flame, X } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+
+interface Case {
+  id: string;
+  title: string;
+  short: string;
+  full: string;
+  price: number;
+  oldPrice: number;
+  emoji: string;
+  hit?: boolean;
+}
+
+const CASES: Case[] = [
+  {
+    id: 'standard',
+    title: 'Стандарт',
+    short: 'В кейс входит базовая упаковка и стартовое продвижение',
+    full: 'При покупке кейса студия дизайна делает вам Фирменный логотип (3D и 2D), 3 статичных баннера. Накручиваем до 1000 реакций / просмотров / подписчиков.',
+    price: 2589,
+    oldPrice: 3100,
+    emoji: '✏️',
+  },
+  {
+    id: 'extended',
+    title: 'Расширенный',
+    short: 'В кейс входит полное оформление и помощь в продвижении',
+    full: 'При покупке кейса студия дизайна делает вам Фирменный логотип, 3 статичных баннера, мини-лендинг. Накручиваем до 5000 реакций / просмотров / подписчиков. Выдаём план продвижения с выходом на доход в конце месяца.',
+    price: 3289,
+    oldPrice: 4000,
+    emoji: '🎨',
+  },
+  {
+    id: 'premium',
+    title: 'Премиум',
+    short: 'Полностью выстраиваем систему. Выходим на крупные платформы. Полное оформление',
+    full: 'При покупке кейса студия дизайна делает вам Фирменный логотип, 4 статичных баннера, лендинг, 5 уникальных постов. Накручиваем до 10000 реакций / просмотров / подписчиков.',
+    price: 4289,
+    oldPrice: 5500,
+    emoji: '🖋️',
+    hit: true,
+  },
+];
+
+const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: i * 0.08, duration: 0.4 }}
+    className="relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden"
+  >
+    <div className="relative aspect-square bg-black flex items-center justify-center">
+      <span className="text-7xl grayscale opacity-90">{c.emoji}</span>
+      {c.hit && (
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-orange-500 text-white text-[10px] font-bold rounded-full px-2.5 py-1">
+          <Flame className="w-3 h-3" />
+          Хит продаж
+        </div>
+      )}
+    </div>
+    <div className="p-4 flex flex-col gap-2">
+      <h3 className="font-display text-lg font-bold tracking-tight">{c.title}</h3>
+      <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{c.short}</p>
+      <div className="flex items-baseline gap-2">
+        <span className="text-base font-bold">{c.price} ₽</span>
+        <span className="text-xs text-muted-foreground line-through">{c.oldPrice} ₽</span>
+      </div>
+      <button
+        onClick={onOpen}
+        className="mt-2 self-start px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity"
+      >
+        Подробнее
+      </button>
+    </div>
+  </motion.div>
+);
+
+const CasesSection = () => {
+  const [openCase, setOpenCase] = useState<Case | null>(null);
+
+  return (
+    <section className="pt-8">
+      <div className="container-main mx-auto max-w-2xl px-4">
+        <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {CASES.map((c, i) => (
+            <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
+          ))}
+        </div>
+      </div>
+
+      <Dialog open={!!openCase} onOpenChange={(o) => !o && setOpenCase(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden border-border bg-card">
+          {openCase && (
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              <div className="aspect-square bg-black flex items-center justify-center">
+                <span className="text-9xl grayscale">{openCase.emoji}</span>
+              </div>
+              <div className="p-6 sm:p-8 flex flex-col gap-4">
+                <h3 className="font-display text-2xl font-black">{openCase.title}</h3>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-xl font-bold">{openCase.price} ₽</span>
+                  <span className="text-sm text-muted-foreground line-through">{openCase.oldPrice} ₽</span>
+                </div>
+                <button className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
+                  Приобрести сейчас
+                </button>
+                <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => setOpenCase(null)}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"
+            aria-label="Закрыть"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+};
+
+export default CasesSection;
