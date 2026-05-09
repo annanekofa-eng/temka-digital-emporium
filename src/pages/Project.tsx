@@ -39,6 +39,38 @@ const SimpleProductCard = ({ product }: { product: ExtendedProduct }) => {
   );
 };
 
+// FLUX-style: list row, no image, title + price button
+const FluxItemCard = ({ product }: { product: ExtendedProduct }) => {
+  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
+      <button
+        onClick={() => navigate(`/product/${product.id}`)}
+        className="flex-1 min-w-0 text-left"
+      >
+        <h3 className="font-display font-semibold text-base leading-tight line-clamp-1">
+          {product.title}
+        </h3>
+        {product.subtitle && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{product.subtitle}</p>
+        )}
+      </button>
+      <Button
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          addToCart(product as any);
+          toast.success('Добавлено в корзину');
+        }}
+        className="shrink-0 font-display font-bold"
+      >
+        ${Number(product.price).toFixed(0)}
+      </Button>
+    </div>
+  );
+};
+
 const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
   const [selected, setSelected] = useState(0);
