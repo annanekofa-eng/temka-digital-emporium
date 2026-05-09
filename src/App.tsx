@@ -14,6 +14,7 @@ import React, { Suspense } from "react";
 import ScrollToTop from "@/components/ScrollToTop";
 
 const Index = React.lazy(() => import("./pages/Index"));
+const Project = React.lazy(() => import("./pages/Project"));
 const Catalog = React.lazy(() => import("./pages/Catalog"));
 const ProductDetails = React.lazy(() => import("./pages/ProductDetails"));
 const Cart = React.lazy(() => import("./pages/Cart"));
