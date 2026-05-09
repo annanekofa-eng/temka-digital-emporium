@@ -59,17 +59,22 @@ Deno.serve(async (req) => {
   const text: string = message?.text ?? "";
 
   if (chatId && (text.startsWith("/start") || text === "/help")) {
-    const keyboard = WEBAPP_URL?.startsWith("https://")
-      ? {
-          inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url: WEBAPP_URL } }]],
-        }
-      : undefined;
+    console.log("WEBAPP_URL=", WEBAPP_URL);
+    const url = WEBAPP_URL?.trim();
+    let keyboard: any = undefined;
+    if (url?.startsWith("https://")) {
+      keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url } }]] };
+    } else if (url?.startsWith("http://")) {
+      // Telegram requires https for web_app; fall back to plain url button
+      keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", url }]] };
+    }
 
-    await tg("sendMessage", {
+    const res = await tg("sendMessage", {
       chat_id: chatId,
       text: WELCOME_TEXT,
       reply_markup: keyboard,
     });
+    console.log("sendMessage result:", JSON.stringify(res));
   }
 
   return new Response(JSON.stringify({ ok: true }), {
