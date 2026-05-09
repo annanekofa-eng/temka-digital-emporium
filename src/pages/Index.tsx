@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react';
 import MarqueeBanner from '@/components/MarqueeBanner';
 import ProjectCard from '@/components/ProjectCard';
 import CasesSection from '@/components/CasesSection';
+import ProductShowcase from '@/components/ProductShowcase';
 import { useProjects, useSiteSettings } from '@/hooks/useShop';
 import { Skeleton } from '@/components/ui/skeleton';
 
