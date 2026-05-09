@@ -12,7 +12,7 @@ const Index = () => {
   const { data: projects, isLoading } = useProjects();
   const { data: settings } = useSiteSettings();
 
-  const shopName = settings?.shop_name || 'TEMKA SHOP';
+  const shopName = settings?.shop_name || 'Hustlify';
   const marquee = settings?.marquee_text || '';
 
   return (
