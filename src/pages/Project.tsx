@@ -86,7 +86,7 @@ const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-2xl">⭐</div>
+        <LogoBox src={logoPremium} alt="Telegram Premium" />
         <div className="flex-1 min-w-0">
           <h3 className="font-display font-bold text-base">{product.title}</h3>
           <p className="text-xs text-muted-foreground line-clamp-1">{product.subtitle || 'Telegram Premium подписка'}</p>
@@ -125,7 +125,7 @@ const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-2xl">🎁</div>
+        <LogoBox src={logoNft} alt="NFT подарки" />
         <div className="flex-1 min-w-0">
           <h3 className="font-display font-bold text-base">{product.title}</h3>
           <p className="text-xs text-muted-foreground line-clamp-1">{product.subtitle || 'Подарки Telegram'}</p>
