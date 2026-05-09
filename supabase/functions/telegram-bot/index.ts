@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
     // Convenience: /functions/v1/telegram-bot?setup=1 to register webhook
     const url = new URL(req.url);
     if (url.searchParams.get("setup") === "1") {
-      const webhookUrl = `${url.origin}${url.pathname}`;
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const webhookUrl = `${supabaseUrl}/functions/v1/telegram-bot`;
       const result = await tg("setWebhook", {
         url: webhookUrl,
         secret_token: TELEGRAM_WEBHOOK_SECRET,
