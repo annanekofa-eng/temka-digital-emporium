@@ -1,7 +1,8 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ShoppingCart, Plus, Minus, ExternalLink, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Plus, Minus, ExternalLink, Star, LayoutGrid } from 'lucide-react';
+import NftCatalogDialog from '@/components/NftCatalogDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
@@ -121,7 +122,7 @@ const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
 };
 
 const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const [open, setOpen] = useState(false);
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -131,21 +132,10 @@ const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
           <p className="text-xs text-muted-foreground line-clamp-1">{product.subtitle || 'Подарки Telegram'}</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {product.nft_variants?.map((v) => (
-          <button
-            key={v.key}
-            onClick={() => {
-              addToCart({ ...product, price: v.price, title: `${product.title} · ${v.label}` } as any);
-              toast.success(`${v.label} в корзине`);
-            }}
-            className="rounded-xl border border-border bg-secondary/40 p-3 text-left hover:border-primary/40 transition-all"
-          >
-            <div className="text-sm font-medium leading-tight">{v.label}</div>
-            <div className="font-display font-bold text-base mt-1">${v.price}</div>
-          </button>
-        ))}
-      </div>
+      <Button className="w-full" onClick={() => setOpen(true)}>
+        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
+      </Button>
+      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode="gift" />
     </div>
   );
 };
@@ -212,26 +202,27 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
 };
 
 const NftLinkCard = ({ product, mode }: { product: ExtendedProduct; mode: 'rent' | 'buy' }) => {
-  // Mock GetGems link
-  const url = product.external_link || `https://getgems.io/?mode=${mode}`;
-  const label = mode === 'rent' ? 'Перейти в аренду' : 'Перейти к покупке';
-  const emoji = mode === 'rent' ? '🔄' : '💎';
+  const [open, setOpen] = useState(false);
+  const isRent = mode === 'rent';
+  const title = isRent ? 'Аренда NFT' : 'Аренда username';
+  const subtitle = isRent
+    ? product.subtitle || 'Аренда NFT-подарков на срок'
+    : product.subtitle || 'Аренда красивых @username';
+  const logo = isRent ? logoNft : logoStars;
+  const catalogMode = isRent ? 'nft_rent' : 'username_rent';
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-2xl">{emoji}</div>
+        <LogoBox src={logo} alt={title} />
         <div className="flex-1 min-w-0">
-          <h3 className="font-display font-bold text-base">{product.title}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {product.subtitle || 'Через GetGems · оплата на платформе'}
-          </p>
+          <h3 className="font-display font-bold text-base">{product.title || title}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-2">{subtitle}</p>
         </div>
       </div>
-      <a href={url} target="_blank" rel="noopener noreferrer">
-        <Button className="w-full" variant="outline">
-          <ExternalLink className="w-4 h-4 mr-2" /> {label}
-        </Button>
-      </a>
+      <Button className="w-full" onClick={() => setOpen(true)}>
+        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
+      </Button>
+      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode={catalogMode} />
     </div>
   );
 };
