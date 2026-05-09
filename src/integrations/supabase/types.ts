@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_log: {
+        Row: {
+          action: string
+          admin_telegram_id: number
+          created_at: string
+          id: string
+          meta: Json
+          target: string | null
+        }
+        Insert: {
+          action: string
+          admin_telegram_id: number
+          created_at?: string
+          id?: string
+          meta?: Json
+          target?: string | null
+        }
+        Update: {
+          action?: string
+          admin_telegram_id?: number
+          created_at?: string
+          id?: string
+          meta?: Json
+          target?: string | null
+        }
+        Relationships: []
+      }
       balance_history: {
         Row: {
           admin_telegram_id: number
@@ -47,6 +74,53 @@ export type Database = {
         }
         Relationships: []
       }
+      cart_items: {
+        Row: {
+          created_at: string
+          id: string
+          params: Json
+          product_id: string
+          product_title: string
+          product_type: string
+          qty: number
+          telegram_id: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          params?: Json
+          product_id: string
+          product_title: string
+          product_type?: string
+          qty?: number
+          telegram_id: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          params?: Json
+          product_id?: string
+          product_title?: string
+          product_type?: string
+          qty?: number
+          telegram_id?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -55,6 +129,8 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          parent_id: string | null
+          project_id: string | null
           slug: string | null
           sort_order: number
         }
@@ -65,6 +141,8 @@ export type Database = {
           id: string
           is_active?: boolean
           name: string
+          parent_id?: string | null
+          project_id?: string | null
           slug?: string | null
           sort_order?: number
         }
@@ -75,10 +153,27 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          parent_id?: string | null
+          project_id?: string | null
           slug?: string | null
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inventory_items: {
         Row: {
@@ -125,11 +220,37 @@ export type Database = {
           },
         ]
       }
+      message_templates: {
+        Row: {
+          body: string
+          is_active: boolean
+          key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          is_active?: boolean
+          key: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          is_active?: boolean
+          key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
+          external_payload: Json
           id: string
           order_id: string
+          params: Json
           product_id: string
           product_price: number
           product_title: string
@@ -137,8 +258,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          external_payload?: Json
           id?: string
           order_id: string
+          params?: Json
           product_id: string
           product_price: number
           product_title: string
@@ -146,8 +269,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          external_payload?: Json
           id?: string
           order_id?: string
+          params?: Json
           product_id?: string
           product_price?: number
           product_title?: string
@@ -176,12 +301,14 @@ export type Database = {
           created_at: string
           currency: string
           discount_amount: number
+          external_ref: string | null
           id: string
           invoice_id: string | null
           notes: string | null
           order_number: string
           pay_url: string | null
           payment_status: string
+          project_id: string | null
           promo_code: string | null
           status: string
           telegram_id: number
@@ -193,12 +320,14 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_amount?: number
+          external_ref?: string | null
           id?: string
           invoice_id?: string | null
           notes?: string | null
           order_number: string
           pay_url?: string | null
           payment_status?: string
+          project_id?: string | null
           promo_code?: string | null
           status?: string
           telegram_id: number
@@ -210,19 +339,29 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_amount?: number
+          external_ref?: string | null
           id?: string
           invoice_id?: string | null
           notes?: string | null
           order_number?: string
           pay_url?: string | null
           payment_status?: string
+          project_id?: string | null
           promo_code?: string | null
           status?: string
           telegram_id?: number
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       processed_invoices: {
         Row: {
@@ -257,7 +396,9 @@ export type Database = {
           created_at: string
           delivery_type: string
           description: string
+          external_link: string | null
           features: string[]
+          gallery: Json
           guarantee: string
           id: string
           image: string | null
@@ -265,9 +406,14 @@ export type Database = {
           is_featured: boolean
           is_new: boolean
           is_popular: boolean
+          max_qty: number
+          min_qty: number
+          nft_variants: Json
           old_price: number | null
           platform: string
           price: number
+          product_type: string
+          project_id: string | null
           region: string
           slug: string | null
           sort_order: number
@@ -276,6 +422,7 @@ export type Database = {
           subcategory: string
           subtitle: string
           tags: string[]
+          term_options: Json
           title: string
           updated_at: string
         }
@@ -284,7 +431,9 @@ export type Database = {
           created_at?: string
           delivery_type?: string
           description?: string
+          external_link?: string | null
           features?: string[]
+          gallery?: Json
           guarantee?: string
           id?: string
           image?: string | null
@@ -292,9 +441,14 @@ export type Database = {
           is_featured?: boolean
           is_new?: boolean
           is_popular?: boolean
+          max_qty?: number
+          min_qty?: number
+          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price: number
+          product_type?: string
+          project_id?: string | null
           region?: string
           slug?: string | null
           sort_order?: number
@@ -303,6 +457,7 @@ export type Database = {
           subcategory?: string
           subtitle?: string
           tags?: string[]
+          term_options?: Json
           title: string
           updated_at?: string
         }
@@ -311,7 +466,9 @@ export type Database = {
           created_at?: string
           delivery_type?: string
           description?: string
+          external_link?: string | null
           features?: string[]
+          gallery?: Json
           guarantee?: string
           id?: string
           image?: string | null
@@ -319,9 +476,14 @@ export type Database = {
           is_featured?: boolean
           is_new?: boolean
           is_popular?: boolean
+          max_qty?: number
+          min_qty?: number
+          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price?: number
+          product_type?: string
+          project_id?: string | null
           region?: string
           slug?: string | null
           sort_order?: number
@@ -330,6 +492,7 @@ export type Database = {
           subcategory?: string
           subtitle?: string
           tags?: string[]
+          term_options?: Json
           title?: string
           updated_at?: string
         }
@@ -341,7 +504,53 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "products_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      projects: {
+        Row: {
+          banner: string | null
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          subtitle: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          banner?: string | null
+          created_at?: string
+          description?: string
+          icon?: string
+          id: string
+          is_active?: boolean
+          sort_order?: number
+          subtitle?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          banner?: string | null
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       promocodes: {
         Row: {
@@ -452,6 +661,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
       }
       user_profiles: {
         Row: {
