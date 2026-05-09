@@ -453,69 +453,6 @@ export type Database = {
           },
         ]
       }
-      shop_reviews: {
-        Row: {
-          author: string
-          avatar: string
-          created_at: string
-          id: string
-          moderation_status: string
-          product_id: string | null
-          rating: number
-          shop_id: string
-          telegram_id: number
-          text: string
-          verified: boolean
-        }
-        Insert: {
-          author: string
-          avatar?: string
-          created_at?: string
-          id?: string
-          moderation_status?: string
-          product_id?: string | null
-          rating: number
-          shop_id: string
-          telegram_id: number
-          text?: string
-          verified?: boolean
-        }
-        Update: {
-          author?: string
-          avatar?: string
-          created_at?: string
-          id?: string
-          moderation_status?: string
-          product_id?: string | null
-          rating?: number
-          shop_id?: string
-          telegram_id?: number
-          text?: string
-          verified?: boolean
-        }
-        Relationships: []
-      }
-      tariff_prices: {
-        Row: {
-          is_enabled: boolean
-          plan: string
-          price_usd: number
-          updated_at: string
-        }
-        Insert: {
-          is_enabled?: boolean
-          plan: string
-          price_usd?: number
-          updated_at?: string
-        }
-        Update: {
-          is_enabled?: boolean
-          plan?: string
-          price_usd?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       user_profiles: {
         Row: {
           accepted_terms: boolean
@@ -615,45 +552,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      public_shop_reviews: {
-        Row: {
-          author: string | null
-          avatar: string | null
-          created_at: string | null
-          id: string | null
-          moderation_status: string | null
-          product_id: string | null
-          rating: number | null
-          shop_id: string | null
-          text: string | null
-          verified: boolean | null
-        }
-        Insert: {
-          author?: string | null
-          avatar?: string | null
-          created_at?: string | null
-          id?: string | null
-          moderation_status?: string | null
-          product_id?: string | null
-          rating?: number | null
-          shop_id?: string | null
-          text?: string | null
-          verified?: boolean | null
-        }
-        Update: {
-          author?: string | null
-          avatar?: string | null
-          created_at?: string | null
-          id?: string | null
-          moderation_status?: string | null
-          product_id?: string | null
-          rating?: number | null
-          shop_id?: string | null
-          text?: string | null
-          verified?: boolean | null
-        }
-        Relationships: []
       }
     }
     Functions: {
