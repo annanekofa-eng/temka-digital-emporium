@@ -49,10 +49,13 @@ const Index = () => {
       {/* Marquee */}
       {marquee && <MarqueeBanner text={marquee} />}
 
+      {/* Cases */}
+      <CasesSection />
+
       {/* Projects */}
-      <section className="pt-8">
+      <section className="pt-10">
         <div className="container-main mx-auto max-w-2xl px-4">
-          <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
+          <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши проекты</h2>
           {isLoading ? (
             <div className="grid gap-3">
               {Array.from({ length: 3 }).map((_, i) => (
