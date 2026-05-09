@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useState } from 'react';
+import hustlifyLogo from '@/assets/logo-hustlify.jpg';
 
 interface HeaderProps {
   name?: string;
@@ -15,6 +16,7 @@ interface HeaderProps {
 
 const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setSearchQuery }: HeaderProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const effectiveAvatar = avatarUrl || hustlifyLogo;
   const navigate = useNavigate();
   const buildPath = useStorefrontPath();
 
@@ -27,29 +29,12 @@ const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setS
     <header className="sticky top-0 z-50 glass-strong">
       <div className="container-main mx-auto flex items-center justify-between gap-3 px-4 py-2.5">
         <Link to={buildPath('/')} className="flex items-center gap-2 shrink-0">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={name || 'Логотип магазина'}
-              loading="lazy"
-              className="w-7 h-7 rounded-lg object-cover bg-secondary"
-              onError={(e) => {
-                // Fallback to initial badge if image fails to load
-                const target = e.currentTarget;
-                const fallback = target.nextElementSibling as HTMLElement | null;
-                target.style.display = 'none';
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-          ) : null}
-          <div
-            className="w-7 h-7 rounded-lg bg-primary items-center justify-center"
-            style={{ display: avatarUrl ? 'none' : 'flex' }}
-          >
-            <span className="text-primary-foreground font-bold text-xs font-display">
-              {nameInitial || 'T'}
-            </span>
-          </div>
+          <img
+            src={effectiveAvatar}
+            alt={name || 'Hustlify'}
+            loading="lazy"
+            className="w-7 h-7 rounded-lg object-cover bg-black"
+          />
           <span className="font-display font-bold text-base tracking-tight">
             {nameHighlight ? (
               <>{name}<span className="text-primary">{nameHighlight}</span></>

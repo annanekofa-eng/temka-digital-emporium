@@ -1,0 +1,2 @@
+UPDATE site_settings SET value = 'Hustlify', updated_at = now() WHERE key = 'shop_name';
+INSERT INTO site_settings (key, value) VALUES ('shop_name', 'Hustlify') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
