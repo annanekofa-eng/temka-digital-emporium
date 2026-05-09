@@ -7,6 +7,7 @@ import { StoreProvider, useStore } from "@/contexts/StoreContext";
 import { TelegramProvider } from "@/contexts/TelegramContext";
 import { StorefrontProvider } from "@/contexts/StorefrontContext";
 import Header from "@/components/Header";
+import { useSiteSettings } from "@/hooks/useShop";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { Outlet } from "react-router-dom";
