@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Search, ChevronDown, ChevronUp, Headphones } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, ChevronDown, ChevronUp, Headphones, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
+import { useProducts } from '@/hooks/useProducts';
 
 const FAQ = () => {
   const { shopName, supportLink } = useStorefront();
