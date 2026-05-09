@@ -72,6 +72,9 @@ const Index = () => {
           )}
         </div>
       </section>
+
+      {/* Catalog showcase */}
+      <ProductShowcase />
     </div>
   );
 };
