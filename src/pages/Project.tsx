@@ -157,7 +157,7 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-2xl">⭐</div>
+        <LogoBox src={logoStars} alt="Telegram Stars" />
         <div className="flex-1 min-w-0">
           <h3 className="font-display font-bold text-base">{product.title}</h3>
           <p className="text-xs text-muted-foreground line-clamp-1">${Number(product.price).toFixed(3)} за звезду</p>
@@ -180,6 +180,19 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
         <Button variant="outline" size="icon" onClick={() => setQty(Math.min(product.max_qty, qty + 50))}>
           <Plus className="w-4 h-4" />
         </Button>
+      </div>
+      <div className="px-1 mb-4">
+        <Slider
+          value={[qty]}
+          min={product.min_qty}
+          max={product.max_qty}
+          step={50}
+          onValueChange={(v) => setQty(v[0])}
+        />
+        <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
+          <span>{product.min_qty}⭐</span>
+          <span>{product.max_qty}⭐</span>
+        </div>
       </div>
       <Button
         className="w-full"
