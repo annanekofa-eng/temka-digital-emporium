@@ -188,4 +188,12 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /* White neon button effect — apply via className="neon" on primary CTAs */
+  .neon {
+    box-shadow: var(--shadow-glow);
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+  }
+  .neon:hover {
+    box-shadow: 0 0 32px hsl(0, 0%, 100%, 0.8), 0 0 64px hsl(0, 0%, 100%, 0.4);
+  }
 }
