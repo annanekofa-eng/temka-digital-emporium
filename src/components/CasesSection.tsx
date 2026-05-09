@@ -85,11 +85,13 @@ const CasesSection = () => {
     <section className="pt-8">
       <div className="container-main mx-auto max-w-2xl px-4">
         <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {CASES.map((c, i) => (
-            <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
-          ))}
-        </div>
+      </div>
+      <div className="flex gap-4 overflow-x-auto px-4 pb-4 scrollbar-hide snap-x snap-mandatory">
+        {CASES.map((c, i) => (
+          <div key={c.id} className="w-[75%] sm:w-[320px] shrink-0 snap-center">
+            <CaseCard c={c} i={i} onOpen={() => setOpenCase(c)} />
+          </div>
+        ))}
       </div>
 
       <Dialog open={!!openCase} onOpenChange={(o) => !o && setOpenCase(null)}>
