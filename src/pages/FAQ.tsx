@@ -11,6 +11,11 @@ const FAQ = () => {
   const name = shopName || 'Магазин';
   const [search, setSearch] = useState('');
   const [openItems, setOpenItems] = useState<string[]>([]);
+  const { data: allProducts } = useProducts();
+  const featured = (allProducts || [])
+    .filter(p => p.is_featured || p.is_popular || p.is_new)
+    .slice(0, 8);
+  const showcase = featured.length ? featured : (allProducts || []).slice(0, 8);
 
   const faqData = [
     {
