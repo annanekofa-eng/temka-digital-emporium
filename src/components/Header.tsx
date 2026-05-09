@@ -15,6 +15,7 @@ interface HeaderProps {
 }
 
 const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setSearchQuery }: HeaderProps) => {
+  const [searchOpen, setSearchOpen] = useState(false);
   const effectiveAvatar = avatarUrl || hustlifyLogo;
   const navigate = useNavigate();
   const buildPath = useStorefrontPath();
