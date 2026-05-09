@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, X } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface Case {
@@ -114,13 +114,6 @@ const CasesSection = () => {
               </div>
             </div>
           )}
-          <button
-            onClick={() => setOpenCase(null)}
-            className="absolute top-3 right-3 w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"
-            aria-label="Закрыть"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </DialogContent>
       </Dialog>
     </section>
