@@ -5,46 +5,13 @@ import { useShopStats } from '@/hooks/useProducts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-
-/** Fetch stats scoped to a specific tenant shop */
-const useShopScopedStats = (shopId: string | undefined) => {
-  return useQuery({
-    queryKey: ['shop-scoped-stats', shopId],
-    queryFn: async () => {
-      if (!shopId) return null;
-
-      const [productsRes, ordersRes] = await Promise.all([
-        supabase.from('shop_products').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('is_active', true),
-        supabase.from('shop_orders').select('id', { count: 'exact', head: true }).eq('shop_id', shopId).eq('status', 'completed'),
-      ]);
-
-      return {
-        activeProducts: productsRes.count ?? 0,
-        completedOrders: ordersRes.count ?? 0,
-      };
-    },
-    enabled: !!shopId,
-    staleTime: 5 * 60 * 1000,
-  });
-};
 
 const About = () => {
-  const { shopName, basePath } = useStorefront();
+  const { shopName } = useStorefront();
   const buildPath = useStorefrontPath();
   const name = shopName || 'Магазин';
 
-  // Detect tenant context: basePath like "/shop/xxx" means tenant
-  const isTenant = basePath.startsWith('/shop/');
-  const shopId = isTenant ? basePath.split('/')[2] : undefined;
-
-  const platformStats = useShopStats();
-  const tenantStats = useShopScopedStats(shopId);
-
-  const stats = isTenant
-    ? { data: tenantStats.data ? { users: 0, completedOrders: tenantStats.data.completedOrders, totalOrders: 0, activeProducts: tenantStats.data.activeProducts, approvedReviews: 0 } : undefined, isLoading: tenantStats.isLoading }
-    : { data: platformStats.data, isLoading: platformStats.isLoading };
+  const stats = useShopStats();
 
   return (
     <div className="container-main mx-auto px-4 py-8 sm:py-12">
