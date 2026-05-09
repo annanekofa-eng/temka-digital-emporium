@@ -15,7 +15,7 @@ interface Props {
   order: DbOrder | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  shopId?: string;
+  shopId?: string; // ignored, kept for API compatibility
 }
 
 const statusBadgeVariant = (status: DbOrder['status']): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -41,9 +41,9 @@ const copyToClipboard = (text: string) => {
   toast.success('Скопировано');
 };
 
-const OrderDetailSheet = ({ order, open, onOpenChange, shopId }: Props) => {
-  const { data: items, isLoading: itemsLoading } = useOrderItems(order?.id || '', shopId);
-  const { data: inventoryItems, isLoading: inventoryLoading } = useOrderInventoryItems(order?.id || '', shopId);
+const OrderDetailSheet = ({ order, open, onOpenChange }: Props) => {
+  const { data: items, isLoading: itemsLoading } = useOrderItems(order?.id || '');
+  const { data: inventoryItems, isLoading: inventoryLoading } = useOrderInventoryItems(order?.id || '');
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
 
   if (!order) return null;
