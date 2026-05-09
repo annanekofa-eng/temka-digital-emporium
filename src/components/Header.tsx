@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useState } from 'react';
+import hustlifyLogo from '@/assets/logo-hustlify.jpg';
 
 interface HeaderProps {
   name?: string;
