@@ -4,9 +4,17 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingCart, Plus, Minus, ExternalLink, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Slider } from '@/components/ui/slider';
 import { useProject, useProjectProducts, useProjectCategories, type ExtendedProduct } from '@/hooks/useShop';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
+import logoPremium from '@/assets/logo-tg-premium.webp';
+import logoStars from '@/assets/logo-tg-stars.jpg';
+import logoNft from '@/assets/logo-tg-nft.png';
+
+const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
+  <img src={src} alt={alt} className="w-12 h-12 rounded-xl object-cover bg-black shrink-0" loading="lazy" />
+);
 
 const SimpleProductCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
