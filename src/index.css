@@ -188,12 +188,12 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  /* White neon button effect — apply via className="neon" on primary CTAs */
+  /* Refined white neon — soft halo, hairline border */
   .neon {
-    box-shadow: var(--shadow-glow);
-    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 0 0 1px hsl(0, 0%, 100%, 0.12), 0 6px 20px hsl(0, 0%, 100%, 0.08);
+    transition: box-shadow 0.25s ease, transform 0.2s ease;
   }
   .neon:hover {
-    box-shadow: 0 0 32px hsl(0, 0%, 100%, 0.8), 0 0 64px hsl(0, 0%, 100%, 0.4);
+    box-shadow: 0 0 0 1px hsl(0, 0%, 100%, 0.2), 0 10px 28px hsl(0, 0%, 100%, 0.14);
   }
 }
