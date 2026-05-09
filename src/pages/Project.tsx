@@ -351,11 +351,19 @@ const Project = () => {
         ) : filteredSimple.length > 0 ? (
           <section>
             <h2 className="font-display text-lg font-bold mb-3 px-1">Каталог</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {filteredSimple.map((p) => (
-                <SimpleProductCard key={p.id} product={p} />
-              ))}
-            </div>
+            {project.id === 'flux' ? (
+              <div className="grid gap-2">
+                {filteredSimple.map((p) => (
+                  <FluxItemCard key={p.id} product={p} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredSimple.map((p) => (
+                  <SimpleProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            )}
           </section>
         ) : null}
 
