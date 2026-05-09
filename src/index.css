@@ -69,25 +69,25 @@
     --font-body: 'Inter', sans-serif;
   }
 
-  /* ─── Light theme — monochrome black & white ─── */
+  /* ─── Storefront theme — dark cards/background with blue actions ─── */
   .theme-light {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 7%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 96%;
 
     --primary: 222 89% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 12%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
 
     --accent: 222 89% 55%;
     --accent-foreground: 0 0% 100%;
@@ -95,12 +95,12 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 94%;
+    --border: 0 0% 15%;
+    --input: 0 0% 11%;
     --ring: 222 89% 55%;
 
-    --surface: 0 0% 97%;
-    --surface-foreground: 0 0% 20%;
+    --surface: 0 0% 8%;
+    --surface-foreground: 0 0% 90%;
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
     --success: 142 60% 45%;
@@ -109,12 +109,12 @@
     --gold-foreground: 0 0% 100%;
 
     --gradient-primary: linear-gradient(135deg, hsl(222, 89%, 55%), hsl(250, 85%, 60%));
-    --gradient-surface: linear-gradient(135deg, hsl(0, 0%, 97%), hsl(0, 0%, 92%));
-    --gradient-hero: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 96%) 50%, hsl(0, 0%, 100%) 100%);
+    --gradient-surface: linear-gradient(135deg, hsl(0, 0%, 7%), hsl(0, 0%, 10%));
+    --gradient-hero: radial-gradient(120% 80% at 50% 0%, hsl(0, 0%, 12%) 0%, hsl(0, 0%, 4%) 60%);
 
     --shadow-glow: 0 8px 24px hsl(222, 89%, 55%, 0.25);
-    --shadow-card: 0 4px 24px hsl(0, 0%, 0%, 0.06);
-    --shadow-card-hover: 0 8px 32px hsl(222, 89%, 55%, 0.18);
+    --shadow-card: 0 1px 0 hsl(0, 0%, 100%, 0.04) inset, 0 8px 24px hsl(0, 0%, 0%, 0.5);
+    --shadow-card-hover: 0 1px 0 hsl(0, 0%, 100%, 0.06) inset, 0 12px 32px hsl(0, 0%, 0%, 0.6);
   }
 }
 
