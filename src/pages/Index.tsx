@@ -20,14 +20,6 @@ const Index = () => {
       {/* Hero / shop title */}
       <section className="px-4 pt-8 pb-6">
         <div className="container-main mx-auto max-w-2xl text-center">
-          <motion.img
-            src={hustlifyLogo}
-            alt={shopName}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 rounded-2xl object-cover bg-black"
-          />
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
