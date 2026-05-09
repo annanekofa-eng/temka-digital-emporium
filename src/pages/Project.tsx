@@ -1,7 +1,8 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ShoppingCart, Plus, Minus, ExternalLink, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Plus, Minus, ExternalLink, Star, LayoutGrid } from 'lucide-react';
+import NftCatalogDialog from '@/components/NftCatalogDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
