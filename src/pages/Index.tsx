@@ -19,19 +19,19 @@ const Index = () => {
   return (
     <div className="pb-8">
       {/* Hero / shop title */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden isolate min-h-[460px] sm:min-h-[520px] lg:min-h-[640px]">
         {/* Animated Unicorn Studio background */}
-        <div className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 z-0">
           <UnicornBackground
             projectId="N9XzvQXu7fA5SY2ewADJ"
-            className="w-full h-full [&>canvas]:!w-full [&>canvas]:!h-full"
+            className="absolute inset-0 w-full h-full [&>canvas]:!w-full [&>canvas]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
           />
           {/* Brand-tinted overlays for cohesion with site theme */}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/20 to-background pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--background))_85%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--background))_90%)] pointer-events-none" />
         </div>
 
-        <div className="relative px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
+        <div className="relative z-10 px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
           <div className="container-main mx-auto max-w-2xl text-center">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
