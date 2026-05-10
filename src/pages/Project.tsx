@@ -426,6 +426,34 @@ const Project = () => {
               <Skeleton key={i} className="aspect-square rounded-2xl" />
             ))}
           </div>
+        ) : project.id === 'vieto' && categories && categories.length > 0 ? (
+          <div className="space-y-6">
+            {categories.map((c: any) => {
+              const items = simple.filter((p) => p.category_id === c.id);
+              if (!items.length) return null;
+              return (
+                <section key={c.id}>
+                  <div className="relative overflow-hidden rounded-2xl border border-border mb-3 h-24 sm:h-28 flex items-center px-4 bg-gradient-to-br from-primary/30 via-secondary to-card">
+                    <div className="absolute inset-y-0 right-0 w-1/2 flex items-center justify-end pr-4 text-7xl opacity-40 select-none">
+                      {c.icon}
+                    </div>
+                    <div className="relative z-10">
+                      <h2 className="font-display text-xl font-black tracking-tight">{c.name}</h2>
+                      {c.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 max-w-[60%] line-clamp-2">{c.description}</p>
+                      )}
+                      <span className="text-[10px] text-muted-foreground/80">{items.length} товаров</span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    {items.map((p) => (
+                      <VietoItemCard key={p.id} product={p} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         ) : filteredSimple.length > 0 ? (
           <section>
             <h2 className="font-display text-lg font-bold mb-3 px-1">Каталог</h2>
@@ -433,12 +461,6 @@ const Project = () => {
               <div className="grid gap-2">
                 {filteredSimple.map((p) => (
                   <FluxItemCard key={p.id} product={p} />
-                ))}
-              </div>
-            ) : project.id === 'vieto' ? (
-              <div className="grid gap-2">
-                {filteredSimple.map((p) => (
-                  <VietoItemCard key={p.id} product={p} />
                 ))}
               </div>
             ) : (
