@@ -187,11 +187,11 @@ export const NftLinkCard = ({
 }) => {
   const [open, setOpen] = useState(false);
   const isRent = mode === 'rent';
-  const title = isRent ? 'Аренда NFT' : 'Аренда username';
+  const title = isRent ? 'Аренда NFT' : 'NFT юзернеймы';
   const subtitle = isRent
     ? product.subtitle || 'Аренда NFT-подарков на срок'
-    : product.subtitle || 'Аренда красивых @username';
-  const logo = isRent ? logoNft : logoStars;
+    : product.subtitle || 'Красивые @username в аренду';
+  const logo = isRent ? logoNftRent : logoNftUsernames;
   const catalogMode = isRent ? 'nft_rent' : 'username_rent';
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
