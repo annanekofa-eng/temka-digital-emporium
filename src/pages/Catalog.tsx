@@ -7,6 +7,7 @@ import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import ProjectCard from '@/components/ProjectCard';
 import { useProducts, useCategories } from '@/hooks/useProducts';
 import { useProjects } from '@/hooks/useShop';
+import { renderSpecialProduct, isSpecialProduct } from '@/components/SpecialProductCards';
 
 const sortOptions = [
   { value: 'popular', label: 'По популярности' },
