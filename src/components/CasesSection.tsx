@@ -33,6 +33,7 @@ const CASES: Case[] = [
     price: 3289,
     oldPrice: 4000,
     emoji: '🎨',
+    hit: true,
   },
   {
     id: 'premium',
@@ -42,7 +43,6 @@ const CASES: Case[] = [
     price: 4289,
     oldPrice: 5500,
     emoji: '🖋️',
-    hit: true,
   },
 ];
 
