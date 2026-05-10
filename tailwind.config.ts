@@ -112,6 +112,28 @@ export default {
           from: { transform: "translateX(0)" },
           to: { transform: "translateX(-50%)" },
         },
+        "liquid-1": {
+          "0%, 100%": { transform: "translate(0,0) scale(1)" },
+          "33%": { transform: "translate(15%,10%) scale(1.15)" },
+          "66%": { transform: "translate(-10%,20%) scale(0.9)" },
+        },
+        "liquid-2": {
+          "0%, 100%": { transform: "translate(0,0) scale(1)" },
+          "50%": { transform: "translate(-20%,-15%) scale(1.2)" },
+        },
+        "liquid-3": {
+          "0%, 100%": { transform: "translate(0,0) scale(1.05)" },
+          "40%": { transform: "translate(20%,-15%) scale(0.95)" },
+          "70%": { transform: "translate(-15%,10%) scale(1.1)" },
+        },
+        "liquid-4": {
+          "0%, 100%": { transform: "translate(-50%,-50%) scale(1)" },
+          "50%": { transform: "translate(-40%,-60%) scale(1.25)" },
+        },
+        "blob-morph": {
+          "0%, 100%": { borderRadius: "60% 40% 55% 45% / 50% 60% 40% 50%" },
+          "50%": { borderRadius: "40% 60% 45% 55% / 60% 40% 60% 40%" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -120,6 +142,11 @@ export default {
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        "liquid-1": "liquid-1 22s ease-in-out infinite",
+        "liquid-2": "liquid-2 28s ease-in-out infinite",
+        "liquid-3": "liquid-3 26s ease-in-out infinite",
+        "liquid-4": "liquid-4 32s ease-in-out infinite",
+        "blob-morph": "blob-morph 12s ease-in-out infinite",
       },
     },
   },
