@@ -80,6 +80,9 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
 
 const CasesSection = () => {
   const [openCase, setOpenCase] = useState<Case | null>(null);
+  const { data: settings } = useSiteSettings();
+  const supportUser = (settings?.support_username || 'TeleStoreHelp').replace('@', '');
+  const supportUrl = `https://t.me/${supportUser}`;
 
   return (
     <section className="pt-8">
