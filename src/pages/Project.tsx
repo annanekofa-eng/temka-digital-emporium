@@ -444,6 +444,12 @@ const Project = () => {
                   <FluxItemCard key={p.id} product={p} />
                 ))}
               </div>
+            ) : project.id === 'vieto' ? (
+              <div className="grid gap-2">
+                {filteredSimple.map((p) => (
+                  <VietoItemCard key={p.id} product={p} />
+                ))}
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {filteredSimple.map((p) => (
