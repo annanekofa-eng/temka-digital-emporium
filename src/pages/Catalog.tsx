@@ -355,7 +355,40 @@ const Catalog = () => {
                   </button>
                 </div>
               </div>
-              {viewMode === 'list' ? (
+              {showGrouped ? (
+                <div className="space-y-8">
+                  {groupedByProject.map(({ project, items }, idx) => (
+                    <section key={project.id}>
+                      <div className="mb-4">
+                        <ProjectCard project={project} index={idx} />
+                      </div>
+                      {viewMode === 'list' ? (
+                        <div className="flex flex-col gap-3">
+                          {items.map(p => <ProductCard key={p.id} product={p} view="list" />)}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                          {items.map(p => <ProductCard key={p.id} product={p} />)}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                  {ungroupedItems.length > 0 && (
+                    <section>
+                      <h3 className="font-display text-lg font-bold mb-3">Прочие товары</h3>
+                      {viewMode === 'list' ? (
+                        <div className="flex flex-col gap-3">
+                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} view="list" />)}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} />)}
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </div>
+              ) : viewMode === 'list' ? (
                 <div className="flex flex-col gap-3">
                   {filtered.map(product => <ProductCard key={product.id} product={product} view="list" />)}
                 </div>
