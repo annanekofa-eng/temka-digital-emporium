@@ -26,7 +26,7 @@ const ProductShowcase = ({
 
   return (
     <section className="pt-10">
-      <div className="container-main mx-auto max-w-2xl px-4">
+      <div className="container-main mx-auto max-w-2xl lg:max-w-6xl px-4">
         <div className="flex items-end justify-between mb-4">
           <div>
             <h2 className="font-display text-2xl font-black tracking-tight">{title}</h2>
@@ -40,50 +40,53 @@ const ProductShowcase = ({
           </Link>
         </div>
       </div>
-      <div className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide snap-x snap-mandatory">
-        {showcase.map(p => {
-          const discount = p.old_price
-            ? Math.round((1 - Number(p.price) / Number(p.old_price)) * 100)
-            : 0;
-          return (
-            <Link
-              key={p.id}
-              to={buildPath(`/product/${p.id}`)}
-              className="group w-40 sm:w-48 shrink-0 snap-start bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-colors"
-            >
-              <div className="relative aspect-square bg-secondary/40 flex items-center justify-center overflow-hidden">
-                {p.image ? (
-                  <img
-                    src={p.image}
-                    alt={p.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <span className="text-4xl">📦</span>
-                )}
-                {discount > 0 && (
-                  <span className="absolute top-2 left-2 text-[10px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded">
-                    −{discount}%
-                  </span>
-                )}
-              </div>
-              <div className="p-3">
-                <h3 className="text-xs sm:text-sm font-semibold line-clamp-2 min-h-[2.5rem]">{p.title}</h3>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-sm font-bold">${Number(p.price).toFixed(2)}</span>
-                  {p.old_price && (
-                    <span className="text-[10px] text-muted-foreground line-through">
-                      ${Number(p.old_price).toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+      {/* Mobile: horizontal scroll. Desktop: grid */}
+      <div className="flex lg:hidden gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide snap-x snap-mandatory">
+        {showcase.map(p => <ProductTile key={p.id} p={p} buildPath={buildPath} variant="scroll" />)}
+      </div>
+      <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-4">
+        {showcase.map(p => <ProductTile key={p.id} p={p} buildPath={buildPath} variant="grid" />)}
       </div>
     </section>
+  );
+};
+
+const ProductTile = ({ p, buildPath, variant }: { p: any; buildPath: (s: string) => string; variant: 'scroll' | 'grid' }) => {
+  const discount = p.old_price ? Math.round((1 - Number(p.price) / Number(p.old_price)) * 100) : 0;
+  return (
+    <Link
+      to={buildPath(`/product/${p.id}`)}
+      className={`group ${variant === 'scroll' ? 'w-40 sm:w-48 shrink-0 snap-start' : ''} bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-colors`}
+    >
+      <div className="relative aspect-square bg-secondary/40 flex items-center justify-center overflow-hidden">
+        {p.image ? (
+          <img
+            src={p.image}
+            alt={p.title}
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <span className="text-4xl">📦</span>
+        )}
+        {discount > 0 && (
+          <span className="absolute top-2 left-2 text-[10px] font-bold bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded">
+            −{discount}%
+          </span>
+        )}
+      </div>
+      <div className="p-3">
+        <h3 className="text-xs sm:text-sm font-semibold line-clamp-2 min-h-[2.5rem]">{p.title}</h3>
+        <div className="mt-2 flex items-baseline gap-2">
+          <span className="text-sm font-bold">${Number(p.price).toFixed(2)}</span>
+          {p.old_price && (
+            <span className="text-[10px] text-muted-foreground line-through">
+              ${Number(p.old_price).toFixed(2)}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 };
 

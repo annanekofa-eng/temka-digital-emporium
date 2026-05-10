@@ -51,7 +51,7 @@ const MainLayoutInner = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
         />
-        <main className="flex-1 pb-14">
+        <main className="flex-1 pb-14 lg:pb-0">
           <Outlet />
         </main>
         <Footer />

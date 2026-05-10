@@ -56,16 +56,16 @@ const Index = () => {
 
       {/* Projects */}
       <section className="pt-10">
-        <div className="container-main mx-auto max-w-2xl px-4">
+        <div className="container-main mx-auto max-w-2xl lg:max-w-6xl px-4">
           <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши проекты</h2>
           {isLoading ? (
-            <div className="grid gap-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 w-full rounded-2xl" />
               ))}
             </div>
           ) : (
-            <div className="grid gap-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {projects?.map((p, i) => (
                 <ProjectCard key={p.id} project={p} index={i} />
               ))}
