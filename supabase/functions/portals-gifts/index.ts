@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     }
 
     const collectionId = url.searchParams.get('collection') ?? '';
-    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '40', 10), 1), 100);
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '40', 10), 1), 500);
     const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10), 0);
     const sort = (url.searchParams.get('sort') ?? 'price_asc').toLowerCase();
     const models = url.searchParams.get('models') ?? '';
