@@ -89,7 +89,7 @@ const ReviewsSection = () => {
 
   return (
     <section className="pt-10">
-      <div className="container-main mx-auto max-w-2xl px-4 mb-4 flex items-end justify-between gap-3">
+      <div className="container-main mx-auto max-w-2xl lg:max-w-6xl px-4 mb-4 flex items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl font-black tracking-tight">Отзывы</h2>
           <p className="text-xs text-muted-foreground mt-1">Что говорят покупатели</p>
@@ -108,11 +108,11 @@ const ReviewsSection = () => {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide snap-x snap-mandatory">
+      <div className="flex lg:grid lg:container-main lg:mx-auto lg:max-w-6xl lg:grid-cols-3 gap-3 overflow-x-auto lg:overflow-visible px-4 pb-3 scrollbar-hide snap-x snap-mandatory lg:snap-none">
         {reviews.map((r: any) => (
           <article
             key={r.id}
-            className="snap-start shrink-0 w-72 sm:w-80 rounded-2xl border border-border bg-card p-4 flex flex-col"
+            className="snap-start shrink-0 w-72 sm:w-80 lg:w-auto lg:shrink rounded-2xl border border-border bg-card p-4 flex flex-col"
           >
             <div className="flex items-center gap-3">
               {r.avatar && r.avatar.startsWith('http') ? (
