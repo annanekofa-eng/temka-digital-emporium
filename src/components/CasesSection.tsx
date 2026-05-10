@@ -105,41 +105,51 @@ const CasesSection = () => {
       </div>
 
       <Dialog open={!!openCase} onOpenChange={(o) => !o && setOpenCase(null)}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden border-border bg-card">
+        <DialogContent className="p-0 border-border bg-card overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button]:hidden flex flex-col rounded-2xl">
           {openCase && (
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              <div className="aspect-square bg-black flex items-center justify-center">
-                <span className="text-9xl grayscale">{openCase.emoji}</span>
-              </div>
-              <div className="p-6 sm:p-8 flex flex-col gap-4">
-                <h3 className="font-display text-2xl font-black">{openCase.title}</h3>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-xl font-bold">{openCase.price} ₽</span>
-                  <span className="text-sm text-muted-foreground line-through">{openCase.oldPrice} ₽</span>
+            <>
+              {/* Custom larger close button */}
+              <DialogClose
+                aria-label="Закрыть"
+                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border text-foreground hover:bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <X className="h-5 w-5" />
+              </DialogClose>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
+                <div className="aspect-[4/3] md:aspect-square bg-black flex items-center justify-center shrink-0">
+                  <span className="text-7xl sm:text-9xl grayscale">{openCase.emoji}</span>
                 </div>
-                <button className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
-                  Приобрести сейчас
-                </button>
-                <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
-                <div className="mt-auto pt-2 border-t border-border/60">
-                  <p className="text-xs text-muted-foreground flex items-start gap-2">
-                    <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                    <span>
-                      Что-то непонятно по кейсу?{' '}
-                      <a
-                        href={supportUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary font-medium hover:underline"
-                      >
-                        Напишите в поддержку
-                      </a>{' '}
-                      — поможем разобраться.
-                    </span>
-                  </p>
+                <div className="p-5 sm:p-8 flex flex-col gap-4">
+                  <h3 className="font-display text-2xl font-black pr-10">{openCase.title}</h3>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-xl font-bold">{openCase.price} ₽</span>
+                    <span className="text-sm text-muted-foreground line-through">{openCase.oldPrice} ₽</span>
+                  </div>
+                  <button className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
+                    Приобрести сейчас
+                  </button>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+                  <div className="mt-auto pt-3 border-t border-border/60">
+                    <p className="text-xs text-muted-foreground flex items-start gap-2">
+                      <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                      <span>
+                        Что-то непонятно по кейсу?{' '}
+                        <a
+                          href={supportUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary font-medium hover:underline"
+                        >
+                          Напишите в поддержку
+                        </a>{' '}
+                        — поможем разобраться.
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
