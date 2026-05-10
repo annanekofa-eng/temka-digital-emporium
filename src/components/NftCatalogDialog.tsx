@@ -670,12 +670,18 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
 
   const [items, setItems] = useState<PortalsNft[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [sort, setSort] = useState<string>('price_asc');
   const [openPicker, setOpenPicker] = useState<null | PickerKind>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [detailNft, setDetailNft] = useState<PortalsNft | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const PAGE_SIZE = 100;
 
   const handleBuy = (it: PortalsNft) => {
     addToCart({
