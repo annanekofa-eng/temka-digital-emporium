@@ -218,7 +218,14 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="max-w-none w-screen h-[100dvh] sm:rounded-none p-0 overflow-hidden bg-background border-0 flex flex-col">
           <div className="flex-1 overflow-y-auto">
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md flex items-center gap-2 px-4 py-3 border-b border-border">
+              <button
+                onClick={onClose}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+                aria-label="Назад"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
               <h2 className="font-display font-black text-base">{title}</h2>
             </div>
 
