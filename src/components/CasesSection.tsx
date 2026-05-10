@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame } from 'lucide-react';
+import { Flame, HelpCircle } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useSiteSettings } from '@/hooks/useShop';
 
 interface Case {
   id: string;
@@ -79,6 +80,9 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
 
 const CasesSection = () => {
   const [openCase, setOpenCase] = useState<Case | null>(null);
+  const { data: settings } = useSiteSettings();
+  const supportUser = (settings?.support_username || 'TeleStoreHelp').replace('@', '');
+  const supportUrl = `https://t.me/${supportUser}`;
 
   return (
     <section className="pt-8">
@@ -117,6 +121,23 @@ const CasesSection = () => {
                   Приобрести сейчас
                 </button>
                 <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+                <div className="mt-auto pt-2 border-t border-border/60">
+                  <p className="text-xs text-muted-foreground flex items-start gap-2">
+                    <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                    <span>
+                      Что-то непонятно по кейсу?{' '}
+                      <a
+                        href={supportUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-medium hover:underline"
+                      >
+                        Напишите в поддержку
+                      </a>{' '}
+                      — поможем разобраться.
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
           )}
