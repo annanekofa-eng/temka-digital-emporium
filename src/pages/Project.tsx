@@ -6,10 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { renderSpecialProduct } from '@/components/SpecialProductCards';
+import logoFlux from '@/assets/logo-flux.jpg';
+import logoCursor from '@/assets/logo-cursor.jpg';
+import logoVieto from '@/assets/logo-vieto.jpg';
 
 import { useProject, useProjectProducts, useProjectCategories, type ExtendedProduct } from '@/hooks/useShop';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
+
+const PROJECT_PHOTOS: Record<string, string> = {
+  flux: logoFlux,
+  cursor: logoCursor,
+  vieto: logoVieto,
+};
 
 const SimpleProductCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
