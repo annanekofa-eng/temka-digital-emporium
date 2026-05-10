@@ -162,13 +162,11 @@ interface FilterChipProps {
 const FilterChip = ({ label, value, onClick }: FilterChipProps) => (
   <button
     onClick={onClick}
-    className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-border bg-card hover:border-primary/40 transition-colors text-left"
+    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border bg-card hover:border-primary/40 transition-colors text-left shrink-0 h-7"
   >
-    <div className="min-w-0 flex-1">
-      <div className="text-[10px] text-muted-foreground leading-none mb-1">{label}</div>
-      <div className="text-sm font-semibold truncate">{value}</div>
-    </div>
-    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+    <span className="text-[10px] text-muted-foreground leading-none">{label}:</span>
+    <span className="text-[11px] font-semibold leading-none max-w-[80px] truncate">{value}</span>
+    <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
   </button>
 );
 
