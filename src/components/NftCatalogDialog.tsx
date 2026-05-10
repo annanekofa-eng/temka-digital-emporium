@@ -995,6 +995,16 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
         value={price}
         onChange={setPrice}
       />
+      <NftDetailDialog
+        open={!!detailNft}
+        onClose={() => setDetailNft(null)}
+        nft={detailNft}
+        ctaLabel={ctaLabel}
+        onBuy={(it) => {
+          handleBuy(it);
+          setDetailNft(null);
+        }}
+      />
     </>
   );
 };
