@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame } from 'lucide-react';
+import { Flame, HelpCircle } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useSiteSettings } from '@/hooks/useShop';
 
 interface Case {
   id: string;
