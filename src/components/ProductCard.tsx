@@ -31,7 +31,7 @@ const ProductCard = ({ product, view = 'grid' }: { product: DbProduct; view?: 'g
 
   if (view === 'list') {
     return (
-      <div className={`group relative bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
+      <div className={`group relative liquid-glass rounded-xl overflow-hidden hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
         <div className="flex gap-3 sm:gap-4">
           <Link to={`/product/${product.id}`} className="block shrink-0">
             <div className="relative w-28 sm:w-40 h-full min-h-[112px] sm:min-h-[140px] bg-secondary/50 flex items-center justify-center overflow-hidden">
@@ -113,7 +113,7 @@ const ProductCard = ({ product, view = 'grid' }: { product: DbProduct; view?: 'g
   }
 
   return (
-    <div className={`group relative bg-card border border-border/50 rounded-xl overflow-hidden hover-lift hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
+    <div className={`group relative liquid-glass rounded-xl overflow-hidden hover-lift hover:border-primary/30 transition-all duration-300 ${outOfStock ? 'opacity-60' : ''}`}>
       <Link to={`/product/${product.id}`} className="block">
         <div className="relative h-40 sm:h-48 bg-secondary/50 flex items-center justify-center overflow-hidden">
           {product.image ? (

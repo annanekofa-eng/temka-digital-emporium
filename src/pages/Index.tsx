@@ -24,11 +24,10 @@ const Index = () => {
         <div className="absolute inset-0 z-0">
           <UnicornBackground
             projectId="N9XzvQXu7fA5SY2ewADJ"
-            className="absolute inset-0 w-full h-full [&>canvas]:!w-full [&>canvas]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
+            className="absolute inset-0 w-full h-full opacity-70 mix-blend-screen [&>canvas]:!w-full [&>canvas]:!h-full [&_canvas]:!w-full [&_canvas]:!h-full"
           />
-          {/* Brand-tinted overlays for cohesion with site theme */}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--background))_90%)] pointer-events-none" />
+          {/* Soft fade so hero blends into the liquid bg */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[hsl(240_40%_4%/0.5)] pointer-events-none" />
         </div>
 
         <div className="relative z-10 px-4 pt-10 pb-10 sm:pt-14 sm:pb-14 lg:pt-16 lg:pb-16">
@@ -37,7 +36,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border/60 bg-card/70 backdrop-blur text-xs text-muted-foreground mb-4"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full liquid-glass text-xs text-foreground/90 mb-4"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Цифровой бутик
@@ -46,7 +45,7 @@ const Index = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05, duration: 0.5 }}
-              className="font-display text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none drop-shadow-[0_2px_24px_hsl(var(--background)/0.6)]"
+              className="font-display text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none text-glass"
             >
               {shopName}
             </motion.h1>
@@ -54,7 +53,7 @@ const Index = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="text-muted-foreground text-sm sm:text-base mt-3 max-w-md mx-auto"
+              className="text-foreground/80 text-sm sm:text-base mt-3 max-w-md mx-auto text-glass"
             >
               Дизайн, мерч и цифровые товары — три проекта в одном месте.
             </motion.p>
