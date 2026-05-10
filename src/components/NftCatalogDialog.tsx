@@ -118,6 +118,156 @@ function PickerSheet<T extends string>({
   );
 }
 
+interface CollectionSearchResult {
+  address: string;
+  name: string;
+  preview: string | null;
+  trust: string;
+}
+
+interface CollectionPickerProps {
+  open: boolean;
+  onClose: () => void;
+  presets: { label: string; address: string }[];
+  currentAddress: string;
+  currentLabel: string;
+  onSelect: (address: string, label: string) => void;
+}
+
+function CollectionPickerSheet({
+  open,
+  onClose,
+  presets,
+  currentAddress,
+  onSelect,
+}: CollectionPickerProps) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<CollectionSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const handle = setTimeout(() => {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/tonapi-nfts?action=search&q=${encodeURIComponent(
+        term
+      )}`;
+      fetch(url, {
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+      })
+        .then((r) => r.json())
+        .then((d) => setResults(Array.isArray(d?.results) ? d.results : []))
+        .catch(() => setResults([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [q]);
+
+  const showPresets = q.trim().length < 2;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md p-0 overflow-hidden bg-card border-border max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="font-display font-bold text-lg">Выбор коллекции</h3>
+        </div>
+        <div className="px-4 py-3 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Найти коллекцию (Plush Pepe, Mood Pack…)"
+              className="w-full h-10 pl-9 pr-3 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Поиск по всем NFT-коллекциям TON. Галочка — верифицированная.
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {showPresets &&
+            presets.map((p) => (
+              <button
+                key={p.address}
+                onClick={() => {
+                  onSelect(p.address, p.label);
+                  onClose();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary/60 ${
+                  currentAddress === p.address ? 'bg-secondary/60' : ''
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full border border-border flex items-center justify-center shrink-0">
+                  {currentAddress === p.address && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                  )}
+                </div>
+                <span className="text-sm font-medium flex-1 text-left">{p.label}</span>
+                <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                  избранное
+                </span>
+              </button>
+            ))}
+          {!showPresets && searching && (
+            <div className="flex items-center justify-center py-6 text-xs text-muted-foreground gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Ищем…
+            </div>
+          )}
+          {!showPresets && !searching && results.length === 0 && (
+            <div className="text-center py-6 text-xs text-muted-foreground">
+              Ничего не найдено
+            </div>
+          )}
+          {!showPresets &&
+            !searching &&
+            results.map((r) => (
+              <button
+                key={r.address}
+                onClick={() => {
+                  onSelect(r.address, r.name);
+                  onClose();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary/60 ${
+                  currentAddress === r.address ? 'bg-secondary/60' : ''
+                }`}
+              >
+                <div className="w-9 h-9 rounded-lg bg-secondary overflow-hidden shrink-0 flex items-center justify-center">
+                  {r.preview ? (
+                    <img src={r.preview} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">?</span>
+                  )}
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="text-sm font-medium truncate">{r.name}</div>
+                  <div className="text-[10px] text-muted-foreground truncate font-mono">
+                    {r.address.slice(0, 10)}…{r.address.slice(-6)}
+                  </div>
+                </div>
+                {r.trust === 'whitelist' && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-bold">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface FilterChipProps {
   label: string;
   value: string;
