@@ -5,6 +5,7 @@ import ProjectCard from '@/components/ProjectCard';
 import CasesSection from '@/components/CasesSection';
 import ProductShowcase from '@/components/ProductShowcase';
 import ReviewsSection from '@/components/ReviewsSection';
+import UnicornBackground from '@/components/UnicornBackground';
 import { useProjects, useSiteSettings } from '@/hooks/useShop';
 import { Skeleton } from '@/components/ui/skeleton';
 
