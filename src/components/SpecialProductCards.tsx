@@ -37,7 +37,7 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   const [selected, setSelected] = useState(0);
   const opt = product.term_options?.[selected];
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-3xl liquid-glass p-4">
       <div className="flex items-center gap-3 mb-3">
         <LogoBox src={logoPremium} alt="Telegram Premium" />
         <div className="flex-1 min-w-0">
@@ -82,7 +82,7 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
 export const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-3xl liquid-glass p-4">
       <div className="flex items-center gap-3 mb-3">
         <LogoBox src={logoNft} alt="NFT подарки" />
         <div className="flex-1 min-w-0">
@@ -106,7 +106,7 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
   const qty = STAR_PRESETS[idx];
   const total = (qty * Number(product.price)).toFixed(2);
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-3xl liquid-glass p-4">
       <div className="flex items-center gap-3 mb-3">
         <LogoBox src={logoStars} alt="Telegram Stars" />
         <div className="flex-1 min-w-0">
@@ -192,7 +192,7 @@ export const NftLinkCard = ({
   const logo = isRent ? logoNft : logoStars;
   const catalogMode = isRent ? 'nft_rent' : 'username_rent';
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-3xl liquid-glass p-4">
       <div className="flex items-center gap-3 mb-3">
         <LogoBox src={logo} alt={title} />
         <div className="flex-1 min-w-0">

@@ -14,7 +14,7 @@ const Footer = () => {
   const support = settings?.support_username;
 
   return (
-    <footer className="border-t border-border/40 bg-card/40 pb-20 mt-8">
+    <footer className="liquid-glass !rounded-none border-x-0 border-b-0 pb-20 mt-8">
       <div className="container-main mx-auto px-4 py-8">
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
           <a
