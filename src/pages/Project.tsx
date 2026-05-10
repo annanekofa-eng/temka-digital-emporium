@@ -192,15 +192,18 @@ const Project = () => {
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl overflow-hidden border border-border bg-card"
           >
-            {project.banner ? (
-              <div className="aspect-[21/9] bg-secondary">
-                <img src={project.banner} alt={project.title} className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="aspect-[21/9] bg-gradient-to-br from-secondary to-muted flex items-center justify-center text-7xl">
-                {project.icon}
-              </div>
-            )}
+            {(() => {
+              const photo = project.banner || PROJECT_PHOTOS[project.id];
+              return photo ? (
+                <div className="aspect-[21/9] bg-secondary">
+                  <img src={photo} alt={project.title} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="aspect-[21/9] bg-gradient-to-br from-secondary to-muted flex items-center justify-center text-7xl">
+                  {project.icon}
+                </div>
+              );
+            })()}
             <div className="p-5">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{project.icon}</span>
