@@ -421,6 +421,218 @@ const FilterChip = ({ label, value, active, onClick, onClear, disabled }: Filter
   </button>
 );
 
+/* ────────────────────────────────────────── Detail Dialog ───────────────────────────────────────── */
+
+interface NftDetailProps {
+  open: boolean;
+  onClose: () => void;
+  nft: PortalsNft | null;
+  ctaLabel: string;
+  onBuy: (nft: PortalsNft) => void;
+}
+
+function NftDetailDialog({ open, onClose, nft, ctaLabel, onBuy }: NftDetailProps) {
+  const [raw, setRaw] = useState<any>(null);
+  const [normalized, setNormalized] = useState<PortalsNft | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
+  useEffect(() => {
+    if (!open || !nft) return;
+    setRaw(null);
+    setNormalized(null);
+    setShowRaw(false);
+    setLoading(true);
+    fetch(projectFnUrl(`portals-gifts?action=detail&id=${encodeURIComponent(nft.id)}`), {
+      headers: fnHeaders(),
+    })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
+        return j;
+      })
+      .then((d) => {
+        setRaw(d?.raw ?? null);
+        setNormalized(d?.normalized ?? null);
+      })
+      .catch(() => {
+        // Fall back to passed item silently
+      })
+      .finally(() => setLoading(false));
+  }, [open, nft?.id]);
+
+  const view = normalized ?? nft;
+  if (!view) return null;
+
+  const portalsUrl = `https://portal-market.com/nfts/${view.id}`;
+  const tonscanUrl = raw?.contract_address
+    ? `https://tonviewer.com/${raw.contract_address}`
+    : null;
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success('Скопировано'),
+      () => toast.error('Не удалось скопировать'),
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border-border max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div className="min-w-0">
+            <h3 className="font-display font-bold text-base truncate">{view.name}</h3>
+            <div className="text-[11px] text-muted-foreground">
+              {view.number}
+              {loading && <span className="ml-2 inline-flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> данные…</span>}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary"
+            aria-label="Закрыть"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="aspect-square w-full bg-secondary relative">
+            {view.animationUrl ? (
+              <video
+                src={view.animationUrl}
+                poster={view.image || undefined}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : view.image ? (
+              <img src={view.image} alt={view.name} className="absolute inset-0 w-full h-full object-cover" />
+            ) : null}
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Price */}
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[11px] text-muted-foreground">Цена</div>
+                <div className="font-display font-black text-2xl leading-tight">
+                  {view.priceTon.toFixed(2)} <span className="text-base">TON</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  ~{Math.round(view.priceTon * TON_TO_RUB_FALLBACK).toLocaleString('ru-RU')} ₽
+                </div>
+              </div>
+              <Button onClick={() => onBuy(view)} className="shrink-0">
+                {ctaLabel}
+              </Button>
+            </div>
+
+            {/* Attributes */}
+            {view.attributes.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Атрибуты</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {view.attributes.map((a, i) => (
+                    <div key={`${a.type}-${a.value}-${i}`} className="rounded-lg border border-border bg-secondary/40 px-3 py-2">
+                      <div className="text-[10px] text-muted-foreground uppercase">{a.type}</div>
+                      <div className="text-sm font-semibold truncate">{a.value}</div>
+                      {a.rarity != null && (
+                        <div className="text-[10px] text-primary mt-0.5">
+                          {(a.rarity / 10).toFixed(1)}% редкость
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Meta from raw */}
+            {raw && (
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Информация</div>
+                <div className="rounded-lg border border-border divide-y divide-border bg-secondary/20 text-xs">
+                  <Row label="ID" value={String(raw.id ?? view.id)} onCopy={() => copy(String(raw.id ?? view.id))} />
+                  {raw.tg_id && <Row label="Telegram ID" value={raw.tg_id} onCopy={() => copy(raw.tg_id)} />}
+                  {raw.external_collection_number != null && <Row label="Номер" value={`#${raw.external_collection_number}`} />}
+                  {raw.collection_name && <Row label="Коллекция" value={raw.collection_name} />}
+                  {raw.owner && <Row label="Владелец" value={String(raw.owner).slice(0, 6) + '…' + String(raw.owner).slice(-4)} onCopy={() => copy(String(raw.owner))} />}
+                  {raw.contract_address && (
+                    <Row label="Контракт" value={String(raw.contract_address).slice(0, 6) + '…' + String(raw.contract_address).slice(-4)} onCopy={() => copy(String(raw.contract_address))} />
+                  )}
+                  {raw.status && <Row label="Статус" value={String(raw.status)} />}
+                  {raw.listed_at && <Row label="В продаже с" value={new Date(raw.listed_at).toLocaleString('ru-RU')} />}
+                  {raw.currency && <Row label="Валюта" value={String(raw.currency).toUpperCase()} />}
+                  {raw.floor_price != null && <Row label="Floor коллекции" value={`${raw.floor_price} TON`} />}
+                </div>
+              </div>
+            )}
+
+            {/* External links */}
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={portalsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:border-primary/40 text-xs"
+              >
+                Portals <ExternalLink className="w-3 h-3" />
+              </a>
+              {tonscanUrl && (
+                <a
+                  href={tonscanUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:border-primary/40 text-xs"
+                >
+                  Tonviewer <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+
+            {/* Raw JSON */}
+            {raw && (
+              <div>
+                <button
+                  onClick={() => setShowRaw((v) => !v)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showRaw ? 'rotate-180' : ''}`} />
+                  {showRaw ? 'Скрыть' : 'Показать'} полный ответ API
+                </button>
+                {showRaw && (
+                  <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-secondary/50 p-3 text-[10px] leading-snug whitespace-pre-wrap break-all">
+{JSON.stringify(raw, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Row({ label, value, onCopy }: { label: string; value: string; onCopy?: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-1.5 font-medium text-right truncate max-w-[60%]">
+        <span className="truncate">{value}</span>
+        {onCopy && (
+          <button onClick={onCopy} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="Копировать">
+            <Copy className="w-3 h-3" />
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
 /* ────────────────────────────────────────── Main ───────────────────────────────────────── */
 
 interface Props {
