@@ -503,19 +503,7 @@ function NftDetailDialog({ open, onClose, nft, ctaLabel, onBuy }: NftDetailProps
 
         <div className="flex-1 overflow-y-auto">
           <div className="aspect-square w-full bg-secondary relative">
-            {view.animationUrl ? (
-              <video
-                src={view.animationUrl}
-                poster={view.image || undefined}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : view.image ? (
-              <img src={view.image} alt={view.name} className="absolute inset-0 w-full h-full object-cover" />
-            ) : null}
+            <NftMedia animationUrl={view.animationUrl} image={view.image} name={view.name} />
           </div>
 
           <div className="p-4 space-y-4">
