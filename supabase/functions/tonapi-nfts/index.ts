@@ -72,11 +72,48 @@ function normalize(item: any): NormalizedNft | null {
   };
 }
 
+async function searchCollections(query: string) {
+  const q = query.trim();
+  if (!q) return [];
+  const r = await fetch(
+    `https://tonapi.io/v2/accounts/search?name=${encodeURIComponent(q)}`,
+    { headers: { Accept: 'application/json', 'User-Agent': 'lovable-nft-catalog/1.0' } }
+  );
+  if (!r.ok) return [];
+  const data = await r.json();
+  const candidates: any[] = data?.addresses ?? [];
+  // Filter: anything that LOOKS like an NFT collection account.
+  // Real NFT collections show as "X · account" in TonAPI search and have NFTs.
+  return candidates
+    .filter((c) => typeof c?.name === 'string' && c.name.includes('· account'))
+    .slice(0, 12)
+    .map((c) => ({
+      address: c.address,
+      name: String(c.name).replace(/\s*·\s*account\s*$/, ''),
+      preview: c.preview ?? null,
+      trust: c.trust ?? 'none', // 'whitelist' = verified
+    }));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const url = new URL(req.url);
+    const action = url.searchParams.get('action') ?? 'list';
+
+    if (action === 'search') {
+      const q = url.searchParams.get('q') ?? '';
+      const results = await searchCollections(q);
+      return new Response(JSON.stringify({ results }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=60',
+        },
+      });
+    }
+
     const collection = url.searchParams.get('collection') ?? '';
     const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '40', 10), 1), 100);
     const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10), 0);
