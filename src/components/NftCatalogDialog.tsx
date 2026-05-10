@@ -426,6 +426,89 @@ const FilterChip = ({ label, value, active, onClick, onClear, disabled }: Filter
   </button>
 );
 
+/* ────────────────────────────────────────── NFT Media (image / video / lottie) ───────────────────────────────────────── */
+
+function NftMedia({
+  animationUrl,
+  image,
+  name,
+}: {
+  animationUrl: string | null;
+  image: string;
+  name: string;
+}) {
+  const [LottieComp, setLottieComp] = useState<any>(null);
+  const [lottieData, setLottieData] = useState<any>(null);
+  const [failed, setFailed] = useState(false);
+
+  const url = animationUrl ?? '';
+  const lower = url.toLowerCase();
+  const isLottie = lower.endsWith('.json') || lower.includes('.lottie.');
+  const isVideo = /\.(mp4|webm|mov)(\?|$)/.test(lower);
+
+  useEffect(() => {
+    setFailed(false);
+    setLottieData(null);
+    if (!isLottie || !url) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ default: Lottie }, res] = await Promise.all([
+          import('lottie-react'),
+          fetch(url),
+        ]);
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        const json = await res.json();
+        if (cancelled) return;
+        setLottieComp(() => Lottie);
+        setLottieData(json);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [url, isLottie]);
+
+  if (animationUrl && isVideo && !failed) {
+    return (
+      <video
+        src={animationUrl}
+        poster={image || undefined}
+        autoPlay
+        loop
+        muted
+        playsInline
+        onError={() => setFailed(true)}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+    );
+  }
+
+  if (animationUrl && isLottie && !failed) {
+    if (LottieComp && lottieData) {
+      return (
+        <LottieComp
+          animationData={lottieData}
+          loop
+          autoplay
+          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+          className="absolute inset-0 w-full h-full"
+        />
+      );
+    }
+    // While loading, still show static poster
+    return image ? (
+      <img src={image} alt={name} className="absolute inset-0 w-full h-full object-cover opacity-90" />
+    ) : null;
+  }
+
+  return image ? (
+    <img src={image} alt={name} className="absolute inset-0 w-full h-full object-cover" />
+  ) : null;
+}
+
 /* ────────────────────────────────────────── Detail Dialog ───────────────────────────────────────── */
 
 interface NftDetailProps {
