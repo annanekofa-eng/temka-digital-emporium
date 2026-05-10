@@ -12,7 +12,7 @@ const STAR_PRESETS = [15, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1
 import { useProject, useProjectProducts, useProjectCategories, type ExtendedProduct } from '@/hooks/useShop';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
-import logoPremium from '@/assets/logo-tg-premium.webp';
+import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
 import logoNft from '@/assets/logo-tg-nft.png';
 
