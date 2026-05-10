@@ -7,6 +7,7 @@ import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import ProjectCard from '@/components/ProjectCard';
 import { useProducts, useCategories } from '@/hooks/useProducts';
 import { useProjects } from '@/hooks/useShop';
+import { renderSpecialProduct, isSpecialProduct } from '@/components/SpecialProductCards';
 
 const sortOptions = [
   { value: 'popular', label: 'По популярности' },
@@ -14,6 +15,33 @@ const sortOptions = [
   { value: 'price-desc', label: 'Цена: по убыванию' },
   { value: 'newest', label: 'Новинки' },
 ];
+
+// Renders products: special types (stars / nft / premium) get unique UI as a full-width list,
+// regular products use the standard grid/list ProductCard.
+const ProductsList = ({ items, viewMode }: { items: any[]; viewMode: 'grid' | 'list' }) => {
+  const specials = items.filter(isSpecialProduct);
+  const regulars = items.filter(p => !isSpecialProduct(p));
+  return (
+    <div className="space-y-4">
+      {specials.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {specials.map(p => renderSpecialProduct(p))}
+        </div>
+      )}
+      {regulars.length > 0 && (
+        viewMode === 'list' ? (
+          <div className="flex flex-col gap-3">
+            {regulars.map(p => <ProductCard key={p.id} product={p} view="list" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {regulars.map(p => <ProductCard key={p.id} product={p} />)}
+          </div>
+        )
+      )}
+    </div>
+  );
+};
 
 const Catalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -362,40 +390,18 @@ const Catalog = () => {
                       <div className="mb-4">
                         <ProjectCard project={project} index={idx} />
                       </div>
-                      {viewMode === 'list' ? (
-                        <div className="flex flex-col gap-3">
-                          {items.map(p => <ProductCard key={p.id} product={p} view="list" />)}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                          {items.map(p => <ProductCard key={p.id} product={p} />)}
-                        </div>
-                      )}
+                      <ProductsList items={items} viewMode={viewMode} />
                     </section>
                   ))}
                   {ungroupedItems.length > 0 && (
                     <section>
                       <h3 className="font-display text-lg font-bold mb-3">Прочие товары</h3>
-                      {viewMode === 'list' ? (
-                        <div className="flex flex-col gap-3">
-                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} view="list" />)}
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} />)}
-                        </div>
-                      )}
+                      <ProductsList items={ungroupedItems} viewMode={viewMode} />
                     </section>
                   )}
                 </div>
-              ) : viewMode === 'list' ? (
-                <div className="flex flex-col gap-3">
-                  {filtered.map(product => <ProductCard key={product.id} product={product} view="list" />)}
-                </div>
               ) : (
-                <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                  {filtered.map(product => <ProductCard key={product.id} product={product} />)}
-                </div>
+                <ProductsList items={filtered} viewMode={viewMode} />
               )}
             </>
           )}
