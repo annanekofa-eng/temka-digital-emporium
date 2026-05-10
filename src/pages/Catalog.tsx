@@ -176,11 +176,64 @@ const Catalog = () => {
         </div>
       </div>
 
+      {/* Project chips */}
+      {projects && projects.length > 0 && (
+        <div className="-mx-4 px-4 mb-3">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => {
+                setSelectedProject('');
+                const next = new URLSearchParams(searchParams);
+                next.delete('project');
+                setSearchParams(next);
+              }}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                !selectedProject
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+              }`}
+            >
+              Все проекты
+            </button>
+            {projects.map(pr => {
+              const active = selectedProject === pr.id;
+              return (
+                <button
+                  key={pr.id}
+                  onClick={() => {
+                    setSelectedProject(pr.id);
+                    const next = new URLSearchParams(searchParams);
+                    next.set('project', pr.id);
+                    setSearchParams(next);
+                  }}
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  <span>{pr.icon}</span>
+                  <span>{pr.title}</span>
+                  <span className={`text-[10px] ${active ? 'opacity-80' : 'opacity-60'}`}>
+                    {projectProductCounts[pr.id] || 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Category chips (horizontal scroll) */}
       <div className="-mx-4 px-4 mb-5 sm:mb-6">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <button
-            onClick={() => { setSelectedCategory(''); setSearchParams({}); }}
+            onClick={() => {
+              setSelectedCategory('');
+              const next = new URLSearchParams(searchParams);
+              next.delete('category');
+              setSearchParams(next);
+            }}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
               !selectedCategory
                 ? 'bg-primary text-primary-foreground border-primary'
@@ -194,7 +247,12 @@ const Catalog = () => {
             return (
               <button
                 key={cat.id}
-                onClick={() => { setSelectedCategory(cat.id); setSearchParams({ category: cat.id }); }}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  const next = new URLSearchParams(searchParams);
+                  next.set('category', cat.id);
+                  setSearchParams(next);
+                }}
                 className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
                   active
                     ? 'bg-primary text-primary-foreground border-primary'
