@@ -154,7 +154,8 @@ const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
 
 const StarsCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
-  const [qty, setQty] = useState(product.min_qty || 50);
+  const [idx, setIdx] = useState(2); // default 50
+  const qty = STAR_PRESETS[idx];
   const total = (qty * Number(product.price)).toFixed(2);
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
@@ -166,35 +167,41 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
         </div>
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <Button variant="outline" size="icon" onClick={() => setQty(Math.max(product.min_qty, qty - 50))}>
+        <Button variant="outline" size="icon" onClick={() => setIdx(Math.max(0, idx - 1))}>
           <Minus className="w-4 h-4" />
         </Button>
-        <input
-          type="number"
-          value={qty}
-          min={product.min_qty}
-          max={product.max_qty}
-          onChange={(e) =>
-            setQty(Math.min(product.max_qty, Math.max(product.min_qty, Number(e.target.value) || product.min_qty)))
-          }
-          className="flex-1 h-10 text-center bg-secondary border border-border rounded-lg font-display font-bold"
-        />
-        <Button variant="outline" size="icon" onClick={() => setQty(Math.min(product.max_qty, qty + 50))}>
+        <div className="flex-1 h-10 flex items-center justify-center bg-secondary border border-border rounded-lg font-display font-bold">
+          {qty} ⭐
+        </div>
+        <Button variant="outline" size="icon" onClick={() => setIdx(Math.min(STAR_PRESETS.length - 1, idx + 1))}>
           <Plus className="w-4 h-4" />
         </Button>
       </div>
-      <div className="px-1 mb-4">
+      <div className="px-1 mb-3">
         <Slider
-          value={[qty]}
-          min={product.min_qty}
-          max={product.max_qty}
-          step={50}
-          onValueChange={(v) => setQty(v[0])}
+          value={[idx]}
+          min={0}
+          max={STAR_PRESETS.length - 1}
+          step={1}
+          onValueChange={(v) => setIdx(v[0])}
         />
         <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
-          <span>{product.min_qty}⭐</span>
-          <span>{product.max_qty}⭐</span>
+          <span>{STAR_PRESETS[0]}⭐</span>
+          <span>{STAR_PRESETS[STAR_PRESETS.length - 1]}⭐</span>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {STAR_PRESETS.map((p, i) => (
+          <button
+            key={p}
+            onClick={() => setIdx(i)}
+            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+              idx === i ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary border-border text-muted-foreground'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
       </div>
       <Button
         className="w-full"
@@ -210,6 +217,62 @@ const StarsCard = ({ product }: { product: ExtendedProduct }) => {
         <ShoppingCart className="w-4 h-4 mr-2" /> Купить за ${total}
       </Button>
     </div>
+  );
+};
+
+// VIETO: no image on listing, click opens dialog with image/title/desc/price
+const VietoItemCard = ({ product }: { product: ExtendedProduct }) => {
+  const { addToCart } = useStore();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-2xl border border-border bg-card p-4 text-left hover:border-primary/50 transition-colors flex items-center gap-3"
+      >
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display font-semibold text-base leading-tight line-clamp-1">{product.title}</h3>
+          {product.subtitle && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{product.subtitle}</p>
+          )}
+        </div>
+        <span className="shrink-0 font-display font-bold text-base">${Number(product.price).toFixed(0)}</span>
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <div className="aspect-square bg-secondary flex items-center justify-center text-6xl">
+            {product.image ? (
+              <img src={product.image} alt={product.title} className="w-full h-full object-cover" />
+            ) : (
+              <span>👕</span>
+            )}
+          </div>
+          <div className="p-4">
+            <DialogHeader className="text-left space-y-1">
+              <DialogTitle className="font-display text-xl">{product.title}</DialogTitle>
+              {product.subtitle && (
+                <DialogDescription className="text-sm">{product.subtitle}</DialogDescription>
+              )}
+            </DialogHeader>
+            {product.description && (
+              <p className="text-sm text-muted-foreground mt-3">{product.description}</p>
+            )}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <span className="font-display font-black text-2xl">${Number(product.price).toFixed(2)}</span>
+              <Button
+                onClick={() => {
+                  addToCart(product as any);
+                  toast.success('Добавлено в корзину');
+                  setOpen(false);
+                }}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" /> В корзину
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
