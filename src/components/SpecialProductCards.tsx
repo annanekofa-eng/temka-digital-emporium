@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
 import logoNft from '@/assets/logo-tg-nft.png';
+import logoNftRent from '@/assets/logo-nft-rent.png';
+import logoNftUsernames from '@/assets/logo-nft-usernames.png';
 import type { ExtendedProduct } from '@/hooks/useShop';
 
 export const STAR_PRESETS = [15, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
@@ -185,11 +187,11 @@ export const NftLinkCard = ({
 }) => {
   const [open, setOpen] = useState(false);
   const isRent = mode === 'rent';
-  const title = isRent ? 'Аренда NFT' : 'Аренда username';
+  const title = isRent ? 'Аренда NFT' : 'NFT юзернеймы';
   const subtitle = isRent
     ? product.subtitle || 'Аренда NFT-подарков на срок'
-    : product.subtitle || 'Аренда красивых @username';
-  const logo = isRent ? logoNft : logoStars;
+    : product.subtitle || 'Красивые @username в аренду';
+  const logo = isRent ? logoNftRent : logoNftUsernames;
   const catalogMode = isRent ? 'nft_rent' : 'username_rent';
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
