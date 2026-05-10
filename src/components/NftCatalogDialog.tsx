@@ -146,6 +146,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   const { addToCart } = useStore();
   const presets = COLLECTION_PRESETS[mode];
   const [collectionAddr, setCollectionAddr] = useState<string>(presets[0].address);
+  const [customLabel, setCustomLabel] = useState<string | null>(null);
   const [sort, setSort] = useState<string>('price_asc');
   const [openPicker, setOpenPicker] = useState<null | 'collection' | 'sort'>(null);
 
@@ -161,6 +162,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   // Reset collection when mode changes
   useEffect(() => {
     setCollectionAddr(COLLECTION_PRESETS[mode][0].address);
+    setCustomLabel(null);
   }, [mode]);
 
   // Fetch live data when open or filters change
