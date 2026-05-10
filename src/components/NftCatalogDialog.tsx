@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle, X, ExternalLink, Copy } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
+import tonLogo from '@/assets/ton-logo.png';
+
+const TonIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
+  <img src={tonLogo} alt="TON" className={`inline-block ${className}`} />
+);
 
 export type CatalogMode = 'gift' | 'nft_rent' | 'username_rent';
 
