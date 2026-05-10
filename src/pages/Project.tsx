@@ -131,48 +131,8 @@ const VietoItemCard = ({ product }: { product: ExtendedProduct }) => {
   );
 };
 
-const NftLinkCard = ({ product, mode }: { product: ExtendedProduct; mode: 'rent' | 'buy' }) => {
-  const [open, setOpen] = useState(false);
-  const isRent = mode === 'rent';
-  const title = isRent ? 'Аренда NFT' : 'Аренда username';
-  const subtitle = isRent
-    ? product.subtitle || 'Аренда NFT-подарков на срок'
-    : product.subtitle || 'Аренда красивых @username';
-  const logo = isRent ? logoNft : logoStars;
-  const catalogMode = isRent ? 'nft_rent' : 'username_rent';
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-3 mb-3">
-        <LogoBox src={logo} alt={title} />
-        <div className="flex-1 min-w-0">
-          <h3 className="font-display font-bold text-base">{product.title || title}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">{subtitle}</p>
-        </div>
-      </div>
-      <Button className="w-full" onClick={() => setOpen(true)}>
-        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
-      </Button>
-      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode={catalogMode} />
-    </div>
-  );
-};
+const renderProduct = renderSpecialProduct;
 
-const renderProduct = (p: ExtendedProduct) => {
-  switch (p.product_type) {
-    case 'premium_term':
-      return <PremiumTermCard key={p.id} product={p} />;
-    case 'nft_variant':
-      return <NftVariantCard key={p.id} product={p} />;
-    case 'stars':
-      return <StarsCard key={p.id} product={p} />;
-    case 'nft_rent':
-      return <NftLinkCard key={p.id} product={p} mode="rent" />;
-    case 'nft_buy':
-      return <NftLinkCard key={p.id} product={p} mode="buy" />;
-    default:
-      return null;
-  }
-};
 
 const Project = () => {
   const { id } = useParams<{ id: string }>();
