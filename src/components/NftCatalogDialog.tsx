@@ -157,7 +157,7 @@ function CollectionPickerSheet({
                   <div className="text-[10px] text-muted-foreground">
                     {c.floorTon != null && (
                       <>
-                        floor <span className="text-foreground/80 font-medium">{c.floorTon} TON</span>
+                        floor <span className="text-foreground/80 font-medium inline-flex items-center gap-1">{c.floorTon}<TonIcon className="w-3 h-3" /></span>
                       </>
                     )}
                     {c.listedCount != null && <> · {c.listedCount} в продаже</>}
@@ -524,7 +524,7 @@ function NftDetailDialog({ open, onClose, nft, ctaLabel, onBuy }: NftDetailProps
               <div>
                 <div className="text-[11px] text-muted-foreground">Цена</div>
                 <div className="font-display font-black text-2xl leading-tight">
-                  {view.priceTon.toFixed(2)} <span className="text-base">TON</span>
+                  <span className="inline-flex items-center gap-1.5">{view.priceTon.toFixed(2)} <TonIcon className="w-5 h-5" /></span>
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   ~{Math.round(view.priceTon * TON_TO_RUB_FALLBACK).toLocaleString('ru-RU')} ₽
@@ -855,7 +855,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
               {collection?.floorTon != null && (
                 <div className="text-[11px] text-muted-foreground">
                   Floor:{' '}
-                  <span className="text-foreground font-semibold">{collection.floorTon} TON</span>
+                  <span className="text-foreground font-semibold inline-flex items-center gap-1">{collection.floorTon}<TonIcon className="w-3 h-3" /></span>
                   {collection.listedCount != null && <> · {collection.listedCount} в продаже</>}
                   {filtersLoading && (
                     <span className="ml-2 inline-flex items-center gap-1">
@@ -939,8 +939,8 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                             }}
                             className="w-full rounded-lg bg-secondary hover:bg-secondary/80 transition-colors py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1 mt-1"
                           >
-                            <span className="text-primary">▼</span>
-                            <span>{it.priceTon.toFixed(2)} TON</span>
+                            <TonIcon className="w-3.5 h-3.5" />
+                            <span>{it.priceTon.toFixed(2)}</span>
                           </button>
                           <div className="text-[10px] text-muted-foreground text-center -mt-0.5">
                             ~{Math.round(it.priceTon * TON_TO_RUB_FALLBACK).toLocaleString('ru-RU')} ₽
