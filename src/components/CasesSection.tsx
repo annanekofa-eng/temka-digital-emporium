@@ -53,10 +53,9 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: i * 0.08, duration: 0.4 }}
-    className="relative flex flex-col rounded-3xl liquid-glass liquid-glass-hover overflow-hidden text-left w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+    className="relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden text-left w-full hover:border-primary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
   >
-    <div className="relative aspect-square bg-white/[0.03] flex items-center justify-center overflow-hidden">
-      <div aria-hidden className="absolute -inset-4 blob blur-2xl opacity-40 animate-blob-morph" style={{ background: 'radial-gradient(circle, hsl(265 80% 60% / 0.5), transparent 70%)' }} />
+    <div className="relative aspect-square bg-black flex items-center justify-center">
       <span className="text-7xl grayscale opacity-90">{c.emoji}</span>
       {c.hit && (
         <div className="absolute top-3 right-3 flex items-center gap-1 bg-orange-500 text-white text-[10px] font-bold rounded-full px-2.5 py-1">
@@ -72,7 +71,7 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
         <span className="text-base font-bold">{c.price} ₽</span>
         <span className="text-xs text-muted-foreground line-through">{c.oldPrice} ₽</span>
       </div>
-      <span className="mt-2 self-start px-4 py-2 rounded-xl glass-button text-xs font-semibold">
+      <span className="mt-2 self-start px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold">
         Подробнее
       </span>
     </div>
@@ -106,29 +105,28 @@ const CasesSection = () => {
       </div>
 
       <Dialog open={!!openCase} onOpenChange={(o) => !o && setOpenCase(null)}>
-        <DialogContent className="p-0 liquid-glass overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button]:hidden flex flex-col rounded-3xl">
+        <DialogContent className="p-0 border-border bg-card overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button]:hidden flex flex-col rounded-2xl">
           {openCase && (
             <>
               {/* Custom larger close button */}
               <DialogClose
                 aria-label="Закрыть"
-                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full glass-button focus:outline-none focus:ring-2 focus:ring-white/40"
+                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border text-foreground hover:bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <X className="h-5 w-5" />
               </DialogClose>
 
               <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
-                <div className="relative aspect-[4/3] md:aspect-square bg-white/[0.03] flex items-center justify-center shrink-0 overflow-hidden">
-                  <div aria-hidden className="absolute -inset-8 blob blur-3xl opacity-50 animate-blob-morph" style={{ background: 'radial-gradient(circle, hsl(265 80% 60% / 0.55), transparent 70%)' }} />
-                  <span className="relative text-7xl sm:text-9xl">{openCase.emoji}</span>
+                <div className="aspect-[4/3] md:aspect-square bg-black flex items-center justify-center shrink-0">
+                  <span className="text-7xl sm:text-9xl grayscale">{openCase.emoji}</span>
                 </div>
                 <div className="p-5 sm:p-8 flex flex-col gap-4">
-                  <h3 className="font-display text-2xl font-black pr-10 text-glass">{openCase.title}</h3>
+                  <h3 className="font-display text-2xl font-black pr-10">{openCase.title}</h3>
                   <div className="flex items-baseline gap-3">
                     <span className="text-xl font-bold">{openCase.price} ₽</span>
                     <span className="text-sm text-muted-foreground line-through">{openCase.oldPrice} ₽</span>
                   </div>
-                  <button className="self-start px-5 py-2.5 rounded-xl glass-button text-sm font-semibold">
+                  <button className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
                     Приобрести сейчас
                   </button>
                   <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>

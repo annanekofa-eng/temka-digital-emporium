@@ -33,7 +33,7 @@ const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setS
   ];
 
   return (
-    <header className="sticky top-0 z-50 liquid-glass !rounded-none border-x-0 border-t-0">
+    <header className="sticky top-0 z-50 glass-strong">
       <div className="container-main mx-auto flex items-center justify-between gap-3 px-4 py-2.5">
         <Link to={buildPath('/')} className="flex items-center gap-2 shrink-0">
           <img

@@ -49,7 +49,7 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 rounded-xl liquid-glass p-3">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
         {user?.photoUrl ? (
           <img src={user.photoUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
         ) : (
@@ -125,7 +125,7 @@ const ReviewsSection = () => {
         {reviews.map((r: any) => (
           <article
             key={r.id}
-            className="snap-start shrink-0 w-72 sm:w-80 lg:w-auto lg:shrink rounded-3xl liquid-glass p-4 flex flex-col"
+            className="snap-start shrink-0 w-72 sm:w-80 lg:w-auto lg:shrink rounded-2xl border border-border bg-card p-4 flex flex-col"
           >
             <div className="flex items-center gap-3">
               {r.avatar && r.avatar.startsWith('http') ? (

@@ -13,7 +13,6 @@ import BottomNav from "@/components/BottomNav";
 import { Outlet } from "react-router-dom";
 import React, { Suspense } from "react";
 import ScrollToTop from "@/components/ScrollToTop";
-import LiquidBackground from "@/components/LiquidBackground";
 
 const Index = React.lazy(() => import("./pages/Index"));
 const Project = React.lazy(() => import("./pages/Project"));
@@ -45,8 +44,7 @@ const MainLayoutInner = () => {
 
   return (
     <StorefrontProvider basePath="" cartCount={cartCount} shopName={shopName} supportLink={settings?.support_username ? `https://t.me/${settings.support_username.replace('@', '')}` : 'https://t.me/TeleStoreHelp'}>
-      <div className="theme-light min-h-screen flex flex-col text-foreground relative">
-        <LiquidBackground />
+      <div className="theme-light min-h-screen flex flex-col bg-background text-foreground">
         <Header
           name={shopName}
           nameInitial={shopName[0] || 'T'}

@@ -56,7 +56,7 @@ const ProductTile = ({ p, buildPath, variant }: { p: any; buildPath: (s: string)
   return (
     <Link
       to={buildPath(`/product/${p.id}`)}
-      className={`group ${variant === 'scroll' ? 'w-40 sm:w-48 shrink-0 snap-start' : ''} liquid-glass rounded-xl overflow-hidden hover:border-primary/40 transition-colors`}
+      className={`group ${variant === 'scroll' ? 'w-40 sm:w-48 shrink-0 snap-start' : ''} bg-card border border-border/50 rounded-xl overflow-hidden hover:border-primary/40 transition-colors`}
     >
       <div className="relative aspect-square bg-secondary/40 flex items-center justify-center overflow-hidden">
         {p.image ? (
