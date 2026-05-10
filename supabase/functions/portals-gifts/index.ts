@@ -1,8 +1,9 @@
 // Edge function: portals-gifts
 // Live catalog of Telegram Gifts via Portals marketplace public API.
-// Two actions:
-//   - action=collections  → list gift collections (name, photo, floor)
-//   - action=list (default) → list NFTs for sale (filterable, sortable, paginated)
+// Actions:
+//   - action=collections      → list gift collections
+//   - action=filters&collection=ID → unique model/backdrop/symbol values (with counts)
+//   - action=list (default)   → list NFTs for sale (filterable, sortable, paginated)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,9 +41,10 @@ function normalizeNft(item: any): NormalizedNft | null {
   return {
     id: String(item.id),
     name: item.name ?? 'Unknown',
-    number: item.external_collection_number != null
-      ? `#${item.external_collection_number}`
-      : (item.tg_id ?? ''),
+    number:
+      item.external_collection_number != null
+        ? `#${item.external_collection_number}`
+        : (item.tg_id ?? ''),
     image: item.photo_url ?? '',
     animationUrl: item.animation_url ?? null,
     priceTon: Number(item.price),
@@ -88,6 +90,7 @@ async function fetchNfts(params: {
   collectionId?: string;
   models?: string;
   backdrops?: string;
+  symbols?: string;
   minPrice?: string;
   maxPrice?: string;
   sortBy: string;
@@ -103,6 +106,7 @@ async function fetchNfts(params: {
   if (params.collectionId) qs.set('collection_ids', params.collectionId);
   if (params.models) qs.set('filter_by_models', params.models);
   if (params.backdrops) qs.set('filter_by_backdrops', params.backdrops);
+  if (params.symbols) qs.set('filter_by_symbols', params.symbols);
   if (params.minPrice) qs.set('min_price', params.minPrice);
   if (params.maxPrice) qs.set('max_price', params.maxPrice);
 
@@ -116,6 +120,37 @@ async function fetchNfts(params: {
   const data = await r.json();
   const arr: any[] = data?.results ?? [];
   return arr.map(normalizeNft).filter((x): x is NormalizedNft => !!x);
+}
+
+async function fetchFilters(collectionId: string) {
+  // Sample listed items to derive available attribute values
+  const items = await fetchNfts({
+    collectionId,
+    sortBy: 'price asc',
+    limit: 100,
+    offset: 0,
+  });
+  const buckets: Record<'model' | 'backdrop' | 'symbol', Map<string, number>> = {
+    model: new Map(),
+    backdrop: new Map(),
+    symbol: new Map(),
+  };
+  for (const it of items) {
+    for (const a of it.attributes) {
+      const k = a.type as keyof typeof buckets;
+      if (!buckets[k]) continue;
+      buckets[k].set(a.value, (buckets[k].get(a.value) ?? 0) + 1);
+    }
+  }
+  const toArr = (m: Map<string, number>) =>
+    Array.from(m.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count);
+  return {
+    models: toArr(buckets.model),
+    backdrops: toArr(buckets.backdrop),
+    symbols: toArr(buckets.symbol),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -136,12 +171,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === 'filters') {
+      const collectionId = url.searchParams.get('collection') ?? '';
+      if (!collectionId) {
+        return new Response(JSON.stringify({ models: [], backdrops: [], symbols: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const filters = await fetchFilters(collectionId);
+      return new Response(JSON.stringify(filters), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=120',
+        },
+      });
+    }
+
     const collectionId = url.searchParams.get('collection') ?? '';
     const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '40', 10), 1), 100);
     const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10), 0);
     const sort = (url.searchParams.get('sort') ?? 'price_asc').toLowerCase();
     const models = url.searchParams.get('models') ?? '';
     const backdrops = url.searchParams.get('backdrops') ?? '';
+    const symbols = url.searchParams.get('symbols') ?? '';
     const minPrice = url.searchParams.get('min_price') ?? '';
     const maxPrice = url.searchParams.get('max_price') ?? '';
 
@@ -157,6 +210,7 @@ Deno.serve(async (req) => {
       collectionId,
       models,
       backdrops,
+      symbols,
       minPrice,
       maxPrice,
       sortBy,
@@ -172,7 +226,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           'Cache-Control': 'public, max-age=15',
         },
-      }
+      },
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'unknown error';
