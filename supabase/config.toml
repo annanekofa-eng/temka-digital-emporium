@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.tonapi-nfts]
 verify_jwt = false
+
+[functions.portals-gifts]
+verify_jwt = false
