@@ -212,7 +212,9 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   }, [open, collectionAddr, sort]);
 
   const collectionLabel =
-    presets.find((p) => p.address === collectionAddr)?.label ?? 'Коллекция';
+    customLabel ??
+    presets.find((p) => p.address === collectionAddr)?.label ??
+    'Коллекция';
   const sortLabel = SORTS.find((s) => s.value === sort)?.label ?? 'По умолчанию';
 
   return (
