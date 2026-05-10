@@ -19,7 +19,7 @@ const Index = () => {
   return (
     <div className="pb-8">
       {/* Hero / shop title */}
-      <section className="relative overflow-hidden isolate min-h-[460px] sm:min-h-[520px] lg:min-h-[640px]">
+      <section className="relative overflow-hidden isolate min-h-[280px] sm:min-h-[320px] lg:min-h-[380px]">
         {/* Animated Unicorn Studio background */}
         <div className="absolute inset-0 z-0">
           <UnicornBackground
