@@ -27,6 +27,7 @@ const Catalog = () => {
 
   const [search, setSearch] = useState(searchParam);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [selectedProject, setSelectedProject] = useState(projectParam);
   const [sortBy, setSortBy] = useState('popular');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [deliveryType, setDeliveryType] = useState<string>('');
@@ -47,6 +48,10 @@ const Catalog = () => {
   useEffect(() => {
     setSelectedCategory(categoryParam);
   }, [categoryParam]);
+
+  useEffect(() => {
+    setSelectedProject(projectParam);
+  }, [projectParam]);
 
   const filtered = useMemo(() => {
     if (!products) return [];
