@@ -393,8 +393,8 @@ const Project = () => {
           </section>
         )}
 
-        {/* Categories filter */}
-        {categories && categories.length > 0 && (
+        {/* Categories filter (hidden for vieto: uses sections) */}
+        {project.id !== 'vieto' && categories && categories.length > 0 && (
           <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
             <button
               onClick={() => setActiveCat(null)}
