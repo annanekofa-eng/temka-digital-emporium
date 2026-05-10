@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, HelpCircle } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Flame, HelpCircle, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { useSiteSettings } from '@/hooks/useShop';
 
 interface Case {
