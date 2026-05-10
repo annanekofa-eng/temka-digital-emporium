@@ -123,8 +123,12 @@
     @apply border-border;
   }
 
+  html {
+    background-color: hsl(240 40% 4%);
+  }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: transparent;
     font-family: var(--font-body);
   }
 
