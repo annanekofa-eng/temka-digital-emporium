@@ -46,11 +46,13 @@ const CASES: Case[] = [
 ];
 
 const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) => (
-  <motion.div
+  <motion.button
+    type="button"
+    onClick={onOpen}
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: i * 0.08, duration: 0.4 }}
-    className="relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden"
+    className="relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden text-left w-full hover:border-primary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
   >
     <div className="relative aspect-square bg-black flex items-center justify-center">
       <span className="text-7xl grayscale opacity-90">{c.emoji}</span>
@@ -68,14 +70,11 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
         <span className="text-base font-bold">{c.price} ₽</span>
         <span className="text-xs text-muted-foreground line-through">{c.oldPrice} ₽</span>
       </div>
-      <button
-        onClick={onOpen}
-        className="mt-2 self-start px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity"
-      >
+      <span className="mt-2 self-start px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold">
         Подробнее
-      </button>
+      </span>
     </div>
-  </motion.div>
+  </motion.button>
 );
 
 const CasesSection = () => {
