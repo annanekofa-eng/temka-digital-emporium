@@ -76,6 +76,9 @@ const Index = () => {
 
       {/* Catalog showcase */}
       <ProductShowcase />
+
+      {/* Reviews */}
+      <ReviewsSection />
     </div>
   );
 };
