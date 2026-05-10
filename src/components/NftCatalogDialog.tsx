@@ -850,7 +850,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="max-w-none w-screen h-[100dvh] sm:rounded-none p-0 overflow-hidden bg-background border-0 flex flex-col">
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scrollerRef} className="flex-1 overflow-y-auto">
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md flex items-center gap-2 px-4 py-3 border-b border-border">
               <button
                 onClick={onClose}
@@ -1007,6 +1007,22 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                     );
                   })}
                 </div>
+              )}
+
+              {!loading && !error && items.length > 0 && (
+                <>
+                  <div ref={sentinelRef} className="h-10" />
+                  {loadingMore && (
+                    <div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Загружаем ещё…
+                    </div>
+                  )}
+                  {!hasMore && !loadingMore && (
+                    <div className="text-center py-4 text-[11px] text-muted-foreground">
+                      Это все лоты ({items.length})
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
