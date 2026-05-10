@@ -216,85 +216,86 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden bg-background border-border max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-            <h2 className="font-display font-black text-lg">{title}</h2>
-          </div>
-
-          {/* Filters */}
-          <div className="px-4 py-3 border-b border-border space-y-2 shrink-0">
-            <div className="grid grid-cols-2 gap-2">
-              <FilterChip
-                label="Коллекция"
-                value={collection === 'Все' ? 'Все' : collection}
-                onClick={() => setOpenPicker('collection')}
-              />
-              <FilterChip label="Фон" value={background} onClick={() => setOpenPicker('background')} />
-              <FilterChip label="Символ" value={symbol} onClick={() => setOpenPicker('symbol')} />
-              <FilterChip label="Модель" value={model} onClick={() => setOpenPicker('model')} />
-              <FilterChip label="Цена" value="Все" onClick={() => {}} />
-              <FilterChip label="Сортировка" value={sort} onClick={() => setOpenPicker('sort')} />
+        <DialogContent className="max-w-none w-screen h-[100dvh] sm:rounded-none p-0 overflow-hidden bg-background border-0 flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md flex items-center justify-between px-4 py-3 border-b border-border">
+              <h2 className="font-display font-black text-base">{title}</h2>
             </div>
-            {activeChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {activeChips.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={c.clear}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30 text-xs font-medium"
-                  >
-                    {c.label}
-                    <X className="w-3 h-3" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Grid */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {filtered.length === 0 ? (
-              <div className="text-center py-12 text-sm text-muted-foreground">Ничего не найдено</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {filtered.map((it) => (
-                  <div key={it.id} className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
-                    <div
-                      className="aspect-square flex items-center justify-center relative"
-                      style={{
-                        background: BACKGROUNDS.find((b) => b.name === it.background)?.color || '#1f2937',
-                      }}
-                    >
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/50 text-[10px] font-bold text-white">
-                        {it.number}
-                      </div>
-                      <span className="text-6xl drop-shadow-lg">{it.emoji}</span>
-                    </div>
-                    <div className="p-3 flex flex-col gap-2">
-                      <div className="font-display font-bold text-sm leading-tight truncate">{it.name}</div>
-                      <button
-                        onClick={() => {
-                          addToCart({
-                            id: it.id,
-                            title: `${title} · ${it.name}`,
-                            price: it.price,
-                            product_type: 'simple',
-                          } as any);
-                          toast.success(`${ctaLabel}: ${it.name}`);
-                        }}
-                        className="w-full rounded-lg bg-secondary hover:bg-secondary/80 transition-colors py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1"
-                      >
-                        <span className="text-primary">▼</span>
-                        <span>{it.price.toFixed(2)} TON</span>
-                      </button>
-                      <div className="text-[10px] text-muted-foreground text-center -mt-1">
-                        ~{it.priceRub.toLocaleString('ru-RU')} ₽
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {/* Filters — compact, horizontal scroll */}
+            <div className="px-3 py-2 border-b border-border">
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
+                <FilterChip
+                  label="Коллекция"
+                  value={collection === 'Все' ? 'Все' : collection}
+                  onClick={() => setOpenPicker('collection')}
+                />
+                <FilterChip label="Фон" value={background} onClick={() => setOpenPicker('background')} />
+                <FilterChip label="Символ" value={symbol} onClick={() => setOpenPicker('symbol')} />
+                <FilterChip label="Модель" value={model} onClick={() => setOpenPicker('model')} />
+                <FilterChip label="Сорт." value={sort} onClick={() => setOpenPicker('sort')} />
               </div>
-            )}
+              {activeChips.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {activeChips.map((c) => (
+                    <button
+                      key={c.key}
+                      onClick={c.clear}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-[10px] font-medium"
+                    >
+                      {c.label}
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Grid */}
+            <div className="p-3">
+              {filtered.length === 0 ? (
+                <div className="text-center py-12 text-sm text-muted-foreground">Ничего не найдено</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {filtered.map((it) => (
+                    <div key={it.id} className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
+                      <div
+                        className="aspect-square flex items-center justify-center relative"
+                        style={{
+                          background: BACKGROUNDS.find((b) => b.name === it.background)?.color || '#1f2937',
+                        }}
+                      >
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/50 text-[10px] font-bold text-white">
+                          {it.number}
+                        </div>
+                        <span className="text-6xl drop-shadow-lg">{it.emoji}</span>
+                      </div>
+                      <div className="p-3 flex flex-col gap-2">
+                        <div className="font-display font-bold text-sm leading-tight truncate">{it.name}</div>
+                        <button
+                          onClick={() => {
+                            addToCart({
+                              id: it.id,
+                              title: `${title} · ${it.name}`,
+                              price: it.price,
+                              product_type: 'simple',
+                            } as any);
+                            toast.success(`${ctaLabel}: ${it.name}`);
+                          }}
+                          className="w-full rounded-lg bg-secondary hover:bg-secondary/80 transition-colors py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1"
+                        >
+                          <span className="text-primary">▼</span>
+                          <span>{it.price.toFixed(2)} TON</span>
+                        </button>
+                        <div className="text-[10px] text-muted-foreground text-center -mt-1">
+                          ~{it.priceRub.toLocaleString('ru-RU')} ₽
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
