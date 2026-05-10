@@ -670,6 +670,17 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   const [sort, setSort] = useState<string>('price_asc');
   const [openPicker, setOpenPicker] = useState<null | PickerKind>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [detailNft, setDetailNft] = useState<PortalsNft | null>(null);
+
+  const handleBuy = (it: PortalsNft) => {
+    addToCart({
+      id: it.id,
+      title: `${title} · ${it.name} ${it.number}`,
+      price: it.priceTon,
+      product_type: 'simple',
+    } as any);
+    toast.success(`${ctaLabel}: ${it.name} ${it.number}`);
+  };
 
   // Load collections once when dialog opens; don't auto-pick one
   useEffect(() => {
