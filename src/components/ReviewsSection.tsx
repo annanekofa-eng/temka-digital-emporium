@@ -5,16 +5,16 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { useTelegram } from '@/contexts/TelegramContext';
 
 const FALLBACK = [
-  { id: 'r1', author: 'Алексей',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
-  { id: 'r2', author: 'Мария',    text: 'Купила Telegram Stars, цена приятная, доставка моментальная.',          rating: 5, avatar: '🌸' },
-  { id: 'r3', author: 'Дмитрий',  text: 'NFT-подарок дошёл за пару минут. Поддержка отвечает быстро.',           rating: 5, avatar: '🐧' },
-  { id: 'r4', author: 'Ника',     text: 'FLUX-дизайн — топ. Отличный вкус, всё аккуратно.',                       rating: 5, avatar: '🎀' },
-  { id: 'r5', author: 'Игорь',    text: 'Брал ключ Steam — активировался без проблем. Рекомендую.',               rating: 5, avatar: '🎮' },
+  { id: 'r1', author: 'alex_volkov',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
+  { id: 'r2', author: 'mary_blossom', text: 'Купила Telegram Stars, цена приятная, доставка моментальная.',          rating: 5, avatar: '🌸' },
+  { id: 'r3', author: 'dmitry_p',     text: 'NFT-подарок дошёл за пару минут. Поддержка отвечает быстро.',           rating: 5, avatar: '🐧' },
+  { id: 'r4', author: 'nika_bow',     text: 'FLUX-дизайн — топ. Отличный вкус, всё аккуратно.',                       rating: 5, avatar: '🎀' },
+  { id: 'r5', author: 'igor_play',    text: 'Брал ключ Steam — активировался без проблем. Рекомендую.',               rating: 5, avatar: '🎮' },
 ];
 
 const Stars = ({ n }: { n: number }) => (
@@ -29,14 +29,18 @@ const Stars = ({ n }: { n: number }) => (
 );
 
 const ReviewForm = ({ onClose }: { onClose: () => void }) => {
-  const [name, setName] = useState('');
+  const { user } = useTelegram();
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
 
+  const displayName = user?.username
+    ? `@${user.username}`
+    : user?.firstName || 'Гость';
+
   const submit = () => {
-    if (!name.trim() || !text.trim()) {
-      toast({ title: 'Заполните имя и текст отзыва', variant: 'destructive' });
+    if (!text.trim()) {
+      toast({ title: 'Напишите текст отзыва', variant: 'destructive' });
       return;
     }
     toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
@@ -45,6 +49,19 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
+        {user?.photoUrl ? (
+          <img src={user.photoUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-base font-semibold">
+            {displayName[0]?.toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-display font-semibold text-sm truncate">{displayName}</div>
+          <div className="text-[11px] text-muted-foreground">Отзыв будет опубликован от вашего имени</div>
+        </div>
+      </div>
       <div>
         <label className="text-xs text-muted-foreground mb-1.5 block">Ваша оценка</label>
         <div className="flex gap-1">
@@ -65,10 +82,6 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
             );
           })}
         </div>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1.5 block">Имя</label>
-        <Input value={name} onChange={e => setName(e.target.value)} placeholder="Как к вам обращаться" maxLength={40} />
       </div>
       <div>
         <label className="text-xs text-muted-foreground mb-1.5 block">Отзыв</label>
@@ -123,7 +136,9 @@ const ReviewsSection = () => {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="font-display font-semibold text-sm truncate">{r.author}</div>
+                <div className="font-display font-semibold text-sm truncate">
+                  {r.author?.startsWith('@') || !r.author ? r.author : `@${r.author}`}
+                </div>
                 <Stars n={Number(r.rating) || 5} />
               </div>
             </div>
