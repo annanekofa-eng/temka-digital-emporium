@@ -10,7 +10,7 @@ const MarqueeBanner = ({ text }: Props) => {
     </span>
   ));
   return (
-    <div className="overflow-hidden bg-primary text-primary-foreground py-2 border-y border-primary/20">
+    <div className="overflow-hidden bg-muted/50 backdrop-blur-sm text-muted-foreground py-2 border-y border-border/30">
       <div className="flex animate-[marquee_30s_linear_infinite] w-max">
         {items}
         {items}
