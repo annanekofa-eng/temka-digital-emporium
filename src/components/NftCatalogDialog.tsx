@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, X, Search, Check } from 'lucide-react';
+import { ChevronDown, X, Search, Check, ArrowLeft } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
 
