@@ -19,7 +19,7 @@ const Index = () => {
   return (
     <div className="pb-8">
       {/* Hero / shop title */}
-      <section className="relative overflow-hidden isolate min-h-[460px] sm:min-h-[520px] lg:min-h-[640px]">
+      <section className="relative overflow-hidden isolate min-h-[280px] sm:min-h-[320px] lg:min-h-[380px]">
         {/* Animated Unicorn Studio background */}
         <div className="absolute inset-0 z-0">
           <UnicornBackground
@@ -31,7 +31,7 @@ const Index = () => {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(var(--background))_90%)] pointer-events-none" />
         </div>
 
-        <div className="relative z-10 px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36">
+        <div className="relative z-10 px-4 pt-10 pb-10 sm:pt-14 sm:pb-14 lg:pt-16 lg:pb-16">
           <div className="container-main mx-auto max-w-2xl text-center">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
