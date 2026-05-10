@@ -161,39 +161,53 @@ const ProductDetails = () => {
       )}
 
       {/* Gallery — Примеры работ */}
-      {Array.isArray((product as any).gallery) && (product as any).gallery.length > 0 && (
-        <section className="mt-10 sm:mt-12 max-w-4xl">
-          <h2 className="font-display text-lg font-bold mb-4">Примеры работ</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {((product as any).gallery as Array<string | { url: string; link?: string; title?: string }>).map((item, i) => {
-              const url = typeof item === 'string' ? item : item.url;
-              const link = typeof item === 'string' ? item : (item.link || item.url);
-              const title = typeof item === 'string' ? '' : (item.title || '');
-              return (
-                <a
-                  key={i}
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-card"
-                >
-                  <img
-                    src={url}
-                    alt={title || `Пример ${i + 1}`}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  {title && (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2">
-                      <span className="text-[11px] font-medium text-foreground line-clamp-1">{title}</span>
-                    </div>
-                  )}
-                </a>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {(() => {
+        const dbGallery = (product as any).gallery as Array<string | { url: string; link?: string; title?: string }> | undefined;
+        const fluxFallback = [
+          { url: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=600&q=70', link: 'https://dribbble.com',  title: 'Brand identity' },
+          { url: 'https://images.unsplash.com/photo-1561070791-2526d30994b8?w=600&q=70',  link: 'https://behance.net',  title: 'Poster series' },
+          { url: 'https://images.unsplash.com/photo-1559028012-481c04fa702d?w=600&q=70',  link: 'https://dribbble.com',  title: 'Web design' },
+          { url: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=600&q=70', link: 'https://behance.net', title: 'Editorial' },
+        ];
+        const isFlux = (product as any).project_id === 'flux';
+        const items = (dbGallery && dbGallery.length > 0)
+          ? dbGallery
+          : (isFlux ? fluxFallback : []);
+        if (!items.length) return null;
+        return (
+          <section className="mt-10 sm:mt-12 max-w-4xl">
+            <h2 className="font-display text-lg font-bold mb-4">Примеры работ</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {items.map((item, i) => {
+                const url = typeof item === 'string' ? item : item.url;
+                const link = typeof item === 'string' ? item : (item.link || item.url);
+                const title = typeof item === 'string' ? '' : (item.title || '');
+                return (
+                  <a
+                    key={i}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-card"
+                  >
+                    <img
+                      src={url}
+                      alt={title || `Пример ${i + 1}`}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {title && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2">
+                        <span className="text-[11px] font-medium text-foreground line-clamp-1">{title}</span>
+                      </div>
+                    )}
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Similar */}
       {similar.length > 0 && (
