@@ -185,8 +185,7 @@ const Cart = () => {
               {promoError && <p className="text-xs text-destructive">{promoError}</p>}
               {promoResult && <p className="text-xs text-primary">✅ Промокод применён!</p>}
             </div>
-            {/* Desktop pay button — mobile uses sticky bar */}
-            <Link to="/checkout" className="hidden lg:block">
+            <Link to="/checkout" className="block">
               <Button variant="hero" size="xl" className="w-full">
                 Оформить заказ <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
@@ -202,7 +201,7 @@ const Cart = () => {
       {recommended.length > 0 && (
         <section className="mt-12 sm:mt-16">
           <h2 className="font-display text-lg sm:text-xl font-bold mb-4 sm:mb-6">Вам может понравиться</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {recommended.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         </section>
