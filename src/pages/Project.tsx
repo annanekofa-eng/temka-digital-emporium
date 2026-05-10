@@ -9,15 +9,6 @@ import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const STAR_PRESETS = [15, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
-const nearestStarIdx = (v: number) => {
-  let best = 0;
-  let diff = Infinity;
-  STAR_PRESETS.forEach((p, i) => {
-    const d = Math.abs(p - v);
-    if (d < diff) { diff = d; best = i; }
-  });
-  return best;
-};
 import { useProject, useProjectProducts, useProjectCategories, type ExtendedProduct } from '@/hooks/useShop';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
