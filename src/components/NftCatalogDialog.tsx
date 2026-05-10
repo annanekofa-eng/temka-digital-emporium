@@ -336,13 +336,16 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
         </DialogContent>
       </Dialog>
 
-      <PickerSheet
+      <CollectionPickerSheet
         open={openPicker === 'collection'}
         onClose={() => setOpenPicker(null)}
-        title="Выбор коллекции"
-        options={presets.map((p) => ({ value: p.address, label: p.label }))}
-        value={collectionAddr}
-        onSelect={(v) => setCollectionAddr(v)}
+        presets={presets}
+        currentAddress={collectionAddr}
+        currentLabel={collectionLabel}
+        onSelect={(addr, label) => {
+          setCollectionAddr(addr);
+          setCustomLabel(label);
+        }}
       />
       <PickerSheet
         open={openPicker === 'sort'}
