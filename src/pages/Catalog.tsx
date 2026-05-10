@@ -4,7 +4,9 @@ import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
+import ProjectCard from '@/components/ProjectCard';
 import { useProducts, useCategories } from '@/hooks/useProducts';
+import { useProjects } from '@/hooks/useShop';
 
 const sortOptions = [
   { value: 'popular', label: 'По популярности' },
@@ -17,9 +19,11 @@ const Catalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') || '';
   const searchParam = searchParams.get('search') || '';
+  const projectParam = searchParams.get('project') || '';
 
   const { data: products, isLoading, error } = useProducts();
   const { data: categories } = useCategories();
+  const { data: projects } = useProjects();
 
   const [search, setSearch] = useState(searchParam);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
