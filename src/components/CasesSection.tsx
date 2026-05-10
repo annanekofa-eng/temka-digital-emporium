@@ -121,6 +121,23 @@ const CasesSection = () => {
                   Приобрести сейчас
                 </button>
                 <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+                <div className="mt-auto pt-2 border-t border-border/60">
+                  <p className="text-xs text-muted-foreground flex items-start gap-2">
+                    <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                    <span>
+                      Что-то непонятно по кейсу?{' '}
+                      <a
+                        href={supportUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-medium hover:underline"
+                      >
+                        Напишите в поддержку
+                      </a>{' '}
+                      — поможем разобраться.
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
           )}
