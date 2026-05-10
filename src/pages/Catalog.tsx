@@ -4,7 +4,9 @@ import { Search, SlidersHorizontal, X, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
+import ProjectCard from '@/components/ProjectCard';
 import { useProducts, useCategories } from '@/hooks/useProducts';
+import { useProjects } from '@/hooks/useShop';
 
 const sortOptions = [
   { value: 'popular', label: 'По популярности' },
@@ -17,12 +19,15 @@ const Catalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') || '';
   const searchParam = searchParams.get('search') || '';
+  const projectParam = searchParams.get('project') || '';
 
   const { data: products, isLoading, error } = useProducts();
   const { data: categories } = useCategories();
+  const { data: projects } = useProjects();
 
   const [search, setSearch] = useState(searchParam);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [selectedProject, setSelectedProject] = useState(projectParam);
   const [sortBy, setSortBy] = useState('popular');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [deliveryType, setDeliveryType] = useState<string>('');
@@ -44,11 +49,16 @@ const Catalog = () => {
     setSelectedCategory(categoryParam);
   }, [categoryParam]);
 
+  useEffect(() => {
+    setSelectedProject(projectParam);
+  }, [projectParam]);
+
   const filtered = useMemo(() => {
     if (!products) return [];
     let result = [...products];
     if (search) result = result.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.subtitle.toLowerCase().includes(search.toLowerCase()));
     if (selectedCategory) result = result.filter(p => p.category_id === selectedCategory);
+    if (selectedProject) result = result.filter(p => (p as any).project_id === selectedProject);
     if (deliveryType) result = result.filter(p => p.delivery_type === deliveryType);
     result = result.filter(p => Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1]);
 
@@ -59,16 +69,42 @@ const Catalog = () => {
       default: result.sort((a, b) => b.stock - a.stock);
     }
     return result;
-  }, [products, search, selectedCategory, sortBy, priceRange, deliveryType]);
+  }, [products, search, selectedCategory, selectedProject, sortBy, priceRange, deliveryType]);
+
+  // Group products by project for the default view
+  const groupedByProject = useMemo(() => {
+    if (!projects) return [] as { project: typeof projects[number]; items: typeof filtered }[];
+    return projects
+      .map(pr => ({ project: pr, items: filtered.filter(p => (p as any).project_id === pr.id) }))
+      .filter(g => g.items.length > 0);
+  }, [projects, filtered]);
+
+  const ungroupedItems = useMemo(
+    () => filtered.filter(p => !(p as any).project_id),
+    [filtered]
+  );
+
+  const showGrouped = !selectedProject && !selectedCategory && !search;
 
   const clearFilters = () => {
     setSearch('');
     setSelectedCategory('');
+    setSelectedProject('');
     setSortBy('popular');
     setPriceRange([0, 500]);
     setDeliveryType('');
     setSearchParams({});
   };
+
+  const projectProductCounts = useMemo(() => {
+    if (!products) return {} as Record<string, number>;
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      const pid = (p as any).project_id;
+      if (pid) counts[pid] = (counts[pid] || 0) + 1;
+    });
+    return counts;
+  }, [products]);
 
   const activeCat = categories?.find(c => c.id === selectedCategory);
 
@@ -140,11 +176,64 @@ const Catalog = () => {
         </div>
       </div>
 
+      {/* Project chips */}
+      {projects && projects.length > 0 && (
+        <div className="-mx-4 px-4 mb-3">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => {
+                setSelectedProject('');
+                const next = new URLSearchParams(searchParams);
+                next.delete('project');
+                setSearchParams(next);
+              }}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                !selectedProject
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+              }`}
+            >
+              Все проекты
+            </button>
+            {projects.map(pr => {
+              const active = selectedProject === pr.id;
+              return (
+                <button
+                  key={pr.id}
+                  onClick={() => {
+                    setSelectedProject(pr.id);
+                    const next = new URLSearchParams(searchParams);
+                    next.set('project', pr.id);
+                    setSearchParams(next);
+                  }}
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  <span>{pr.icon}</span>
+                  <span>{pr.title}</span>
+                  <span className={`text-[10px] ${active ? 'opacity-80' : 'opacity-60'}`}>
+                    {projectProductCounts[pr.id] || 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Category chips (horizontal scroll) */}
       <div className="-mx-4 px-4 mb-5 sm:mb-6">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <button
-            onClick={() => { setSelectedCategory(''); setSearchParams({}); }}
+            onClick={() => {
+              setSelectedCategory('');
+              const next = new URLSearchParams(searchParams);
+              next.delete('category');
+              setSearchParams(next);
+            }}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
               !selectedCategory
                 ? 'bg-primary text-primary-foreground border-primary'
@@ -158,7 +247,12 @@ const Catalog = () => {
             return (
               <button
                 key={cat.id}
-                onClick={() => { setSelectedCategory(cat.id); setSearchParams({ category: cat.id }); }}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  const next = new URLSearchParams(searchParams);
+                  next.set('category', cat.id);
+                  setSearchParams(next);
+                }}
                 className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
                   active
                     ? 'bg-primary text-primary-foreground border-primary'
@@ -261,7 +355,40 @@ const Catalog = () => {
                   </button>
                 </div>
               </div>
-              {viewMode === 'list' ? (
+              {showGrouped ? (
+                <div className="space-y-8">
+                  {groupedByProject.map(({ project, items }, idx) => (
+                    <section key={project.id}>
+                      <div className="mb-4">
+                        <ProjectCard project={project} index={idx} />
+                      </div>
+                      {viewMode === 'list' ? (
+                        <div className="flex flex-col gap-3">
+                          {items.map(p => <ProductCard key={p.id} product={p} view="list" />)}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                          {items.map(p => <ProductCard key={p.id} product={p} />)}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                  {ungroupedItems.length > 0 && (
+                    <section>
+                      <h3 className="font-display text-lg font-bold mb-3">Прочие товары</h3>
+                      {viewMode === 'list' ? (
+                        <div className="flex flex-col gap-3">
+                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} view="list" />)}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                          {ungroupedItems.map(p => <ProductCard key={p.id} product={p} />)}
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </div>
+              ) : viewMode === 'list' ? (
                 <div className="flex flex-col gap-3">
                   {filtered.map(product => <ProductCard key={product.id} product={product} view="list" />)}
                 </div>
