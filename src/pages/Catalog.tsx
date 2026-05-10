@@ -58,6 +58,7 @@ const Catalog = () => {
     let result = [...products];
     if (search) result = result.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.subtitle.toLowerCase().includes(search.toLowerCase()));
     if (selectedCategory) result = result.filter(p => p.category_id === selectedCategory);
+    if (selectedProject) result = result.filter(p => (p as any).project_id === selectedProject);
     if (deliveryType) result = result.filter(p => p.delivery_type === deliveryType);
     result = result.filter(p => Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1]);
 
@@ -68,7 +69,22 @@ const Catalog = () => {
       default: result.sort((a, b) => b.stock - a.stock);
     }
     return result;
-  }, [products, search, selectedCategory, sortBy, priceRange, deliveryType]);
+  }, [products, search, selectedCategory, selectedProject, sortBy, priceRange, deliveryType]);
+
+  // Group products by project for the default view
+  const groupedByProject = useMemo(() => {
+    if (!projects) return [] as { project: typeof projects[number]; items: typeof filtered }[];
+    return projects
+      .map(pr => ({ project: pr, items: filtered.filter(p => (p as any).project_id === pr.id) }))
+      .filter(g => g.items.length > 0);
+  }, [projects, filtered]);
+
+  const ungroupedItems = useMemo(
+    () => filtered.filter(p => !(p as any).project_id),
+    [filtered]
+  );
+
+  const showGrouped = !selectedProject && !selectedCategory && !search;
 
   const clearFilters = () => {
     setSearch('');
