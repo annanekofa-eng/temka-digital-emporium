@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
+import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle, X, ExternalLink, Copy } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
 
