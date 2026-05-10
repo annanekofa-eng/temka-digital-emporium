@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle, X, ExternalLink, Copy } from 'lucide-react';
@@ -670,12 +670,18 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
 
   const [items, setItems] = useState<PortalsNft[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [sort, setSort] = useState<string>('price_asc');
   const [openPicker, setOpenPicker] = useState<null | PickerKind>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [detailNft, setDetailNft] = useState<PortalsNft | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const PAGE_SIZE = 100;
 
   const handleBuy = (it: PortalsNft) => {
     addToCart({
@@ -736,25 +742,31 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     };
   }, [collection]);
 
-  // Fetch items
+  // Build base query (without pagination)
+  const buildParams = (offset: number) => {
+    const p = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+      sort,
+    });
+    if (collection) p.set('collection', collection.id);
+    if (models.length) p.set('models', models.join(','));
+    if (backdrops.length) p.set('backdrops', backdrops.join(','));
+    if (symbols.length) p.set('symbols', symbols.join(','));
+    if (price.min) p.set('min_price', price.min);
+    if (price.max) p.set('max_price', price.max);
+    return p;
+  };
+
+  // Reset + load first page when filters change
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({
-      limit: '40',
-      offset: '0',
-      sort,
-    });
-    if (collection) params.set('collection', collection.id);
-    if (models.length) params.set('models', models.join(','));
-    if (backdrops.length) params.set('backdrops', backdrops.join(','));
-    if (symbols.length) params.set('symbols', symbols.join(','));
-    if (price.min) params.set('min_price', price.min);
-    if (price.max) params.set('max_price', price.max);
-
-    fetch(projectFnUrl(`portals-gifts?${params.toString()}`), { headers: fnHeaders() })
+    setItems([]);
+    setHasMore(false);
+    fetch(projectFnUrl(`portals-gifts?${buildParams(0).toString()}`), { headers: fnHeaders() })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
@@ -762,12 +774,15 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
       })
       .then((d) => {
         if (cancelled) return;
-        setItems(Array.isArray(d?.items) ? d.items : []);
+        const arr: PortalsNft[] = Array.isArray(d?.items) ? d.items : [];
+        setItems(arr);
+        setHasMore(arr.length >= PAGE_SIZE);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : 'Не удалось загрузить каталог');
         setItems([]);
+        setHasMore(false);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -775,7 +790,49 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, collection, sort, models, backdrops, symbols, price, reloadKey]);
+
+  // Infinite scroll: load next page when sentinel becomes visible
+  useEffect(() => {
+    if (!open || !hasMore || loading || loadingMore) return;
+    const node = sentinelRef.current;
+    const root = scrollerRef.current;
+    if (!node || !root) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (!e?.isIntersecting) return;
+        setLoadingMore(true);
+        fetch(projectFnUrl(`portals-gifts?${buildParams(items.length).toString()}`), {
+          headers: fnHeaders(),
+        })
+          .then(async (r) => {
+            const j = await r.json();
+            if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
+            return j;
+          })
+          .then((d) => {
+            const arr: PortalsNft[] = Array.isArray(d?.items) ? d.items : [];
+            // Dedupe just in case
+            setItems((prev) => {
+              const seen = new Set(prev.map((x) => x.id));
+              return [...prev, ...arr.filter((x) => !seen.has(x.id))];
+            });
+            setHasMore(arr.length >= PAGE_SIZE);
+          })
+          .catch(() => {
+            setHasMore(false);
+          })
+          .finally(() => setLoadingMore(false));
+      },
+      { root, rootMargin: '600px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hasMore, loading, loadingMore, items.length, collection, sort, models, backdrops, symbols, price]);
 
   const collectionLabel = collection?.name ?? 'Все подарки';
   const sortLabel = SORTS.find((s) => s.value === sort)?.label ?? 'По умолчанию';
@@ -793,7 +850,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="max-w-none w-screen h-[100dvh] sm:rounded-none p-0 overflow-hidden bg-background border-0 flex flex-col">
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scrollerRef} className="flex-1 overflow-y-auto">
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md flex items-center gap-2 px-4 py-3 border-b border-border">
               <button
                 onClick={onClose}
@@ -950,6 +1007,22 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                     );
                   })}
                 </div>
+              )}
+
+              {!loading && !error && items.length > 0 && (
+                <>
+                  <div ref={sentinelRef} className="h-10" />
+                  {loadingMore && (
+                    <div className="flex items-center justify-center py-4 text-xs text-muted-foreground gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Загружаем ещё…
+                    </div>
+                  )}
+                  {!hasMore && !loadingMore && (
+                    <div className="text-center py-4 text-[11px] text-muted-foreground">
+                      Это все лоты ({items.length})
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
