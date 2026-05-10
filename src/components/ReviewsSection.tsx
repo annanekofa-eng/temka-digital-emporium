@@ -136,7 +136,9 @@ const ReviewsSection = () => {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="font-display font-semibold text-sm truncate">{r.author}</div>
+                <div className="font-display font-semibold text-sm truncate">
+                  {r.author?.startsWith('@') || !r.author ? r.author : `@${r.author}`}
+                </div>
                 <Stars n={Number(r.rating) || 5} />
               </div>
             </div>
