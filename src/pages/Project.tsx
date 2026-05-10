@@ -251,20 +251,26 @@ const Project = () => {
             ))}
           </div>
         ) : project.id === 'vieto' && categories && categories.length > 0 ? (
-          <div className="space-y-6">
-            {categories.map((c: any) => {
-              const items = simple.filter((p) => p.category_id === c.id);
-              if (!items.length) return null;
+          activeCat ? (
+            (() => {
+              const cat = categories.find((c: any) => c.id === activeCat);
+              const items = simple.filter((p) => p.category_id === activeCat);
               return (
-                <section key={c.id}>
+                <section>
+                  <button
+                    onClick={() => setActiveCat(null)}
+                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-3"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Все категории
+                  </button>
                   <div className="relative overflow-hidden rounded-2xl border border-border mb-3 h-24 sm:h-28 flex items-center px-4 bg-gradient-to-br from-primary/30 via-secondary to-card">
                     <div className="absolute inset-y-0 right-0 w-1/2 flex items-center justify-end pr-4 text-7xl opacity-40 select-none">
-                      {c.icon}
+                      {cat?.icon}
                     </div>
                     <div className="relative z-10">
-                      <h2 className="font-display text-xl font-black tracking-tight">{c.name}</h2>
-                      {c.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 max-w-[60%] line-clamp-2">{c.description}</p>
+                      <h2 className="font-display text-xl font-black tracking-tight">{cat?.name}</h2>
+                      {cat?.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 max-w-[60%] line-clamp-2">{cat.description}</p>
                       )}
                       <span className="text-[10px] text-muted-foreground/80">{items.length} товаров</span>
                     </div>
@@ -276,8 +282,30 @@ const Project = () => {
                   </div>
                 </section>
               );
-            })}
-          </div>
+            })()
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {categories.map((c: any) => {
+                const count = simple.filter((p) => p.category_id === c.id).length;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setActiveCat(c.id)}
+                    className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/20 via-secondary to-card p-4 h-32 flex flex-col justify-between text-left hover:border-primary/50 transition-colors"
+                  >
+                    <span className="absolute -right-2 -bottom-2 text-6xl opacity-30 select-none">{c.icon}</span>
+                    <div className="relative z-10">
+                      <h2 className="font-display text-base font-black tracking-tight leading-tight">{c.name}</h2>
+                      {c.description && (
+                        <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{c.description}</p>
+                      )}
+                    </div>
+                    <span className="relative z-10 text-[10px] text-muted-foreground/80">{count} товаров</span>
+                  </button>
+                );
+              })}
+            </div>
+          )
         ) : filteredSimple.length > 0 ? (
           <section>
             <h2 className="font-display text-lg font-bold mb-3 px-1">Каталог</h2>
