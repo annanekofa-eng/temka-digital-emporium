@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronDown, Search, ArrowLeft, Loader2, AlertCircle, X } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
 
@@ -29,6 +29,17 @@ interface PortalsNft {
   attributes: { type: string; value: string; rarity?: number }[];
 }
 
+interface FilterOption {
+  value: string;
+  count: number;
+}
+
+interface FiltersData {
+  models: FilterOption[];
+  backdrops: FilterOption[];
+  symbols: FilterOption[];
+}
+
 const SORTS: { value: string; label: string }[] = [
   { value: 'price_asc', label: 'По цене ↑' },
   { value: 'price_desc', label: 'По цене ↓' },
@@ -48,13 +59,15 @@ function fnHeaders() {
   return { Authorization: `Bearer ${key}`, apikey: key } as Record<string, string>;
 }
 
+/* ────────────────────────────────────────── Pickers ───────────────────────────────────────── */
+
 interface CollectionPickerProps {
   open: boolean;
   onClose: () => void;
   collections: PortalsCollection[];
   loading: boolean;
   currentId: string;
-  onSelect: (c: PortalsCollection) => void;
+  onSelect: (c: PortalsCollection | null) => void;
 }
 
 function CollectionPickerSheet({
@@ -91,6 +104,22 @@ function CollectionPickerSheet({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2">
+          <button
+            onClick={() => {
+              onSelect(null);
+              onClose();
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary/60 text-left ${
+              !currentId ? 'bg-secondary/60' : ''
+            }`}
+          >
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0 text-primary text-lg">★</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold">Все подарки</div>
+              <div className="text-[10px] text-muted-foreground">Витрина по всем коллекциям</div>
+            </div>
+          </button>
+
           {loading && (
             <div className="flex items-center justify-center py-6 text-xs text-muted-foreground gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Загружаем коллекции…
@@ -174,27 +203,233 @@ function SortPickerSheet({ open, onClose, value, onSelect }: SortPickerProps) {
   );
 }
 
+/* Multi-select sheet for model/backdrop/symbol */
+interface MultiPickerProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  options: FilterOption[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}
+function MultiPickerSheet({ open, onClose, title, options, selected, onChange }: MultiPickerProps) {
+  const [q, setQ] = useState('');
+  const [draft, setDraft] = useState<string[]>(selected);
+  useEffect(() => {
+    if (open) setDraft(selected);
+  }, [open, selected]);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return options;
+    return options.filter((o) => o.value.toLowerCase().includes(term));
+  }, [q, options]);
+
+  const toggle = (v: string) =>
+    setDraft((d) => (d.includes(v) ? d.filter((x) => x !== v) : [...d, v]));
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md p-0 overflow-hidden bg-card border-border max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="font-display font-bold text-lg">{title}</h3>
+          {draft.length > 0 && (
+            <button
+              onClick={() => setDraft([])}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
+        <div className="px-4 py-3 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Поиск…"
+              className="w-full h-10 pl-9 pr-3 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {filtered.length === 0 && (
+            <div className="text-center py-6 text-xs text-muted-foreground">Нет вариантов</div>
+          )}
+          {filtered.map((o) => {
+            const on = draft.includes(o.value);
+            return (
+              <button
+                key={o.value}
+                onClick={() => toggle(o.value)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary/60 text-left ${
+                  on ? 'bg-secondary/60' : ''
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                    on ? 'bg-primary border-primary' : 'border-border'
+                  }`}
+                >
+                  {on && <span className="text-[10px] text-primary-foreground">✓</span>}
+                </div>
+                <span className="text-sm font-medium flex-1 truncate">{o.value}</span>
+                <span className="text-[10px] text-muted-foreground">{o.count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="border-t border-border p-3 flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onChange(draft);
+              onClose();
+            }}
+          >
+            Применить{draft.length ? ` (${draft.length})` : ''}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* Price range picker */
+interface PriceRange {
+  min: string;
+  max: string;
+}
+interface PricePickerProps {
+  open: boolean;
+  onClose: () => void;
+  value: PriceRange;
+  onChange: (v: PriceRange) => void;
+}
+function PricePickerSheet({ open, onClose, value, onChange }: PricePickerProps) {
+  const [min, setMin] = useState(value.min);
+  const [max, setMax] = useState(value.max);
+  useEffect(() => {
+    if (open) {
+      setMin(value.min);
+      setMax(value.max);
+    }
+  }, [open, value]);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md p-0 overflow-hidden bg-card border-border">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="font-display font-bold text-lg">Цена, TON</h3>
+        </div>
+        <div className="p-4 space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-[11px] text-muted-foreground">От</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={min}
+                onChange={(e) => setMin(e.target.value)}
+                placeholder="0"
+                className="w-full h-10 px-3 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[11px] text-muted-foreground">До</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={max}
+                onChange={(e) => setMax(e.target.value)}
+                placeholder="∞"
+                className="w-full h-10 px-3 bg-secondary rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-border p-3 flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              onChange({ min: '', max: '' });
+              onClose();
+            }}
+          >
+            Сбросить
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onChange({ min: min.trim(), max: max.trim() });
+              onClose();
+            }}
+          >
+            Применить
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ────────────────────────────────────────── Chip ───────────────────────────────────────── */
+
 interface FilterChipProps {
   label: string;
   value: string;
+  active?: boolean;
   onClick: () => void;
+  onClear?: () => void;
+  disabled?: boolean;
 }
-const FilterChip = ({ label, value, onClick }: FilterChipProps) => (
+const FilterChip = ({ label, value, active, onClick, onClear, disabled }: FilterChipProps) => (
   <button
-    onClick={onClick}
-    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-border bg-card hover:border-primary/40 transition-colors text-left shrink-0 h-9"
+    onClick={disabled ? undefined : onClick}
+    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full border transition-colors text-left shrink-0 h-9 ${
+      disabled
+        ? 'border-border/40 bg-card/40 text-muted-foreground/50 cursor-not-allowed'
+        : active
+        ? 'border-primary/60 bg-primary/10'
+        : 'border-border bg-card hover:border-primary/40'
+    }`}
   >
     <span className="text-[11px] text-muted-foreground leading-none">{label}:</span>
     <span className="text-xs font-semibold leading-none max-w-[140px] truncate">{value}</span>
-    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+    {active && onClear ? (
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClear();
+        }}
+        className="w-3.5 h-3.5 inline-flex items-center justify-center rounded-full hover:bg-foreground/10"
+      >
+        <X className="w-3 h-3 text-muted-foreground" />
+      </span>
+    ) : (
+      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+    )}
   </button>
 );
+
+/* ────────────────────────────────────────── Main ───────────────────────────────────────── */
 
 interface Props {
   open: boolean;
   onClose: () => void;
   mode: CatalogMode;
 }
+
+type PickerKind = 'collection' | 'sort' | 'model' | 'backdrop' | 'symbol' | 'price';
 
 const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   const { addToCart } = useStore();
@@ -208,15 +443,23 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [collection, setCollection] = useState<PortalsCollection | null>(null);
 
+  const [filters, setFilters] = useState<FiltersData>({ models: [], backdrops: [], symbols: [] });
+  const [filtersLoading, setFiltersLoading] = useState(false);
+
+  const [models, setModels] = useState<string[]>([]);
+  const [backdrops, setBackdrops] = useState<string[]>([]);
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [price, setPrice] = useState<PriceRange>({ min: '', max: '' });
+
   const [items, setItems] = useState<PortalsNft[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [sort, setSort] = useState<string>('price_asc');
-  const [openPicker, setOpenPicker] = useState<null | 'collection' | 'sort'>(null);
+  const [openPicker, setOpenPicker] = useState<null | PickerKind>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Load collections once when dialog opens
+  // Load collections once when dialog opens; don't auto-pick one
   useEffect(() => {
     if (!open || collections.length > 0) return;
     setCollectionsLoading(true);
@@ -225,24 +468,64 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
       .then((d) => {
         const list: PortalsCollection[] = Array.isArray(d?.collections) ? d.collections : [];
         setCollections(list);
-        if (!collection && list.length) setCollection(list[0]);
       })
       .catch(() => setCollections([]))
       .finally(() => setCollectionsLoading(false));
   }, [open]);
 
+  // Reset attribute filters when collection changes; reload filter options
+  useEffect(() => {
+    setModels([]);
+    setBackdrops([]);
+    setSymbols([]);
+    if (!collection) {
+      setFilters({ models: [], backdrops: [], symbols: [] });
+      return;
+    }
+    let cancelled = false;
+    setFiltersLoading(true);
+    fetch(
+      projectFnUrl(`portals-gifts?action=filters&collection=${encodeURIComponent(collection.id)}`),
+      { headers: fnHeaders() },
+    )
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setFilters({
+          models: Array.isArray(d?.models) ? d.models : [],
+          backdrops: Array.isArray(d?.backdrops) ? d.backdrops : [],
+          symbols: Array.isArray(d?.symbols) ? d.symbols : [],
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setFilters({ models: [], backdrops: [], symbols: [] });
+      })
+      .finally(() => {
+        if (!cancelled) setFiltersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collection]);
+
   // Fetch items
   useEffect(() => {
-    if (!open || !collection) return;
+    if (!open) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({
-      collection: collection.id,
       limit: '40',
       offset: '0',
       sort,
     });
+    if (collection) params.set('collection', collection.id);
+    if (models.length) params.set('models', models.join(','));
+    if (backdrops.length) params.set('backdrops', backdrops.join(','));
+    if (symbols.length) params.set('symbols', symbols.join(','));
+    if (price.min) params.set('min_price', price.min);
+    if (price.max) params.set('max_price', price.max);
+
     fetch(projectFnUrl(`portals-gifts?${params.toString()}`), { headers: fnHeaders() })
       .then(async (r) => {
         const j = await r.json();
@@ -264,10 +547,19 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [open, collection, sort, reloadKey]);
+  }, [open, collection, sort, models, backdrops, symbols, price, reloadKey]);
 
   const collectionLabel = collection?.name ?? 'Все подарки';
   const sortLabel = SORTS.find((s) => s.value === sort)?.label ?? 'По умолчанию';
+
+  const summarize = (arr: string[]) =>
+    arr.length === 0 ? 'Все' : arr.length === 1 ? arr[0] : `${arr.length} выбрано`;
+  const priceLabel =
+    price.min || price.max
+      ? `${price.min || '0'} – ${price.max || '∞'}`
+      : 'Любая';
+
+  const attrDisabled = !collection;
 
   return (
     <>
@@ -286,22 +578,67 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
               <span className="ml-auto text-[10px] text-muted-foreground">live · Portals</span>
             </div>
 
-            <div className="px-3 py-3 border-b border-border">
+            <div className="px-3 py-3 border-b border-border space-y-2">
               <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
                 <FilterChip
                   label="Подарок"
                   value={collectionLabel}
+                  active={!!collection}
                   onClick={() => setOpenPicker('collection')}
+                  onClear={collection ? () => setCollection(null) : undefined}
                 />
-                <FilterChip label="Сорт." value={sortLabel} onClick={() => setOpenPicker('sort')} />
+                <FilterChip
+                  label="Модель"
+                  value={attrDisabled ? '—' : summarize(models)}
+                  active={models.length > 0}
+                  disabled={attrDisabled}
+                  onClick={() => setOpenPicker('model')}
+                  onClear={models.length ? () => setModels([]) : undefined}
+                />
+                <FilterChip
+                  label="Фон"
+                  value={attrDisabled ? '—' : summarize(backdrops)}
+                  active={backdrops.length > 0}
+                  disabled={attrDisabled}
+                  onClick={() => setOpenPicker('backdrop')}
+                  onClear={backdrops.length ? () => setBackdrops([]) : undefined}
+                />
+                <FilterChip
+                  label="Символ"
+                  value={attrDisabled ? '—' : summarize(symbols)}
+                  active={symbols.length > 0}
+                  disabled={attrDisabled}
+                  onClick={() => setOpenPicker('symbol')}
+                  onClear={symbols.length ? () => setSymbols([]) : undefined}
+                />
+                <FilterChip
+                  label="Цена"
+                  value={priceLabel}
+                  active={!!(price.min || price.max)}
+                  onClick={() => setOpenPicker('price')}
+                  onClear={price.min || price.max ? () => setPrice({ min: '', max: '' }) : undefined}
+                />
+                <FilterChip
+                  label="Сорт."
+                  value={sortLabel}
+                  onClick={() => setOpenPicker('sort')}
+                />
               </div>
               {collection?.floorTon != null && (
-                <div className="mt-2 text-[11px] text-muted-foreground">
+                <div className="text-[11px] text-muted-foreground">
                   Floor:{' '}
                   <span className="text-foreground font-semibold">{collection.floorTon} TON</span>
-                  {collection.listedCount != null && (
-                    <> · {collection.listedCount} в продаже</>
+                  {collection.listedCount != null && <> · {collection.listedCount} в продаже</>}
+                  {filtersLoading && (
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> фильтры…
+                    </span>
                   )}
+                </div>
+              )}
+              {!collection && (
+                <div className="text-[11px] text-muted-foreground">
+                  Показаны лоты по всем коллекциям. Выберите коллекцию, чтобы открыть фильтры по моделям/фонам.
                 </div>
               )}
             </div>
@@ -330,7 +667,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                 </div>
               ) : items.length === 0 ? (
                 <div className="text-center py-16 text-sm text-muted-foreground">
-                  В этой коллекции сейчас нет лотов на продаже
+                  Под выбранные фильтры ничего не найдено
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -408,6 +745,36 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
         onClose={() => setOpenPicker(null)}
         value={sort}
         onSelect={setSort}
+      />
+      <MultiPickerSheet
+        open={openPicker === 'model'}
+        onClose={() => setOpenPicker(null)}
+        title="Модель"
+        options={filters.models}
+        selected={models}
+        onChange={setModels}
+      />
+      <MultiPickerSheet
+        open={openPicker === 'backdrop'}
+        onClose={() => setOpenPicker(null)}
+        title="Фон"
+        options={filters.backdrops}
+        selected={backdrops}
+        onChange={setBackdrops}
+      />
+      <MultiPickerSheet
+        open={openPicker === 'symbol'}
+        onClose={() => setOpenPicker(null)}
+        title="Символ"
+        options={filters.symbols}
+        selected={symbols}
+        onChange={setSymbols}
+      />
+      <PricePickerSheet
+        open={openPicker === 'price'}
+        onClose={() => setOpenPicker(null)}
+        value={price}
+        onChange={setPrice}
       />
     </>
   );
