@@ -171,6 +171,50 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === 'detail') {
+      const id = url.searchParams.get('id') ?? '';
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'id required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Try direct endpoint, fall back to search by id
+      let raw: any = null;
+      try {
+        const r = await fetch(`${PORTALS_BASE}/nfts/${encodeURIComponent(id)}`, {
+          headers: { Accept: 'application/json', 'User-Agent': UA },
+        });
+        if (r.ok) raw = await r.json();
+      } catch (_) { /* ignore */ }
+      if (!raw) {
+        const r2 = await fetch(
+          `${PORTALS_BASE}/nfts/search?ids=${encodeURIComponent(id)}&limit=1&offset=0`,
+          { headers: { Accept: 'application/json', 'User-Agent': UA } },
+        );
+        if (r2.ok) {
+          const j = await r2.json();
+          raw = j?.results?.[0] ?? null;
+        }
+      }
+      if (!raw) {
+        return new Response(JSON.stringify({ error: 'not_found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({ normalized: normalizeNft(raw), raw }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=15',
+          },
+        },
+      );
+    }
+
     if (action === 'filters') {
       const collectionId = url.searchParams.get('collection') ?? '';
       if (!collectionId) {
