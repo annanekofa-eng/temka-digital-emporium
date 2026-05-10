@@ -89,11 +89,22 @@ const Catalog = () => {
   const clearFilters = () => {
     setSearch('');
     setSelectedCategory('');
+    setSelectedProject('');
     setSortBy('popular');
     setPriceRange([0, 500]);
     setDeliveryType('');
     setSearchParams({});
   };
+
+  const projectProductCounts = useMemo(() => {
+    if (!products) return {} as Record<string, number>;
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      const pid = (p as any).project_id;
+      if (pid) counts[pid] = (counts[pid] || 0) + 1;
+    });
+    return counts;
+  }, [products]);
 
   const activeCat = categories?.find(c => c.id === selectedCategory);
 
