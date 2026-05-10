@@ -742,25 +742,31 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     };
   }, [collection]);
 
-  // Fetch items
+  // Build base query (without pagination)
+  const buildParams = (offset: number) => {
+    const p = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+      sort,
+    });
+    if (collection) p.set('collection', collection.id);
+    if (models.length) p.set('models', models.join(','));
+    if (backdrops.length) p.set('backdrops', backdrops.join(','));
+    if (symbols.length) p.set('symbols', symbols.join(','));
+    if (price.min) p.set('min_price', price.min);
+    if (price.max) p.set('max_price', price.max);
+    return p;
+  };
+
+  // Reset + load first page when filters change
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({
-      limit: '40',
-      offset: '0',
-      sort,
-    });
-    if (collection) params.set('collection', collection.id);
-    if (models.length) params.set('models', models.join(','));
-    if (backdrops.length) params.set('backdrops', backdrops.join(','));
-    if (symbols.length) params.set('symbols', symbols.join(','));
-    if (price.min) params.set('min_price', price.min);
-    if (price.max) params.set('max_price', price.max);
-
-    fetch(projectFnUrl(`portals-gifts?${params.toString()}`), { headers: fnHeaders() })
+    setItems([]);
+    setHasMore(false);
+    fetch(projectFnUrl(`portals-gifts?${buildParams(0).toString()}`), { headers: fnHeaders() })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
@@ -768,12 +774,15 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
       })
       .then((d) => {
         if (cancelled) return;
-        setItems(Array.isArray(d?.items) ? d.items : []);
+        const arr: PortalsNft[] = Array.isArray(d?.items) ? d.items : [];
+        setItems(arr);
+        setHasMore(arr.length >= PAGE_SIZE);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : 'Не удалось загрузить каталог');
         setItems([]);
+        setHasMore(false);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -781,7 +790,49 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, collection, sort, models, backdrops, symbols, price, reloadKey]);
+
+  // Infinite scroll: load next page when sentinel becomes visible
+  useEffect(() => {
+    if (!open || !hasMore || loading || loadingMore) return;
+    const node = sentinelRef.current;
+    const root = scrollerRef.current;
+    if (!node || !root) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (!e?.isIntersecting) return;
+        setLoadingMore(true);
+        fetch(projectFnUrl(`portals-gifts?${buildParams(items.length).toString()}`), {
+          headers: fnHeaders(),
+        })
+          .then(async (r) => {
+            const j = await r.json();
+            if (!r.ok) throw new Error(j?.message || j?.error || `HTTP ${r.status}`);
+            return j;
+          })
+          .then((d) => {
+            const arr: PortalsNft[] = Array.isArray(d?.items) ? d.items : [];
+            // Dedupe just in case
+            setItems((prev) => {
+              const seen = new Set(prev.map((x) => x.id));
+              return [...prev, ...arr.filter((x) => !seen.has(x.id))];
+            });
+            setHasMore(arr.length >= PAGE_SIZE);
+          })
+          .catch(() => {
+            setHasMore(false);
+          })
+          .finally(() => setLoadingMore(false));
+      },
+      { root, rootMargin: '600px' },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hasMore, loading, loadingMore, items.length, collection, sort, models, backdrops, symbols, price]);
 
   const collectionLabel = collection?.name ?? 'Все подарки';
   const sortLabel = SORTS.find((s) => s.value === sort)?.label ?? 'По умолчанию';
