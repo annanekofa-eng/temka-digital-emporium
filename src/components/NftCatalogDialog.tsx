@@ -900,7 +900,8 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                     return (
                       <div
                         key={it.id}
-                        className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col"
+                        className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col group cursor-pointer"
+                        onClick={() => setDetailNft(it)}
                       >
                         <div className="aspect-square relative bg-secondary">
                           {it.image && (
@@ -908,7 +909,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                               src={it.image}
                               alt={it.name}
                               loading="lazy"
-                              className="absolute inset-0 w-full h-full object-cover"
+                              className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105"
                             />
                           )}
                           <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-[10px] font-bold text-white max-w-[80%] truncate">
@@ -927,14 +928,9 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
                             </div>
                           )}
                           <button
-                            onClick={() => {
-                              addToCart({
-                                id: it.id,
-                                title: `${title} · ${it.name} ${it.number}`,
-                                price: it.priceTon,
-                                product_type: 'simple',
-                              } as any);
-                              toast.success(`${ctaLabel}: ${it.name} ${it.number}`);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBuy(it);
                             }}
                             className="w-full rounded-lg bg-secondary hover:bg-secondary/80 transition-colors py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1 mt-1"
                           >
