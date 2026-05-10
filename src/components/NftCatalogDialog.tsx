@@ -223,7 +223,7 @@ const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
             </div>
 
             {/* Filters — compact, horizontal scroll */}
-            <div className="px-3 py-2 border-b border-border">
+            <div className="px-3 py-3 border-b border-border">
               <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
                 <FilterChip
                   label="Коллекция"
