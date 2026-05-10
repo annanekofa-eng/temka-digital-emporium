@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ArrowRight, Shield, Zap, Clock, Tag } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, Shield, Zap, Clock, Tag, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
@@ -12,6 +13,13 @@ const categoryEmoji: Record<string, string> = {
   'premium': '👑', 'automation': '🤖', 'ai-tools': '🧠', 'services': '⚡',
 };
 
+const RENT_OPTIONS = [
+  { months: 1, label: '1 мес',  mult: 1 },
+  { months: 3, label: '3 мес',  mult: 2.7 },
+  { months: 6, label: '6 мес',  mult: 5 },
+  { months: 12, label: '1 год', mult: 9 },
+];
+
 const Cart = () => {
   const {
     cart, removeFromCart, updateQuantity, cartTotal, clearCart,
@@ -20,6 +28,24 @@ const Cart = () => {
   } = useStore();
   const { user, initData } = useTelegram();
   const { data: products } = useProducts();
+
+  // local-only rental period multipliers per cart item id
+  const [rent, setRent] = useState<Record<string, number>>({});
+  const getMult = (id: string) => rent[id] ?? 1;
+
+  // Adjusted totals applying rent multiplier
+  const adjustedItemPrice = (item: typeof cart[number]) => {
+    const isRent = (item.product as any).product_type === 'nft_rent';
+    const mult = isRent ? getMult(item.product.id) : 1;
+    return Number(item.product.price) * mult;
+  };
+  const adjustedTotal = cart.reduce((s, i) => s + adjustedItemPrice(i) * i.quantity, 0);
+  const adjustedDiscount = promoResult
+    ? promoResult.discountType === 'percent'
+      ? adjustedTotal * (promoResult.discountValue / 100)
+      : Math.min(adjustedTotal, promoResult.discountValue)
+    : 0;
+  const adjustedAfterDiscount = Math.max(0, adjustedTotal - adjustedDiscount);
 
   const recommended = products?.filter(p => !cart.some(c => c.product.id === p.id)).slice(0, 4) || [];
 
@@ -35,52 +61,88 @@ const Cart = () => {
   }
 
   return (
-    <div className="container-main mx-auto px-4 py-6 sm:py-8">
+    <div className="container-main mx-auto px-4 py-6 sm:py-8 pb-32 lg:pb-8">
       <h1 className="font-display text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Корзина</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           {cart.map(item => {
             const outOfStock = item.product.stock <= 0;
+            const isRent = (item.product as any).product_type === 'nft_rent';
+            const currentMult = getMult(item.product.id);
+            const lineTotal = adjustedItemPrice(item) * item.quantity;
             return (
-              <div key={item.product.id} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 flex gap-3 sm:gap-4 ${outOfStock ? 'opacity-60' : ''}`}>
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/50 rounded-lg flex items-center justify-center text-2xl sm:text-3xl shrink-0 overflow-hidden">
-                  {item.product.image ? (
-                    <img src={item.product.image} alt={item.product.title} className="w-full h-full object-cover" />
-                  ) : (
-                    categoryEmoji[item.product.category_id || ''] || '⚡'
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link to={`/product/${item.product.id}`} className="font-display font-semibold text-xs sm:text-sm hover:text-primary transition-colors line-clamp-1">{item.product.title}</Link>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{item.product.subtitle}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    {item.product.delivery_type === 'instant' ? (
-                      <span className="text-[10px] text-primary flex items-center gap-0.5"><Zap className="w-3 h-3" /> Мгновенно</span>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-3 h-3" /> Вручную</span>
-                    )}
-                    {outOfStock && <span className="text-[10px] text-destructive ml-2">Нет в наличии</span>}
-                  </div>
-                  <div className="flex items-center justify-between mt-2 sm:mt-3">
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        disabled={item.quantity >= item.product.stock}
-                        className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                        <Plus className="w-3 h-3" />
-                      </button>
+              <div key={item.product.id} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 ${outOfStock ? 'opacity-60' : ''}`}>
+                {isRent && (
+                  <div className="mb-3 p-2 rounded-lg bg-secondary/40 border border-border/50">
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
+                      <CalendarDays className="w-3.5 h-3.5" /> Срок аренды
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="font-display font-bold text-sm sm:text-base">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
-                      <PriceRub usd={Number(item.product.price) * item.quantity} />
-                      <button onClick={() => removeFromCart(item.product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {RENT_OPTIONS.map(o => (
+                        <button
+                          key={o.months}
+                          onClick={() => setRent(r => ({ ...r, [item.product.id]: o.mult }))}
+                          className={`px-2 py-1.5 rounded-md text-[11px] font-medium border transition-colors ${
+                            currentMult === o.mult
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-card border-border text-muted-foreground hover:border-primary/40'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-3 sm:gap-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/50 rounded-lg flex items-center justify-center text-2xl sm:text-3xl shrink-0 overflow-hidden">
+                    {item.product.image ? (
+                      <img src={item.product.image} alt={item.product.title} className="w-full h-full object-cover" />
+                    ) : (
+                      categoryEmoji[item.product.category_id || ''] || '⚡'
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      to={`/product/${item.product.id}`}
+                      className="font-display font-semibold text-xs sm:text-sm hover:text-primary transition-colors line-clamp-2 break-words"
+                    >
+                      {item.product.title}
+                    </Link>
+                    {item.product.subtitle && (
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.product.subtitle}</p>
+                    )}
+                    <div className="flex items-center gap-1 mt-1">
+                      {item.product.delivery_type === 'instant' ? (
+                        <span className="text-[10px] text-primary flex items-center gap-0.5"><Zap className="w-3 h-3" /> Мгновенно</span>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-3 h-3" /> Вручную</span>
+                      )}
+                      {outOfStock && <span className="text-[10px] text-destructive ml-2">Нет в наличии</span>}
+                    </div>
+                    <div className="flex items-center justify-between mt-2 sm:mt-3 gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          disabled={item.quantity >= item.product.stock}
+                          className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                        <div className="text-right">
+                          <div className="font-display font-bold text-sm sm:text-base">${lineTotal.toFixed(2)}</div>
+                          <PriceRub usd={lineTotal} />
+                        </div>
+                        <button onClick={() => removeFromCart(item.product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -91,21 +153,21 @@ const Cart = () => {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-card border border-border/50 rounded-xl p-4 sm:p-6 space-y-4 sticky top-24">
+          <div className="bg-card border border-border/50 rounded-xl p-4 sm:p-6 space-y-4 lg:sticky lg:top-24">
             <h3 className="font-display font-semibold text-base sm:text-lg">Итого</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Подытог</span><span>${cartTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Подытог</span><span>${adjustedTotal.toFixed(2)}</span></div>
               {promoResult && (
                 <div className="flex justify-between text-primary">
                   <span>Промокод ({promoResult.discountType === 'percent' ? `-${promoResult.discountValue}%` : `-$${promoResult.discountValue}`})</span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span>-${adjustedDiscount.toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t border-border/30 pt-2 flex justify-between font-display font-bold text-lg">
                 <span>Итого</span>
                 <div className="text-right">
-                  <div>${totalAfterDiscount.toFixed(2)}</div>
-                  <PriceRub usd={totalAfterDiscount} className="font-normal text-xs" />
+                  <div>${adjustedAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={adjustedAfterDiscount} className="font-normal text-xs" />
                 </div>
               </div>
             </div>
@@ -123,7 +185,8 @@ const Cart = () => {
               {promoError && <p className="text-xs text-destructive">{promoError}</p>}
               {promoResult && <p className="text-xs text-primary">✅ Промокод применён!</p>}
             </div>
-            <Link to="/checkout" className="block">
+            {/* Desktop pay button — mobile uses sticky bar */}
+            <Link to="/checkout" className="hidden lg:block">
               <Button variant="hero" size="xl" className="w-full">
                 Оформить заказ <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
@@ -144,6 +207,21 @@ const Cart = () => {
           </div>
         </section>
       )}
+
+      {/* Sticky pay bar — mobile only, button bottom-left */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border/60 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+        <div className="container-main mx-auto flex items-center gap-3">
+          <Link to="/checkout" className="shrink-0">
+            <Button variant="hero" size="lg" className="font-display font-bold">
+              Оплатить <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+          <div className="ml-auto text-right leading-tight">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Итого</div>
+            <div className="font-display font-black text-lg">${adjustedAfterDiscount.toFixed(2)}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
