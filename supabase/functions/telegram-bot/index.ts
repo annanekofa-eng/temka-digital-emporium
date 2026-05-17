@@ -222,9 +222,10 @@ async function handleAdminCallback(
       return showSbpList(chatId, msgId, "pending", 0);
     }
     case "st": {
-      if (!op) return showStats(chatId, msgId, "w");
-      if (op === "r" && arg) return showStats(chatId, msgId, arg);
-      return showStats(chatId, msgId, "w");
+      if (!op) return showStats(chatId, msgId, "w", "mn");
+      if (op === "r" && arg) return showStats(chatId, msgId, arg, "mn");
+      if (op === "v" && arg) return showStats(chatId, msgId, extra || "w", arg);
+      return showStats(chatId, msgId, "w", "mn");
     }
     case "pc": {
       if (!op) return showPromoList(chatId, msgId);
