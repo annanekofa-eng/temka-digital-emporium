@@ -68,30 +68,56 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((product: DbProduct) => {
+  const addToCart = useCallback((product: DbProduct, opts?: { recipientUsername?: string }) => {
+    const incomingIsAuto = isAutoProduct(product);
+    let allowed = true;
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const hasAuto = prev.some(it => isAutoProduct(it.product));
+      const hasRegular = prev.some(it => !isAutoProduct(it.product));
+      if (incomingIsAuto && hasRegular) {
+        toast.error('Авто-товары (Stars/Premium) оформляются отдельным заказом. Очистите корзину.');
+        allowed = false;
+        return prev;
+      }
+      if (!incomingIsAuto && hasAuto) {
+        toast.error('В корзине авто-товар. Оформите его отдельно или очистите корзину.');
+        allowed = false;
+        return prev;
+      }
+      if (incomingIsAuto) {
+        // Each auto purchase = its own line (different recipient/amount).
+        return [...prev, {
+          product,
+          quantity: 1,
+          recipientUsername: opts?.recipientUsername,
+          lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        }];
+      }
+      const existing = prev.find(item => !item.lineId && item.product.id === product.id);
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item === existing ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...prev, { product, quantity: 1 }];
     });
+    return allowed;
   }, []);
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const lineKeyOf = (item: CartItem) => item.lineId ?? item.product.id;
+
+  const removeFromCart = useCallback((lineKey: string) => {
+    setCart(prev => prev.filter(item => lineKeyOf(item) !== lineKey));
   }, []);
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
+  const updateQuantity = useCallback((lineKey: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart(prev => prev.filter(item => item.product.id !== productId));
+      setCart(prev => prev.filter(item => lineKeyOf(item) !== lineKey));
       return;
     }
     setCart(prev =>
       prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
+        lineKeyOf(item) === lineKey ? { ...item, quantity } : item
       )
     );
   }, []);
