@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, PenLine } from 'lucide-react';
+import { Star, PenLine, Loader2 } from 'lucide-react';
 import { useReviews } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +8,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { useTelegram } from '@/contexts/TelegramContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const FALLBACK = [
   { id: 'r1', author: 'alex_volkov',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
@@ -29,22 +30,42 @@ const Stars = ({ n }: { n: number }) => (
 );
 
 const ReviewForm = ({ onClose }: { onClose: () => void }) => {
-  const { user } = useTelegram();
+  const { user, initData } = useTelegram();
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const displayName = user?.username
     ? `@${user.username}`
     : user?.firstName || 'Гость';
 
-  const submit = () => {
-    if (!text.trim()) {
-      toast({ title: 'Напишите текст отзыва', variant: 'destructive' });
+  const submit = async () => {
+    const trimmed = text.trim();
+    if (trimmed.length < 3) {
+      toast({ title: 'Напишите текст отзыва (минимум 3 символа)', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
-    onClose();
+    if (!initData) {
+      toast({ title: 'Откройте приложение в Telegram', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-review', {
+        body: { initData, rating, text: trimmed },
+      });
+      if (error || (data as any)?.error) {
+        toast({ title: (data as any)?.error || error?.message || 'Ошибка отправки', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
+      onClose();
+    } catch (e: any) {
+      toast({ title: e?.message || 'Ошибка отправки', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -88,8 +109,11 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
         <Textarea value={text} onChange={e => setText(e.target.value)} placeholder="Поделитесь впечатлениями…" rows={4} maxLength={500} />
       </div>
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button variant="hero" onClick={submit}>Отправить</Button>
+        <Button variant="ghost" onClick={onClose} disabled={loading}>Отмена</Button>
+        <Button variant="hero" onClick={submit} disabled={loading}>
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          Отправить
+        </Button>
       </DialogFooter>
     </div>
   );
