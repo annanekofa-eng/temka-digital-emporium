@@ -17,7 +17,7 @@ export function adminMenuKeyboard() {
       ],
       [
         { text: "📁 Проекты", callback_data: "a:pr" },
-        { text: "📨 Заявки", callback_data: "a:rv:pending" },
+        { text: "📨 Заявки СБП", callback_data: "a:sb" },
       ],
       [
         { text: "📊 Статистика", callback_data: "a:st" },
