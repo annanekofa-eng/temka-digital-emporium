@@ -124,8 +124,10 @@ export async function showOrder(chatId: number, msgId: number | undefined, id: s
   ].filter(Boolean).join("\n");
 
   const kb = [
-    [{ text: `📤 Отправить /rep`, callback_data: `a:o:rep:${id}` }],
-    [{ text: "🔄 Сменить статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
+    [{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }],
+    [{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }],
+    [{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
+    [{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }],
     [{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }],
     [{ text: "← К списку", callback_data: "a:o" }, ...backRow()],
   ];
