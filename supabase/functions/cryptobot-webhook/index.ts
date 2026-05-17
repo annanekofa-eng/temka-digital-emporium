@@ -82,11 +82,19 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     }
   }
 
-  // Reserve inventory and deliver
+  // Reserve inventory and deliver (skip auto items)
   const { data: items } = await supabase.from("order_items").select("*").eq("order_id", orderId);
   let allDelivered = true;
   const deliveredContent: string[] = [];
+  const autoItems: any[] = [];
   for (const item of items || []) {
+    // Auto items (Stars/Premium) are fulfilled manually by admin
+    const prod = await supabase.from("products").select("product_type").eq("id", item.product_id).maybeSingle();
+    const ptype = String(prod.data?.product_type || "simple");
+    if (ptype === "premium_term" || ptype === "stars") {
+      autoItems.push(item);
+      continue;
+    }
     const { data: reserved } = await supabase.rpc("reserve_inventory", {
       p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
     });
@@ -100,12 +108,36 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     }
   }
 
+  const isAutoOrder = order.is_auto || autoItems.length > 0;
   await supabase.from("orders").update({
-    status: allDelivered ? "completed" : "processing", updated_at: new Date().toISOString(),
+    status: isAutoOrder ? "processing" : (allDelivered ? "completed" : "processing"),
+    updated_at: new Date().toISOString(),
   }).eq("id", orderId);
 
   const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || null;
-  if (allDelivered && deliveredContent.length) {
+  if (isAutoOrder) {
+    const itemsText = autoItems
+      .map((i: any) => `• ${i.product_title} → @${i.recipient_username || "—"}`).join("\n");
+    await notify(botToken, tgId,
+      `📦 <b>Заказ принят</b>\n\nНомер: <code>${order.order_number}</code>\n${itemsText}\nСумма: $${Number(order.total_amount).toFixed(2)}\n\n⏳ Ожидайте выдачи — мы уведомим, как только товар будет передан.`);
+    // Notify admins
+    const adminIds = (Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "")
+      .split(",").map((s) => s.trim()).filter(Boolean);
+    if (botToken) {
+      const adminText = `🆕 <b>Новый авто-заказ</b>\n\nНомер: <code>${order.order_number}</code>\n${itemsText}\nПокупатель: <code>${tgId}</code>\nСумма: $${Number(order.total_amount).toFixed(2)}`;
+      for (const aid of adminIds) {
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: Number(aid), parse_mode: "HTML", text: adminText,
+              reply_markup: { inline_keyboard: [[{ text: "🤖 Открыть авто-заказ", callback_data: `a:ao:v:${orderId}` }]] },
+            }),
+          });
+        } catch (e) { console.error("notify admin:", e); }
+      }
+    }
+  } else if (allDelivered && deliveredContent.length) {
     await notify(botToken, tgId, `✅ <b>Заказ ${order.order_number} оплачен и выполнен!</b>\n\n<pre>${deliveredContent.join("\n")}</pre>`);
   } else {
     await notify(botToken, tgId, `✅ Заказ ${order.order_number} оплачен. Мы выдадим товар вручную в ближайшее время.`);
