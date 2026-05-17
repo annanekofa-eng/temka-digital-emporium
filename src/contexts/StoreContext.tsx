@@ -180,7 +180,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{
-      cart, addToCart, removeFromCart, updateQuantity, clearCart,
+      cart, addToCart, removeFromCart, updateQuantity, clearCart, syncCartWithProducts,
       cartTotal, cartCount, searchQuery, setSearchQuery,
       promoCode, setPromoCode, promoResult, promoError, promoLoading,
       applyPromo, clearPromo, discount, totalAfterDiscount,
