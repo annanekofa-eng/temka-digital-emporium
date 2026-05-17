@@ -45,6 +45,9 @@ import {
   handleNewBroadcastPhoto,
 } from "./admin/broadcasts.ts";
 import { showStats } from "./admin/stats.ts";
+import {
+  showAutoOrderList, showAutoOrder, confirmAutoOrder, startAutoOrderError, applyAutoOrderError,
+} from "./admin/auto_orders.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
