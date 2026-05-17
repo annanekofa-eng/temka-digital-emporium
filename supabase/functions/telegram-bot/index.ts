@@ -15,6 +15,9 @@ import {
 import {
   showProjectList, showProject, toggleProject, startEditProject, applyEditProject,
 } from "./admin/projects.ts";
+import {
+  showOrderList, showOrder, showStatusPicker, setOrderStatus, setOrderPayment, sendOrderRep,
+} from "./admin/orders.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -142,7 +145,18 @@ async function handleAdminCallback(
       return showProjectList(chatId, msgId);
     }
 
-    case "o": return notImplementedStub(chatId, msgId, "Заказы");
+    case "o": {
+      if (!op) return showOrderList(chatId, msgId, "all", 0);
+      if (op === "f" && arg) return showOrderList(chatId, msgId, arg, 0);
+      if (op === "p" && arg) return showOrderList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showOrder(chatId, msgId, arg);
+      if (op === "ss" && arg) return showStatusPicker(chatId, msgId, arg, "status");
+      if (op === "sp" && arg) return showStatusPicker(chatId, msgId, arg, "pay");
+      if (op === "st" && arg && extra) return setOrderStatus(chatId, msgId, arg, extra, fromId);
+      if (op === "pt" && arg && extra) return setOrderPayment(chatId, msgId, arg, extra, fromId);
+      if (op === "rep" && arg) return sendOrderRep(chatId, msgId, arg, fromId);
+      return showOrderList(chatId, msgId, "all", 0);
+    }
     case "u": return notImplementedStub(chatId, msgId, "Пользователи");
     case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
     case "st": return notImplementedStub(chatId, msgId, "Статистика");
