@@ -52,6 +52,7 @@ const Checkout = () => {
         productTitle: item.product.title,
         productPrice: Number(item.product.price),
         quantity: item.quantity,
+        recipientUsername: (item as any).recipientUsername || null,
       }));
 
       if (toPay <= 0) {
