@@ -238,7 +238,15 @@ async function handleAdminCallback(
       if (op === "te" && arg && extra) return startEditTemplate(chatId, msgId, arg, extra, fromId);
       return showSettingsMenu(chatId, msgId);
     }
-    case "bc": return notImplementedStub(chatId, msgId, "Рассылка");
+    case "bc": {
+      if (!op) return showBroadcastList(chatId, msgId, 0);
+      if (op === "p" && arg) return showBroadcastList(chatId, msgId, parseInt(arg) || 0);
+      if (op === "n") return startNewBroadcast(chatId, msgId, fromId);
+      if (op === "v" && arg) return showBroadcast(chatId, msgId, arg);
+      if (op === "d" && arg) return deleteBroadcast(chatId, msgId, arg, fromId);
+      if (op === "send" && arg) return sendBroadcast(chatId, msgId, arg, fromId);
+      return showBroadcastList(chatId, msgId, 0);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
