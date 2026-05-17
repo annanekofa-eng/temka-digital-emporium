@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.cryptobot-webhook]
 verify_jwt = false
 
-[functions.tonapi-nfts]
-verify_jwt = false
-
 [functions.portals-gifts]
 verify_jwt = false
 
