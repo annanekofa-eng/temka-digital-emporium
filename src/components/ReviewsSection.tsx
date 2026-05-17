@@ -109,8 +109,11 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
         <Textarea value={text} onChange={e => setText(e.target.value)} placeholder="Поделитесь впечатлениями…" rows={4} maxLength={500} />
       </div>
       <DialogFooter>
-        <Button variant="ghost" onClick={onClose}>Отмена</Button>
-        <Button variant="hero" onClick={submit}>Отправить</Button>
+        <Button variant="ghost" onClick={onClose} disabled={loading}>Отмена</Button>
+        <Button variant="hero" onClick={submit} disabled={loading}>
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          Отправить
+        </Button>
       </DialogFooter>
     </div>
   );
