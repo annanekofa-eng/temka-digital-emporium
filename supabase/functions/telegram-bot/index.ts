@@ -48,6 +48,11 @@ import { showStats } from "./admin/stats.ts";
 import {
   showAutoOrderList, showAutoOrder, confirmAutoOrder, startAutoOrderError, applyAutoOrderError,
 } from "./admin/auto_orders.ts";
+import {
+  showAutoProductsMenu, showAutoProduct, toggleAutoProduct,
+  startEditAutoProduct, applyEditAutoProduct,
+  startNewPremiumTerm, handleNewPremiumTermStep, deletePremiumTerm,
+} from "./admin/auto_products.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -283,6 +288,15 @@ async function handleAdminCallback(
       if (op === "err" && arg) return startAutoOrderError(chatId, msgId, arg, fromId);
       return showAutoOrderList(chatId, msgId, "pending", 0);
     }
+    case "ap": {
+      if (!op) return showAutoProductsMenu(chatId, msgId);
+      if (op === "v" && (arg === "s" || arg === "p")) return showAutoProduct(chatId, msgId, arg);
+      if (op === "t" && (arg === "s" || arg === "p")) return toggleAutoProduct(chatId, msgId, arg, fromId);
+      if (op === "e" && (arg === "s" || arg === "p") && extra) return startEditAutoProduct(chatId, msgId, arg, extra, fromId);
+      if (op === "pn") return startNewPremiumTerm(chatId, msgId, fromId);
+      if (op === "pd" && arg) return deletePremiumTerm(chatId, msgId, parseInt(arg) || 0, fromId);
+      return showAutoProductsMenu(chatId, msgId);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
@@ -347,6 +361,16 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "ao" && verb === "err" && a) {
     await applyAutoOrderError(chatId, fromId, a, text);
+    return true;
+  }
+  if (scope === "ap" && verb === "e" && a && b) {
+    // ap:e:<kind>:<field>  (kind = s|p, field = title|price|min|max)
+    await applyEditAutoProduct(chatId, fromId, a as "s" | "p", b, text);
+    return true;
+  }
+  if (scope === "ap" && verb === "pn") {
+    // ap:pn:m → ap:pn:p (new premium term wizard)
+    await handleNewPremiumTermStep(chatId, fromId, text);
     return true;
   }
   return false;
