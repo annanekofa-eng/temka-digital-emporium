@@ -31,6 +31,9 @@ export function adminMenuKeyboard() {
         { text: "📣 Рассылка", callback_data: "a:bc" },
         { text: "⭐ Отзывы", callback_data: "a:rv" },
       ],
+      [
+        { text: "🤖 Авто-заказы", callback_data: "a:ao" },
+      ],
     ],
   };
 }
