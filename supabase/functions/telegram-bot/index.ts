@@ -212,7 +212,14 @@ async function handleAdminCallback(
       if (op === "d" && arg) return deleteReview(chatId, msgId, arg, fromId);
       return showReviewList(chatId, msgId, "pending", 0);
     }
-    case "st": {
+    case "sb": {
+      if (!op) return showSbpList(chatId, msgId, "pending", 0);
+      if (op === "f" && arg) return showSbpList(chatId, msgId, arg, 0);
+      if (op === "p" && arg) return showSbpList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showSbp(chatId, msgId, arg);
+      if (op === "a" && arg) return approveSbp(chatId, msgId, arg, fromId);
+      if (op === "r" && arg) return startRejectSbp(chatId, msgId, arg, fromId);
+      return showSbpList(chatId, msgId, "pending", 0);
       if (!op) return showStats(chatId, msgId, "w");
       if (op === "r" && arg) return showStats(chatId, msgId, arg);
       return showStats(chatId, msgId, "w");
