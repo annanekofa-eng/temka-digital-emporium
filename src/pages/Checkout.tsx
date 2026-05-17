@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
+import sbpLogo from '@/assets/sbp-logo.png';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { useStore } from '@/contexts/StoreContext';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import PriceRub from '@/components/PriceRub';
+import { formatRub, usdToRub } from '@/lib/sbp';
 
 import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +30,7 @@ const Checkout = () => {
   const buildPath = useStorefrontPath();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [method, setMethod] = useState<'crypto' | 'sbp'>('crypto');
 
   // Direct checkout: bypass cart entirely (for Stars / Premium auto-products)
   const directItem = (location.state as { directItem?: DirectItem } | null)?.directItem || null;
@@ -73,6 +76,26 @@ const Checkout = () => {
     setProcessing(true);
     setError('');
     haptic.impact('medium');
+
+    // SBP path — only available for cart orders (not direct Stars/Premium)
+    if (method === 'sbp' && !isDirect) {
+      try {
+        const orderNumber = `TK-${Date.now().toString(36).toUpperCase()}`;
+        const { data, error: fnError } = await supabase.functions.invoke('create-sbp-order', {
+          body: { initData, orderNumber, items, promoCode: effectivePromo?.code || null },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        haptic.notification('success');
+        navigate(buildPath('/sbp-payment'), { state: { sbp: data } });
+      } catch (err: any) {
+        setError(err.message || 'Ошибка СБП');
+        haptic.notification('error');
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
 
     try {
       const orderNumber = `TK-${Date.now().toString(36).toUpperCase()}`;
@@ -168,14 +191,37 @@ const Checkout = () => {
           </div>
           {toPay > 0 ? (
             <>
-              <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
-                <img src={cryptobotLogo} alt="CryptoBot" className="w-8 h-8 rounded-lg mx-auto mb-1" />
-                <div className="text-sm font-medium">CryptoBot</div>
-                <div className="text-[10px] text-muted-foreground">USDT, мгновенно</div>
-              </div>
-              {balanceUsed > 0 && (
+              {!isDirect && (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <button type="button" onClick={() => setMethod('crypto')}
+                    className={`p-3 rounded-xl border text-center transition-colors ${method === 'crypto' ? 'border-primary bg-primary/5' : 'border-border/40 bg-card opacity-70'}`}>
+                    <img src={cryptobotLogo} alt="CryptoBot" className="w-8 h-8 rounded-lg mx-auto mb-1" />
+                    <div className="text-xs font-medium">CryptoBot</div>
+                    <div className="text-[10px] text-muted-foreground">Криптовалюта</div>
+                  </button>
+                  <button type="button" onClick={() => setMethod('sbp')}
+                    className={`p-3 rounded-xl border text-center transition-colors ${method === 'sbp' ? 'border-primary bg-primary/5' : 'border-border/40 bg-card opacity-70'}`}>
+                    <img src={sbpLogo} alt="СБП" className="w-8 h-8 rounded-lg mx-auto mb-1" />
+                    <div className="text-xs font-medium">СБП</div>
+                    <div className="text-[10px] text-muted-foreground">Перевод по карте</div>
+                  </button>
+                </div>
+              )}
+              {isDirect && (
+                <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
+                  <img src={cryptobotLogo} alt="CryptoBot" className="w-8 h-8 rounded-lg mx-auto mb-1" />
+                  <div className="text-sm font-medium">CryptoBot</div>
+                  <div className="text-[10px] text-muted-foreground">USDT, мгновенно</div>
+                </div>
+              )}
+              {balanceUsed > 0 && method === 'crypto' && (
                 <div className="text-[10px] text-muted-foreground mt-2 text-center">
                   ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} через CryptoBot
+                </div>
+              )}
+              {method === 'sbp' && !isDirect && (
+                <div className="text-[10px] text-muted-foreground mt-2 text-center">
+                  К переводу: <b>{formatRub(usdToRub(effectiveAfterDiscount))}</b> (курс 80 ₽/$)
                 </div>
               )}
             </>
