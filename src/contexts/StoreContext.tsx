@@ -20,6 +20,7 @@ interface StoreContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  syncCartWithProducts: (products: DbProduct[]) => { removed: string[]; priceChanged: Array<{ title: string; oldPrice: number; newPrice: number }> };
   cartTotal: number;
   cartCount: number;
   searchQuery: string;
