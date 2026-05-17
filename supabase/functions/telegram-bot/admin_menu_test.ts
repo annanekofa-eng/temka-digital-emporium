@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { adminMenuKeyboard } from "../admin/menu.ts";
+import { adminMenuKeyboard } from "./admin/menu.ts";
 
 Deno.test("adminMenuKeyboard: contains the 12 admin sections from the brief", () => {
   const kb = adminMenuKeyboard();

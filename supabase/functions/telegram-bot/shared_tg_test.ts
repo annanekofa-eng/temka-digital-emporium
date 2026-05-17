@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { safeSlice, maskToken } from "../_shared/tg.ts";
+import { safeSlice, maskToken } from "./_shared/tg.ts";
 
 Deno.test("safeSlice: returns input when under limit", () => {
   assertEquals(safeSlice("hello", 64), "hello");
