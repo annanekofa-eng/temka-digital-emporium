@@ -296,6 +296,10 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   if (scope === "u") {
     return await handleUserText(chatId, fromId, sess.state, text);
   }
+  if (scope === "o" && verb === "msg" && a) {
+    await applyOrderMessage(chatId, fromId, a, text);
+    return true;
+  }
   if (scope === "pc" && verb === "new") {
     await handleCreatePromoStep(chatId, fromId, text);
     return true;
