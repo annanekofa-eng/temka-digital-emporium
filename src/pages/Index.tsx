@@ -37,27 +37,27 @@ const Index = () => {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border/60 bg-card/70 backdrop-blur text-xs text-muted-foreground mb-4"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border/60 bg-card/70 backdrop-blur text-xs font-bold uppercase text-muted-foreground mb-4"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Цифровой бутик
+              ЦИФРОВОЙ БУТИК
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05, duration: 0.5 }}
               style={{ fontFamily: "'Six Caps', sans-serif" }}
-              className="text-7xl sm:text-8xl lg:text-9xl tracking-wide leading-none drop-shadow-[0_2px_24px_hsl(var(--background)/0.6)]"
+              className="text-8xl sm:text-9xl lg:text-[10rem] font-black uppercase tracking-wide leading-none drop-shadow-[0_2px_24px_hsl(var(--background)/0.6)]"
             >
-              {shopName}
+              {shopName.toUpperCase()}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="text-muted-foreground text-sm sm:text-base mt-3 max-w-md mx-auto"
+              className="text-muted-foreground text-base sm:text-lg font-bold uppercase mt-3 max-w-md mx-auto"
             >
-              Дизайн, мерч и цифровые товары — три проекта в одном месте.
+              ДИЗАЙН, МЕРЧ И ЦИФРОВЫЕ ТОВАРЫ — ТРИ ПРОЕКТА В ОДНОМ МЕСТЕ.
             </motion.p>
           </div>
         </div>
