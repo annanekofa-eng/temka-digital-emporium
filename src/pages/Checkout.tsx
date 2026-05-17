@@ -287,26 +287,6 @@ const Checkout = () => {
               <><Wallet className="w-4 h-4 mr-1" /> Оплатить балансом</>
             )}
           </Button>
-              <div className="flex justify-between font-display font-bold text-base">
-                <span>К оплате (баланс)</span>
-                <div className="text-right">
-                  <div>${totalAfterDiscount.toFixed(2)}</div>
-                  <PriceRub usd={totalAfterDiscount} className="font-normal" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Button variant="hero" size="lg" className="w-full" onClick={handleCheckout}
-            disabled={processing}>
-            {processing ? (
-              <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> Создание заказа...</span>
-            ) : toPay > 0 ? (
-              <><Lock className="w-4 h-4 mr-1" /> Оплатить — ${toPay.toFixed(2)}</>
-            ) : (
-              <><Wallet className="w-4 h-4 mr-1" /> Оплатить балансом</>
-            )}
-          </Button>
 
           <p className="text-[10px] text-muted-foreground text-center pt-1">
             Нажимая «Оплатить», вы соглашаетесь с{' '}
