@@ -67,7 +67,7 @@ const Cart = () => {
             const outOfStock = item.product.stock <= 0;
             const lineTotal = adjustedItemPrice(item) * item.quantity;
             const lineKey = (item as any).lineId ?? item.product.id;
-            const isAuto = ['premium_term', 'stars'].includes(String(item.product.product_type || ''));
+            const isAuto = ['premium_term', 'stars'].includes(String((item.product as any).product_type || ''));
             return (
               <div key={lineKey} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 ${outOfStock && !isAuto ? 'opacity-60' : ''}`}>
                 <div className="flex gap-3 sm:gap-4">
