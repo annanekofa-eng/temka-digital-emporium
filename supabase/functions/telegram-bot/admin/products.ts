@@ -146,6 +146,21 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
       { text: "↑ max", callback_data: `a:p:e:${id}:max_qty` },
     ],
     [
+      { text: "🏷 Подкатегория", callback_data: `a:p:e:${id}:subcategory` },
+      { text: "🌍 Регион", callback_data: `a:p:e:${id}:region` },
+    ],
+    [
+      { text: "💻 Платформа", callback_data: `a:p:e:${id}:platform` },
+      { text: "🚚 Доставка", callback_data: `a:p:e:${id}:delivery_type` },
+    ],
+    [
+      { text: "🏷 Теги", callback_data: `a:p:e:${id}:tags` },
+      { text: "✨ Преимущества", callback_data: `a:p:e:${id}:features` },
+    ],
+    [
+      { text: "📋 Характеристики", callback_data: `a:p:e:${id}:specifications` },
+    ],
+    [
       { text: "⏱ Term options", callback_data: `a:p:e:${id}:term_options` },
       { text: "🖼 Галерея", callback_data: `a:p:e:${id}:gallery` },
     ],
