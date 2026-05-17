@@ -44,11 +44,18 @@ interface StoreContextType {
   totalAfterDiscount: number;
 }
 
-const CART_STORAGE_KEY = 'telestore-cart';
+const getCartStorageKey = (): string => {
+  try {
+    const tgId = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    return tgId ? `telestore-cart:${tgId}` : 'telestore-cart:guest';
+  } catch {
+    return 'telestore-cart:guest';
+  }
+};
 
 const loadCart = (): CartItem[] => {
   try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    const raw = localStorage.getItem(getCartStorageKey());
     if (raw) return JSON.parse(raw);
   } catch {}
   return [];
@@ -67,7 +74,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cartRef = useRef(cart);
   useEffect(() => {
     cartRef.current = cart;
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    localStorage.setItem(getCartStorageKey(), JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = useCallback((product: DbProduct, opts?: { recipientUsername?: string }) => {
@@ -130,7 +137,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPromoCode('');
     setPromoError('');
     try {
-      localStorage.removeItem(CART_STORAGE_KEY);
+      localStorage.removeItem(getCartStorageKey());
     } catch {}
   }, []);
 
