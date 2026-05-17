@@ -45,6 +45,9 @@ import {
   handleNewBroadcastPhoto,
 } from "./admin/broadcasts.ts";
 import { showStats } from "./admin/stats.ts";
+import {
+  showAutoOrderList, showAutoOrder, confirmAutoOrder, startAutoOrderError, applyAutoOrderError,
+} from "./admin/auto_orders.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -271,6 +274,15 @@ async function handleAdminCallback(
       if (op === "aud" && arg && extra) return setBroadcastAudience(chatId, msgId, arg, extra, fromId);
       return showBroadcastList(chatId, msgId, 0);
     }
+    case "ao": {
+      if (!op) return showAutoOrderList(chatId, msgId, "pending", 0);
+      if (op === "f" && arg) return showAutoOrderList(chatId, msgId, arg as any, 0);
+      if (op === "p" && arg) return showAutoOrderList(chatId, msgId, arg as any, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showAutoOrder(chatId, msgId, arg);
+      if (op === "ok" && arg) return confirmAutoOrder(chatId, msgId, arg, fromId);
+      if (op === "err" && arg) return startAutoOrderError(chatId, msgId, arg, fromId);
+      return showAutoOrderList(chatId, msgId, "pending", 0);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
@@ -331,6 +343,10 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "bc" && verb === "new") {
     await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
+    return true;
+  }
+  if (scope === "ao" && verb === "err" && a) {
+    await applyAutoOrderError(chatId, fromId, a, text);
     return true;
   }
   return false;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useStore } from '@/contexts/StoreContext';
@@ -18,6 +18,32 @@ export const SPECIAL_PRODUCT_TYPES = [
 export const isSpecialProduct = (p: any) =>
   p?.product_type && (SPECIAL_PRODUCT_TYPES as readonly string[]).includes(p.product_type);
 
+const USERNAME_RE = /^[A-Za-z0-9_]{5,32}$/;
+
+function normalizeUsername(raw: string): string | null {
+  const cleaned = raw.trim().replace(/^@+/, '');
+  return USERNAME_RE.test(cleaned) ? cleaned : null;
+}
+
+const RecipientInput = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="mb-3">
+    <label className="text-xs text-muted-foreground mb-1 block">Кому отправить (@username Telegram)</label>
+    <div className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-primary/50">
+      <AtSign className="w-4 h-4 text-muted-foreground shrink-0" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/^@+/, ''))}
+        placeholder="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/60"
+      />
+    </div>
+  </div>
+);
+
 const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
   <img
     src={src}
@@ -30,6 +56,7 @@ const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
 export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
   const [selected, setSelected] = useState<number | null>(null);
+  const [recipient, setRecipient] = useState('');
   const opt = selected !== null ? product.term_options?.[selected] : null;
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
@@ -56,17 +83,23 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
           </button>
         ))}
       </div>
+      <RecipientInput value={recipient} onChange={setRecipient} />
       <Button
         className="w-full"
         disabled={!opt}
         onClick={() => {
           if (!opt) return;
-          addToCart({
+          const u = normalizeUsername(recipient);
+          if (!u) {
+            toast.error('Укажите корректный @username получателя');
+            return;
+          }
+          const ok = addToCart({
             ...product,
             price: opt.price,
             title: `${product.title} · ${opt.months} мес`,
-          } as any);
-          toast.success('Добавлено в корзину');
+          } as any, { recipientUsername: u });
+          if (ok) toast.success(`Добавлено · получатель @${u}`);
         }}
       >
         <ShoppingCart className="w-4 h-4 mr-2" />
@@ -81,6 +114,7 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
   const minQty = Math.max(1, Number(product.min_qty) || 1);
   const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
   const [qty, setQty] = useState<number>(minQty);
+  const [recipient, setRecipient] = useState('');
   const clamped = Math.min(maxQty, Math.max(0, Math.floor(qty || 0)));
   const total = (clamped * Number(product.price)).toFixed(2);
   const canAdd = clamped >= minQty;
@@ -124,17 +158,23 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
           <span>{maxQty.toLocaleString('ru')}⭐</span>
         </div>
       </div>
+      <RecipientInput value={recipient} onChange={setRecipient} />
       <Button
         className="w-full"
         disabled={!canAdd}
         onClick={() => {
           if (!canAdd) return;
-          addToCart({
+          const u = normalizeUsername(recipient);
+          if (!u) {
+            toast.error('Укажите корректный @username получателя');
+            return;
+          }
+          const ok = addToCart({
             ...product,
             price: Number(total),
             title: `${product.title} · ${clamped}⭐`,
-          } as any);
-          toast.success('Звёзды добавлены');
+          } as any, { recipientUsername: u });
+          if (ok) toast.success(`Звёзды добавлены · @${u}`);
         }}
       >
         <ShoppingCart className="w-4 h-4 mr-2" />

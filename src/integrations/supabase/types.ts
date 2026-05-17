@@ -348,6 +348,7 @@ export type Database = {
           product_price: number
           product_title: string
           quantity: number
+          recipient_username: string | null
         }
         Insert: {
           created_at?: string
@@ -359,6 +360,7 @@ export type Database = {
           product_price: number
           product_title: string
           quantity?: number
+          recipient_username?: string | null
         }
         Update: {
           created_at?: string
@@ -370,6 +372,7 @@ export type Database = {
           product_price?: number
           product_title?: string
           quantity?: number
+          recipient_username?: string | null
         }
         Relationships: [
           {
@@ -390,6 +393,10 @@ export type Database = {
       }
       orders: {
         Row: {
+          auto_delivered_at: string | null
+          auto_delivered_by: number | null
+          auto_error_note: string | null
+          auto_status: string | null
           balance_used: number
           created_at: string
           currency: string
@@ -397,6 +404,7 @@ export type Database = {
           external_ref: string | null
           id: string
           invoice_id: string | null
+          is_auto: boolean
           notes: string | null
           order_number: string
           pay_url: string | null
@@ -409,6 +417,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_delivered_at?: string | null
+          auto_delivered_by?: number | null
+          auto_error_note?: string | null
+          auto_status?: string | null
           balance_used?: number
           created_at?: string
           currency?: string
@@ -416,6 +428,7 @@ export type Database = {
           external_ref?: string | null
           id?: string
           invoice_id?: string | null
+          is_auto?: boolean
           notes?: string | null
           order_number: string
           pay_url?: string | null
@@ -428,6 +441,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_delivered_at?: string | null
+          auto_delivered_by?: number | null
+          auto_error_note?: string | null
+          auto_status?: string | null
           balance_used?: number
           created_at?: string
           currency?: string
@@ -435,6 +452,7 @@ export type Database = {
           external_ref?: string | null
           id?: string
           invoice_id?: string | null
+          is_auto?: boolean
           notes?: string | null
           order_number?: string
           pay_url?: string | null

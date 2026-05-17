@@ -65,6 +65,7 @@ export async function showProductList(chatId: number, msgId: number | undefined,
   const { data, count } = await supabase
     .from("products")
     .select("id, title, price, is_active, project_id", { count: "exact" })
+    .not("product_type", "in", "(premium_term,stars)")
     .order("updated_at", { ascending: false })
     .range(from, to);
 

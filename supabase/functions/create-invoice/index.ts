@@ -58,8 +58,11 @@ serve(async (req) => {
     const serverBalance = Number(profile?.balance || 0);
 
     // Validate items (with special-type pricing rules)
+    const AUTO_TYPES = new Set(["premium_term", "stars"]);
     let serverTotal = 0;
-    const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number }[] = [];
+    let hasAuto = false;
+    let hasRegular = false;
+    const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number; productType: string; recipientUsername: string | null }[] = [];
     for (const item of items) {
       if (!item.productId || !item.quantity || item.quantity <= 0 || item.quantity > 100)
         return jsonRes({ error: "Invalid item data" }, 400);
@@ -67,11 +70,16 @@ serve(async (req) => {
         .select("id, title, price, stock, is_active, product_type, term_options, min_qty, max_qty")
         .eq("id", item.productId).single();
       if (!product || !product.is_active) return jsonRes({ error: "Product not found or inactive" }, 400);
-      if (product.stock < item.quantity) return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
+
+      const ptype = String(product.product_type || "simple");
+      const isAuto = AUTO_TYPES.has(ptype);
+      if (isAuto) hasAuto = true; else hasRegular = true;
+      if (!isAuto && product.stock < item.quantity) {
+        return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
+      }
 
       let unitPrice = Number(product.price);
       const clientPrice = Number(item.productPrice);
-      const ptype = String(product.product_type || "simple");
 
       if (ptype === "premium_term") {
         const opts = (product.term_options as Array<{ months: number; price: number }>) || [];
@@ -82,7 +90,6 @@ serve(async (req) => {
         const base = Number(product.price);
         const minQty = Math.max(1, Number(product.min_qty) || 1);
         const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
-        // Cart stores quantity=1 and price=qty*base. Infer qty from price.
         const inferredQty = base > 0 ? Math.round(clientPrice / base) : 0;
         if (inferredQty < minQty || inferredQty > maxQty)
           return jsonRes({ error: `${product.title} — invalid stars amount` }, 400);
@@ -92,8 +99,28 @@ serve(async (req) => {
         unitPrice = clientPrice;
       }
 
+      let recipient: string | null = null;
+      if (isAuto) {
+        const raw = String(item.recipientUsername || "").trim().replace(/^@+/, "");
+        if (!/^[A-Za-z0-9_]{5,32}$/.test(raw)) {
+          return jsonRes({ error: `${product.title} — укажите корректный @username получателя` }, 400);
+        }
+        recipient = raw;
+      }
+
       serverTotal += unitPrice * item.quantity;
-      validatedItems.push({ productId: product.id, productTitle: item.productTitle || product.title, productPrice: unitPrice, quantity: item.quantity });
+      validatedItems.push({
+        productId: product.id,
+        productTitle: item.productTitle || product.title,
+        productPrice: unitPrice,
+        quantity: item.quantity,
+        productType: ptype,
+        recipientUsername: recipient,
+      });
+    }
+
+    if (hasAuto && hasRegular) {
+      return jsonRes({ error: "Авто-товары оформляются отдельным заказом" }, 400);
     }
 
     // Promo
@@ -135,12 +162,14 @@ serve(async (req) => {
       status: "pending", payment_status: "unpaid", total_amount: serverTotal,
       currency: currency || "USD", discount_amount: discountAmount,
       promo_code: validatedPromoCode, balance_used: balanceUsed,
+      is_auto: hasAuto, auto_status: hasAuto ? "pending" : null,
     }).select().single();
     if (error) { console.error("Order error:", error); return jsonRes({ error: "Failed to create order" }, 500); }
 
     await supabase.from("order_items").insert(validatedItems.map(i => ({
       order_id: order.id, product_id: i.productId, product_title: i.productTitle,
       product_price: i.productPrice, quantity: i.quantity,
+      recipient_username: i.recipientUsername,
     })));
 
     const response = await fetch(`${CRYPTOBOT_API_URL}/createInvoice`, {
