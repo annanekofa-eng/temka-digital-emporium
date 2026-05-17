@@ -770,6 +770,81 @@ export type Database = {
           },
         ]
       }
+      sbp_payments: {
+        Row: {
+          amount_rub: number
+          amount_usd: number
+          created_at: string
+          id: string
+          order_id: string
+          rate: number
+          receipt_url: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: number | null
+          status: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          amount_rub: number
+          amount_usd: number
+          created_at?: string
+          id?: string
+          order_id: string
+          rate?: number
+          receipt_url?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: number | null
+          status?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          amount_rub?: number
+          amount_usd?: number
+          created_at?: string
+          id?: string
+          order_id?: string
+          rate?: number
+          receipt_url?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: number | null
+          status?: string
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sbp_requisites: {
+        Row: {
+          bank: string
+          card: string
+          holder_name: string
+          key: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          bank?: string
+          card?: string
+          holder_name?: string
+          key: string
+          phone?: string
+          updated_at?: string
+        }
+        Update: {
+          bank?: string
+          card?: string
+          holder_name?: string
+          key?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           key: string

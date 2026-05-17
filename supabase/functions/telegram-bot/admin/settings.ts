@@ -27,6 +27,7 @@ export async function showSettingsMenu(chatId: number, msgId?: number) {
     return `<b>${escapeHtml(s.label)}</b>\n<code>${escapeHtml(v)}</code>`;
   }).join("\n\n");
   const kb = values.map((s) => [{ text: s.label, callback_data: `a:se:e:${s.key}` }]);
+  kb.push([{ text: "🏦 Реквизиты СБП", callback_data: "a:sbp:req" }]);
   kb.push([{ text: "📋 Шаблоны сообщений", callback_data: "a:se:tpl" }]);
   kb.push(backRow());
   await deleteAndSend(chatId, msgId, {
