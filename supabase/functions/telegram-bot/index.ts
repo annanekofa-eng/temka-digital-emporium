@@ -188,6 +188,13 @@ async function handleAdminCallback(
       if (op === "dl" && arg) return fulfilFromInventory(chatId, msgId, arg, fromId);
       if (op === "rf" && arg) return refundOrderToBalance(chatId, msgId, arg, fromId);
       if (op === "msg" && arg) return startOrderMessage(chatId, msgId, arg, fromId);
+      if (op === "user" && arg) {
+        // jump from order card to buyer profile
+        const { data: o } = await supabase
+          .from("orders").select("telegram_id").eq("id", arg).maybeSingle();
+        if (o?.telegram_id) return showUser(chatId, msgId, String(o.telegram_id));
+        return showOrder(chatId, msgId, arg);
+      }
       return showOrderList(chatId, msgId, "all", 0);
     }
     case "u": {
