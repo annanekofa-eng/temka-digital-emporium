@@ -135,7 +135,7 @@ serve(async (req) => {
     if (pErr) return jsonRes({ error: "Failed to create payment" }, 500);
 
     // Load current requisites
-    const { data: req } = await supabase.from("sbp_requisites").select("*").eq("key", "current").maybeSingle();
+    const { data: requisites } = await supabase.from("sbp_requisites").select("*").eq("key", "current").maybeSingle();
 
     return jsonRes({
       orderId: order.id,
@@ -145,10 +145,10 @@ serve(async (req) => {
       amountRub,
       rate: USD_RUB_RATE,
       requisites: {
-        bank: req?.bank || "",
-        card: req?.card || "",
-        holderName: req?.holder_name || "",
-        phone: req?.phone || "",
+        bank: requisites?.bank || "",
+        card: requisites?.card || "",
+        holderName: requisites?.holder_name || "",
+        phone: requisites?.phone || "",
       },
     });
   } catch (e) {
