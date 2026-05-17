@@ -11,3 +11,24 @@ verify_jwt = false
 
 [functions.portals-gifts]
 verify_jwt = false
+
+[functions.pay-with-balance]
+verify_jwt = false
+
+[functions.create-invoice]
+verify_jwt = false
+
+[functions.check-payment]
+verify_jwt = false
+
+[functions.get-my-data]
+verify_jwt = false
+
+[functions.create-topup-invoice]
+verify_jwt = false
+
+[functions.submit-review]
+verify_jwt = false
+
+[functions.get-exchange-rate]
+verify_jwt = false
