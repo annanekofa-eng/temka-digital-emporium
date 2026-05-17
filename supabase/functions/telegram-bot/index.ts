@@ -40,6 +40,9 @@ import {
 } from "./admin/reviews.ts";
 import { showLogs } from "./admin/logs.ts";
 import {
+  showSbpList, showSbp, approveSbp, startRejectSbp, applyRejectSbp,
+} from "./admin/sbp.ts";
+import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
   deleteBroadcast, sendBroadcast, setBroadcastAudience, testBroadcast,
   handleNewBroadcastPhoto,
