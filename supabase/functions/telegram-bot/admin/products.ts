@@ -207,7 +207,8 @@ function parseFieldValue(field: string, raw: string): { ok: true; value: unknown
   if (!f) return { ok: false, err: "Неизвестное поле" };
   if (raw === "-") {
     if (f.type === "num") return { ok: true, value: 0 };
-    if (f.type === "json") return { ok: true, value: [] };
+    if (f.type === "json" || f.type === "lines") return { ok: true, value: [] };
+    if (f.type === "kv") return { ok: true, value: {} };
     return { ok: true, value: null };
   }
   if (f.type === "num") {
@@ -223,6 +224,21 @@ function parseFieldValue(field: string, raw: string): { ok: true; value: unknown
     } catch {
       return { ok: false, err: "Невалидный JSON" };
     }
+  }
+  if (f.type === "lines") {
+    const arr = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return { ok: true, value: arr };
+  }
+  if (f.type === "kv") {
+    const obj: Record<string, string> = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      const idx = t.indexOf(":");
+      if (idx <= 0) return { ok: false, err: `Строка без двоеточия: "${t}"` };
+      obj[t.slice(0, idx).trim()] = t.slice(idx + 1).trim();
+    }
+    return { ok: true, value: obj };
   }
   return { ok: true, value: raw };
 }
