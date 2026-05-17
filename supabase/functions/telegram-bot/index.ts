@@ -18,6 +18,10 @@ import {
 import {
   showOrderList, showOrder, showStatusPicker, setOrderStatus, setOrderPayment, sendOrderRep,
 } from "./admin/orders.ts";
+import {
+  showUsersMenu, showRecentUsers, startSearchUser, showUser, toggleBlock,
+  startBalanceChange, showBalanceHistory, startEditNote, handleUserText,
+} from "./admin/users.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -157,7 +161,18 @@ async function handleAdminCallback(
       if (op === "rep" && arg) return sendOrderRep(chatId, msgId, arg, fromId);
       return showOrderList(chatId, msgId, "all", 0);
     }
-    case "u": return notImplementedStub(chatId, msgId, "Пользователи");
+    case "u": {
+      if (!op) return showUsersMenu(chatId, msgId);
+      if (op === "s") return startSearchUser(chatId, msgId, fromId);
+      if (op === "recent") return showRecentUsers(chatId, msgId);
+      if (op === "v" && arg) return showUser(chatId, msgId, arg);
+      if (op === "bl" && arg) return toggleBlock(chatId, msgId, arg, fromId);
+      if (op === "bc" && arg) return startBalanceChange(chatId, msgId, arg, "credit", fromId);
+      if (op === "bd" && arg) return startBalanceChange(chatId, msgId, arg, "deduct", fromId);
+      if (op === "bh" && arg) return showBalanceHistory(chatId, msgId, arg);
+      if (op === "nt" && arg) return startEditNote(chatId, msgId, arg, fromId);
+      return showUsersMenu(chatId, msgId);
+    }
     case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
     case "st": return notImplementedStub(chatId, msgId, "Статистика");
     case "pc": return notImplementedStub(chatId, msgId, "Промокоды");
@@ -200,6 +215,9 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   if (scope === "pr" && verb === "edit" && a && b) {
     await applyEditProject(chatId, fromId, a, b, text);
     return true;
+  }
+  if (scope === "u") {
+    return await handleUserText(chatId, fromId, sess.state, text);
   }
   return false;
 }
