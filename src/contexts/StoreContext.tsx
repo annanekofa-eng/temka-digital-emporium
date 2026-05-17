@@ -23,9 +23,9 @@ export interface PromoResult {
 
 interface StoreContextType {
   cart: CartItem[];
-  addToCart: (product: DbProduct) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: DbProduct, opts?: { recipientUsername?: string }) => boolean;
+  removeFromCart: (lineKey: string) => void;
+  updateQuantity: (lineKey: string, quantity: number) => void;
   clearCart: () => void;
   syncCartWithProducts: (products: DbProduct[]) => { removed: string[]; priceChanged: Array<{ title: string; oldPrice: number; newPrice: number }> };
   cartTotal: number;
