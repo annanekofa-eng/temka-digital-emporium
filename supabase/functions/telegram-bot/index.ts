@@ -48,6 +48,11 @@ import { showStats } from "./admin/stats.ts";
 import {
   showAutoOrderList, showAutoOrder, confirmAutoOrder, startAutoOrderError, applyAutoOrderError,
 } from "./admin/auto_orders.ts";
+import {
+  showAutoProductsMenu, showAutoProduct, toggleAutoProduct,
+  startEditAutoProduct, applyEditAutoProduct,
+  startNewPremiumTerm, handleNewPremiumTermStep, deletePremiumTerm,
+} from "./admin/auto_products.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
