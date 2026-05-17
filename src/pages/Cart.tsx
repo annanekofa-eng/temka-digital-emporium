@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ArrowRight, Shield, Zap, Clock, Tag, CalendarDays } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, Shield, Zap, Clock, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
@@ -13,13 +12,6 @@ const categoryEmoji: Record<string, string> = {
   'premium': '👑', 'automation': '🤖', 'ai-tools': '🧠', 'services': '⚡',
 };
 
-const RENT_OPTIONS = [
-  { months: 1, label: '1 мес',  mult: 1 },
-  { months: 3, label: '3 мес',  mult: 2.7 },
-  { months: 6, label: '6 мес',  mult: 5 },
-  { months: 12, label: '1 год', mult: 9 },
-];
-
 const Cart = () => {
   const {
     cart, removeFromCart, updateQuantity, cartTotal, clearCart,
@@ -29,16 +21,7 @@ const Cart = () => {
   const { user, initData } = useTelegram();
   const { data: products } = useProducts();
 
-  // local-only rental period multipliers per cart item id
-  const [rent, setRent] = useState<Record<string, number>>({});
-  const getMult = (id: string) => rent[id] ?? 1;
-
-  // Adjusted totals applying rent multiplier
-  const adjustedItemPrice = (item: typeof cart[number]) => {
-    const isRent = (item.product as any).product_type === 'nft_rent';
-    const mult = isRent ? getMult(item.product.id) : 1;
-    return Number(item.product.price) * mult;
-  };
+  const adjustedItemPrice = (item: typeof cart[number]) => Number(item.product.price);
   const adjustedTotal = cart.reduce((s, i) => s + adjustedItemPrice(i) * i.quantity, 0);
   const adjustedDiscount = promoResult
     ? promoResult.discountType === 'percent'
@@ -68,33 +51,9 @@ const Cart = () => {
         <div className="lg:col-span-2 space-y-3 sm:space-y-4">
           {cart.map(item => {
             const outOfStock = item.product.stock <= 0;
-            const isRent = (item.product as any).product_type === 'nft_rent';
-            const currentMult = getMult(item.product.id);
             const lineTotal = adjustedItemPrice(item) * item.quantity;
             return (
               <div key={item.product.id} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 ${outOfStock ? 'opacity-60' : ''}`}>
-                {isRent && (
-                  <div className="mb-3 p-2 rounded-lg bg-secondary/40 border border-border/50">
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
-                      <CalendarDays className="w-3.5 h-3.5" /> Срок аренды
-                    </div>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {RENT_OPTIONS.map(o => (
-                        <button
-                          key={o.months}
-                          onClick={() => setRent(r => ({ ...r, [item.product.id]: o.mult }))}
-                          className={`px-2 py-1.5 rounded-md text-[11px] font-medium border transition-colors ${
-                            currentMult === o.mult
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card border-border text-muted-foreground hover:border-primary/40'
-                          }`}
-                        >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/50 rounded-lg flex items-center justify-center text-2xl sm:text-3xl shrink-0 overflow-hidden">
                     {item.product.image ? (
