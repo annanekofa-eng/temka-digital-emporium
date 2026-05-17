@@ -22,6 +22,14 @@ import {
   showUsersMenu, showRecentUsers, startSearchUser, showUser, toggleBlock,
   startBalanceChange, showBalanceHistory, startEditNote, handleUserText,
 } from "./admin/users.ts";
+import {
+  showPromoList, showPromo, togglePromo, askDeletePromo, confirmDeletePromo,
+  startEditPromo, applyEditPromo, startCreatePromo, handleCreatePromoStep, setNewPromoType,
+} from "./admin/promocodes.ts";
+import {
+  showSettingsMenu, startEditSetting, showTemplateList, showTemplate, toggleTemplate,
+  deleteTemplate, startEditTemplate, startNewTemplate, handleSettingsText,
+} from "./admin/settings.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -175,10 +183,30 @@ async function handleAdminCallback(
     }
     case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
     case "st": return notImplementedStub(chatId, msgId, "Статистика");
-    case "pc": return notImplementedStub(chatId, msgId, "Промокоды");
+    case "pc": {
+      if (!op) return showPromoList(chatId, msgId);
+      if (op === "v" && arg) return showPromo(chatId, msgId, arg);
+      if (op === "t" && arg) return togglePromo(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return askDeletePromo(chatId, msgId, arg);
+      if (op === "dc" && arg) return confirmDeletePromo(chatId, msgId, arg, fromId);
+      if (op === "e" && arg && extra) return startEditPromo(chatId, msgId, arg, extra, fromId);
+      if (op === "n") return startCreatePromo(chatId, msgId, fromId);
+      if (op === "nt" && arg) return setNewPromoType(chatId, msgId, arg, fromId);
+      return showPromoList(chatId, msgId);
+    }
     case "inv": return notImplementedStub(chatId, msgId, "Склад");
     case "lg": return notImplementedStub(chatId, msgId, "Логи");
-    case "se": return notImplementedStub(chatId, msgId, "Настройки");
+    case "se": {
+      if (!op) return showSettingsMenu(chatId, msgId);
+      if (op === "e" && arg) return startEditSetting(chatId, msgId, arg, fromId);
+      if (op === "tpl") return showTemplateList(chatId, msgId);
+      if (op === "tn") return startNewTemplate(chatId, msgId, fromId);
+      if (op === "t" && arg) return showTemplate(chatId, msgId, arg);
+      if (op === "tt" && arg) return toggleTemplate(chatId, msgId, arg, fromId);
+      if (op === "td" && arg) return deleteTemplate(chatId, msgId, arg, fromId);
+      if (op === "te" && arg && extra) return startEditTemplate(chatId, msgId, arg, extra, fromId);
+      return showSettingsMenu(chatId, msgId);
+    }
     case "bc": return notImplementedStub(chatId, msgId, "Рассылка");
     default:
       return sendAdminMenu(chatId, fromId, msgId);
@@ -218,6 +246,17 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "u") {
     return await handleUserText(chatId, fromId, sess.state, text);
+  }
+  if (scope === "pc" && verb === "new") {
+    await handleCreatePromoStep(chatId, fromId, text);
+    return true;
+  }
+  if (scope === "pc" && verb === "edit" && a && b) {
+    await applyEditPromo(chatId, fromId, a, b, text);
+    return true;
+  }
+  if (scope === "se") {
+    return await handleSettingsText(chatId, fromId, sess.state, sess.payload, text);
   }
   return false;
 }
