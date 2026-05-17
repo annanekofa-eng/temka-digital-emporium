@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Copy, Check, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import sbpLogo from '@/assets/sbp-logo.png';
+import sbpLogo from '@/assets/sbp-logo.webp';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';

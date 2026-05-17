@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
-import sbpLogo from '@/assets/sbp-logo.png';
+import sbpLogo from '@/assets/sbp-logo.webp';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
