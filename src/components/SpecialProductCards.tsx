@@ -32,8 +32,8 @@ const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
 
 export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
-  const [selected, setSelected] = useState(0);
-  const opt = product.term_options?.[selected];
+  const [selected, setSelected] = useState<number | null>(null);
+  const opt = selected !== null ? product.term_options?.[selected] : null;
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -61,6 +61,7 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
       </div>
       <Button
         className="w-full"
+        disabled={!opt}
         onClick={() => {
           if (!opt) return;
           addToCart({
@@ -71,7 +72,8 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
           toast.success('Добавлено в корзину');
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" /> Купить за ${opt?.price ?? 0}
+        <ShoppingCart className="w-4 h-4 mr-2" />
+        {opt ? `Купить за $${opt.price}` : 'Выберите срок'}
       </Button>
     </div>
   );
