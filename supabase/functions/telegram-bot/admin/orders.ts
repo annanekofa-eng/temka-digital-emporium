@@ -1,6 +1,8 @@
-// Orders admin: list with filters, view card, status change, one-click /rep.
+// Orders admin: list with filters, view card, status change, one-click /rep,
+// fulfil from inventory, message buyer, refund to balance.
 import { tg, deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog, getSetting } from "../_shared/db.ts";
+import { setSession, clearSession } from "../_shared/session.ts";
 
 const PAGE_SIZE = 8;
 
@@ -122,8 +124,10 @@ export async function showOrder(chatId: number, msgId: number | undefined, id: s
   ].filter(Boolean).join("\n");
 
   const kb = [
-    [{ text: `📤 Отправить /rep`, callback_data: `a:o:rep:${id}` }],
-    [{ text: "🔄 Сменить статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
+    [{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }],
+    [{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }],
+    [{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
+    [{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }],
     [{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }],
     [{ text: "← К списку", callback_data: "a:o" }, ...backRow()],
   ];
@@ -188,6 +192,138 @@ export async function sendOrderRep(
       ? `✅ Сообщение по заказу #${o.order_number} отправлено покупателю.`
       : `⚠️ Не удалось отправить: ${escapeHtml(send?.description ?? "ошибка")}`,
     parse_mode: "HTML",
+    reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+  });
+}
+
+// --- Fulfil from inventory: reserve N items per order_item.product_id and deliver via TG. ---
+export async function fulfilFromInventory(
+  chatId: number, msgId: number | undefined, id: string, adminId: number,
+) {
+  const { data: o } = await supabase
+    .from("orders")
+    .select("id, order_number, telegram_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!o) return showOrderList(chatId, msgId);
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("product_id, product_title, quantity")
+    .eq("order_id", id);
+
+  const delivered: string[] = [];
+  const missing: string[] = [];
+  for (const it of items ?? []) {
+    const { data: reserved } = await supabase.rpc("reserve_inventory", {
+      p_product_id: it.product_id,
+      p_quantity: it.quantity,
+      p_order_id: id,
+    });
+    const got = (reserved as Array<{ content: string }> | null) ?? [];
+    if (got.length < it.quantity) {
+      missing.push(`• ${escapeHtml(it.product_title)} — нужно ${it.quantity}, есть ${got.length}`);
+    }
+    if (got.length) {
+      const block = got.map((g, i) => `<b>${escapeHtml(it.product_title)}</b> #${i + 1}\n<code>${escapeHtml(g.content)}</code>`).join("\n\n");
+      delivered.push(block);
+    }
+  }
+
+  if (delivered.length) {
+    const body = `📦 <b>Ваш заказ #${o.order_number}</b>\n\n${delivered.join("\n\n")}`;
+    const send = await tg("sendMessage", { chat_id: o.telegram_id, text: body, parse_mode: "HTML" });
+    await writeAuditLog(adminId, "order.fulfil", String(o.order_number), { ok: !!send?.ok, count: delivered.length });
+    if (send?.ok && missing.length === 0) {
+      await supabase.from("orders").update({ status: "delivered", updated_at: new Date().toISOString() }).eq("id", id);
+    }
+  }
+
+  const summary = [
+    delivered.length ? `✅ Доставлено позиций: ${delivered.length}` : "⚠️ Нет доступного склада.",
+    missing.length ? `\n<b>Нехватка:</b>\n${missing.join("\n")}` : "",
+  ].filter(Boolean).join("\n");
+
+  await deleteAndSend(chatId, msgId, {
+    text: summary, parse_mode: "HTML",
+    reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+  });
+}
+
+// --- Refund order total to user balance. ---
+export async function refundOrderToBalance(
+  chatId: number, msgId: number | undefined, id: string, adminId: number,
+) {
+  const { data: o } = await supabase
+    .from("orders")
+    .select("id, order_number, telegram_id, total_amount, payment_status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!o) return showOrderList(chatId, msgId);
+  const amount = Number(o.total_amount);
+  if (!amount || amount <= 0) {
+    return deleteAndSend(chatId, msgId, {
+      text: "❌ Нулевая сумма — нечего возвращать.",
+      reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+    });
+  }
+  const { data: newBal, error } = await supabase.rpc("credit_balance", {
+    p_telegram_id: o.telegram_id, p_amount: amount,
+  });
+  if (error) {
+    return deleteAndSend(chatId, msgId, {
+      text: `❌ Ошибка возврата: ${escapeHtml(error.message)}`,
+      reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+    });
+  }
+  await supabase.from("balance_history").insert({
+    telegram_id: o.telegram_id, admin_telegram_id: adminId, amount, type: "credit",
+    comment: `Возврат по заказу #${o.order_number}`, balance_after: Number(newBal ?? 0),
+  });
+  await supabase.from("orders").update({
+    payment_status: "refunded", status: "cancelled", updated_at: new Date().toISOString(),
+  }).eq("id", id);
+  await writeAuditLog(adminId, "order.refund", String(o.order_number), { amount });
+
+  await tg("sendMessage", {
+    chat_id: o.telegram_id,
+    text: `↩️ По заказу #${o.order_number} возвращено <b>${amount.toFixed(2)}$</b> на ваш баланс.`,
+    parse_mode: "HTML",
+  });
+
+  return showOrder(chatId, msgId, id);
+}
+
+// --- Free-form message to buyer (FSM). ---
+export async function startOrderMessage(
+  chatId: number, msgId: number | undefined, id: string, adminId: number,
+) {
+  await setSession(adminId, `o:msg:${id}`, {});
+  await deleteAndSend(chatId, msgId, {
+    text: "💬 Отправьте текст сообщения покупателю одним сообщением.\nОтмена — /admin",
+    reply_markup: { inline_keyboard: [[{ text: "← Отмена", callback_data: `a:o:v:${id}` }]] },
+  });
+}
+
+export async function applyOrderMessage(
+  chatId: number, adminId: number, id: string, text: string,
+) {
+  await clearSession(adminId);
+  const { data: o } = await supabase
+    .from("orders").select("order_number, telegram_id").eq("id", id).maybeSingle();
+  if (!o) {
+    await tg("sendMessage", { chat_id: chatId, text: "❌ Заказ не найден." });
+    return;
+  }
+  const send = await tg("sendMessage", {
+    chat_id: o.telegram_id,
+    text: `💬 <b>Сообщение по заказу #${o.order_number}:</b>\n\n${escapeHtml(text)}`,
+    parse_mode: "HTML",
+  });
+  await writeAuditLog(adminId, "order.message", String(o.order_number), { ok: !!send?.ok });
+  await tg("sendMessage", {
+    chat_id: chatId,
+    text: send?.ok ? "✅ Доставлено." : `⚠️ Не доставлено: ${send?.description ?? "ошибка"}`,
     reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
   });
 }

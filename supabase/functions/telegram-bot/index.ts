@@ -18,6 +18,7 @@ import {
 } from "./admin/projects.ts";
 import {
   showOrderList, showOrder, showStatusPicker, setOrderStatus, setOrderPayment, sendOrderRep,
+  fulfilFromInventory, refundOrderToBalance, startOrderMessage, applyOrderMessage,
 } from "./admin/orders.ts";
 import {
   showUsersMenu, showRecentUsers, startSearchUser, showUser, toggleBlock,
@@ -180,6 +181,9 @@ async function handleAdminCallback(
       if (op === "st" && arg && extra) return setOrderStatus(chatId, msgId, arg, extra, fromId);
       if (op === "pt" && arg && extra) return setOrderPayment(chatId, msgId, arg, extra, fromId);
       if (op === "rep" && arg) return sendOrderRep(chatId, msgId, arg, fromId);
+      if (op === "dl" && arg) return fulfilFromInventory(chatId, msgId, arg, fromId);
+      if (op === "rf" && arg) return refundOrderToBalance(chatId, msgId, arg, fromId);
+      if (op === "msg" && arg) return startOrderMessage(chatId, msgId, arg, fromId);
       return showOrderList(chatId, msgId, "all", 0);
     }
     case "u": {
@@ -291,6 +295,10 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "u") {
     return await handleUserText(chatId, fromId, sess.state, text);
+  }
+  if (scope === "o" && verb === "msg" && a) {
+    await applyOrderMessage(chatId, fromId, a, text);
+    return true;
   }
   if (scope === "pc" && verb === "new") {
     await handleCreatePromoStep(chatId, fromId, text);
