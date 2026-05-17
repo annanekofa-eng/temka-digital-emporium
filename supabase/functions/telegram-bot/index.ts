@@ -7,6 +7,7 @@ import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
 import {
   showProductList, showProduct, toggleProduct, askDeleteProduct, confirmDeleteProduct,
   startEditProduct, applyEditProduct, startCreateProduct, handleCreateProductStep,
+  applyEditProductPhoto,
 } from "./admin/products.ts";
 import {
   showCategoryList, showCategory, toggleCategory, askDeleteCategory, confirmDeleteCategory,
@@ -358,8 +359,22 @@ Deno.serve(async (req) => {
     const chatId = message?.chat?.id as number | undefined;
     const fromId = message?.from?.id as number | undefined;
     const text: string = message?.text ?? "";
+    const photos = message?.photo as Array<{ file_id: string }> | undefined;
 
     if (chatId && fromId) {
+      // Photo upload during product image/gallery edit session
+      if (photos?.length && isAdmin(fromId)) {
+        const sess = await getSession(fromId);
+        if (sess) {
+          const [scope, verb, a, b] = sess.state.split(":");
+          if (scope === "p" && verb === "edit" && a && (b === "image" || b === "gallery")) {
+            const fileId = photos[photos.length - 1].file_id; // largest
+            await applyEditProductPhoto(chatId, fromId, a, b, fileId);
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+          }
+        }
+      }
+
       if (text.startsWith("/start") || text === "/help") {
         await handleStart(chatId);
       } else if (text.startsWith("/rep")) {

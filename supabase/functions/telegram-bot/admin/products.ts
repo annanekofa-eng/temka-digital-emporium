@@ -4,10 +4,11 @@
 import { deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
 import { setSession, clearSession, getSession } from "../_shared/session.ts";
+import { uploadTelegramPhoto } from "../_shared/upload.ts";
 
 const PAGE_SIZE = 8;
 
-type FieldType = "text" | "num" | "json" | "bool";
+type FieldType = "text" | "num" | "json" | "bool" | "lines" | "kv";
 const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> = {
   title: { label: "Название", type: "text" },
   subtitle: { label: "Подзаголовок", type: "text" },
@@ -18,11 +19,26 @@ const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> 
   project_id: { label: "Проект", type: "text", hint: "flux/vieto/cursor" },
   category_id: { label: "Категория", type: "text", hint: "id категории или -" },
   product_type: { label: "Тип", type: "text", hint: "simple / premium_terms / stars_qty" },
-  image: { label: "Главное фото (URL)", type: "text" },
+  image: {
+    label: "Главное фото",
+    type: "text",
+    hint: "Отправьте фото в чат ИЛИ ссылку. Чтобы очистить — <code>-</code>",
+  },
   external_link: { label: "Внешняя ссылка", type: "text" },
   min_qty: { label: "Мин. кол-во", type: "num" },
   max_qty: { label: "Макс. кол-во", type: "num" },
   slug: { label: "Slug", type: "text" },
+  subcategory: { label: "Подкатегория", type: "text" },
+  platform: { label: "Платформа", type: "text", hint: "iOS / Android / PC / Web …" },
+  region: { label: "Регион", type: "text", hint: "по умолчанию: Глобальный" },
+  delivery_type: { label: "Тип доставки", type: "text", hint: "instant / manual / on_demand" },
+  tags: { label: "Теги", type: "lines", hint: "по одному на строку" },
+  features: { label: "Преимущества", type: "lines", hint: "по одному на строку" },
+  specifications: {
+    label: "Характеристики",
+    type: "kv",
+    hint: "Ключ: значение — по одной паре на строку",
+  },
   term_options: {
     label: "Сроки (term_options)",
     type: "json",
@@ -31,7 +47,7 @@ const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> 
   gallery: {
     label: "Галерея",
     type: "json",
-    hint: 'JSON массив: [{"url":"https://...","href":"https://..."}]',
+    hint: 'Отправьте фото — добавлю в галерею. Или JSON: [{"url":"...","href":"..."}]. <code>-</code> очистит.',
   },
 };
 
@@ -130,6 +146,21 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
       { text: "↑ max", callback_data: `a:p:e:${id}:max_qty` },
     ],
     [
+      { text: "🏷 Подкатегория", callback_data: `a:p:e:${id}:subcategory` },
+      { text: "🌍 Регион", callback_data: `a:p:e:${id}:region` },
+    ],
+    [
+      { text: "💻 Платформа", callback_data: `a:p:e:${id}:platform` },
+      { text: "🚚 Доставка", callback_data: `a:p:e:${id}:delivery_type` },
+    ],
+    [
+      { text: "🏷 Теги", callback_data: `a:p:e:${id}:tags` },
+      { text: "✨ Преимущества", callback_data: `a:p:e:${id}:features` },
+    ],
+    [
+      { text: "📋 Характеристики", callback_data: `a:p:e:${id}:specifications` },
+    ],
+    [
       { text: "⏱ Term options", callback_data: `a:p:e:${id}:term_options` },
       { text: "🖼 Галерея", callback_data: `a:p:e:${id}:gallery` },
     ],
@@ -191,7 +222,8 @@ function parseFieldValue(field: string, raw: string): { ok: true; value: unknown
   if (!f) return { ok: false, err: "Неизвестное поле" };
   if (raw === "-") {
     if (f.type === "num") return { ok: true, value: 0 };
-    if (f.type === "json") return { ok: true, value: [] };
+    if (f.type === "json" || f.type === "lines") return { ok: true, value: [] };
+    if (f.type === "kv") return { ok: true, value: {} };
     return { ok: true, value: null };
   }
   if (f.type === "num") {
@@ -207,6 +239,21 @@ function parseFieldValue(field: string, raw: string): { ok: true; value: unknown
     } catch {
       return { ok: false, err: "Невалидный JSON" };
     }
+  }
+  if (f.type === "lines") {
+    const arr = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return { ok: true, value: arr };
+  }
+  if (f.type === "kv") {
+    const obj: Record<string, string> = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      const idx = t.indexOf(":");
+      if (idx <= 0) return { ok: false, err: `Строка без двоеточия: "${t}"` };
+      obj[t.slice(0, idx).trim()] = t.slice(idx + 1).trim();
+    }
+    return { ok: true, value: obj };
   }
   return { ok: true, value: raw };
 }
@@ -285,4 +332,31 @@ export async function handleCreateProductStep(chatId: number, adminId: number, r
     await clearSession(adminId);
     await showProduct(chatId, undefined, data.id);
   }
+}
+
+// --- photo upload: applies to `image` (replace) or `gallery` (append) ---
+export async function applyEditProductPhoto(
+  chatId: number,
+  adminId: number,
+  id: string,
+  field: string,
+  fileId: string,
+) {
+  if (field !== "image" && field !== "gallery") return;
+  const up = await uploadTelegramPhoto(fileId, "product-images", id);
+  if (!up.ok) {
+    await deleteAndSend(chatId, undefined, { text: `❌ Загрузка не удалась: ${up.error}` });
+    return;
+  }
+  if (field === "image") {
+    await supabase.from("products").update({ image: up.url, updated_at: new Date().toISOString() }).eq("id", id);
+  } else {
+    const { data: cur } = await supabase.from("products").select("gallery").eq("id", id).maybeSingle();
+    const arr = Array.isArray(cur?.gallery) ? cur!.gallery as any[] : [];
+    arr.push({ url: up.url });
+    await supabase.from("products").update({ gallery: arr, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  await writeAuditLog(adminId, "product.update", id, { field, value: up.url });
+  await clearSession(adminId);
+  await showProduct(chatId, undefined, id);
 }
