@@ -220,6 +220,8 @@ async function handleAdminCallback(
       if (op === "a" && arg) return approveSbp(chatId, msgId, arg, fromId);
       if (op === "r" && arg) return startRejectSbp(chatId, msgId, arg, fromId);
       return showSbpList(chatId, msgId, "pending", 0);
+    }
+    case "st": {
       if (!op) return showStats(chatId, msgId, "w");
       if (op === "r" && arg) return showStats(chatId, msgId, arg);
       return showStats(chatId, msgId, "w");
