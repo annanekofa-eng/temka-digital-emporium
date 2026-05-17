@@ -722,10 +722,8 @@ type PickerKind = 'collection' | 'sort' | 'model' | 'backdrop' | 'symbol' | 'pri
 const NftCatalogDialog = ({ open, onClose, mode }: Props) => {
   const { addToCart } = useStore();
 
-  const isRent = mode === 'nft_rent' || mode === 'username_rent';
-  const title =
-    mode === 'username_rent' ? 'Аренда username' : mode === 'nft_rent' ? 'Аренда NFT' : 'NFT подарки';
-  const ctaLabel = isRent ? 'Арендовать' : 'Купить';
+  const title = 'NFT подарки';
+  const ctaLabel = 'Купить';
 
   const [collections, setCollections] = useState<PortalsCollection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
