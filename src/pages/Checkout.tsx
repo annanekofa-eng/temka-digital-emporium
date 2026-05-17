@@ -72,6 +72,25 @@ const Checkout = () => {
         haptic.notification('success');
         clearCart();
         navigate(`${buildPath('/order-success')}?order=${data?.orderNumber || orderNumber}`);
+      } else if (method === 'sbp') {
+        // SBP (RUB) manual moderation
+        const { data, error: fnError } = await supabase.functions.invoke('create-sbp-request', {
+          body: {
+            initData,
+            type: 'order',
+            orderNumber,
+            items: itemsPayload,
+            promoCode: promoResult?.code || null,
+            balanceUsed,
+            receiptUrl: sbpReceipt.trim() || null,
+            comment: sbpComment.trim() || null,
+          },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        haptic.notification('success');
+        clearCart();
+        navigate(`${buildPath('/order-status')}?order=${data?.orderNumber || orderNumber}&sbp=1`);
       } else {
         // CryptoBot payment (partial or full)
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
