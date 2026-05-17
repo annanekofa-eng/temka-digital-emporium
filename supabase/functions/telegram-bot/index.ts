@@ -345,6 +345,10 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
     await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
     return true;
   }
+  if (scope === "ao" && verb === "err" && a) {
+    await applyAutoOrderError(chatId, fromId, a, text);
+    return true;
+  }
   return false;
 }
 
