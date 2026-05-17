@@ -333,3 +333,30 @@ export async function handleCreateProductStep(chatId: number, adminId: number, r
     await showProduct(chatId, undefined, data.id);
   }
 }
+
+// --- photo upload: applies to `image` (replace) or `gallery` (append) ---
+export async function applyEditProductPhoto(
+  chatId: number,
+  adminId: number,
+  id: string,
+  field: string,
+  fileId: string,
+) {
+  if (field !== "image" && field !== "gallery") return;
+  const up = await uploadTelegramPhoto(fileId, "product-images", id);
+  if (!up.ok) {
+    await deleteAndSend(chatId, undefined, { text: `❌ Загрузка не удалась: ${up.error}` });
+    return;
+  }
+  if (field === "image") {
+    await supabase.from("products").update({ image: up.url, updated_at: new Date().toISOString() }).eq("id", id);
+  } else {
+    const { data: cur } = await supabase.from("products").select("gallery").eq("id", id).maybeSingle();
+    const arr = Array.isArray(cur?.gallery) ? cur!.gallery as any[] : [];
+    arr.push({ url: up.url });
+    await supabase.from("products").update({ gallery: arr, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  await writeAuditLog(adminId, "product.update", id, { field, value: up.url });
+  await clearSession(adminId);
+  await showProduct(chatId, undefined, id);
+}
