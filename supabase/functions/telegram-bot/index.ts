@@ -30,6 +30,17 @@ import {
   showSettingsMenu, startEditSetting, showTemplateList, showTemplate, toggleTemplate,
   deleteTemplate, startEditTemplate, startNewTemplate, handleSettingsText,
 } from "./admin/settings.ts";
+import {
+  showInventoryProducts, showInventoryProduct, startAddInventory, applyAddInventory, deleteAllAvailable,
+} from "./admin/inventory.ts";
+import {
+  showReviewList, showReview, approveReview, rejectReview, deleteReview,
+} from "./admin/reviews.ts";
+import { showLogs } from "./admin/logs.ts";
+import {
+  showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
+  deleteBroadcast, sendBroadcast,
+} from "./admin/broadcasts.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -181,7 +192,16 @@ async function handleAdminCallback(
       if (op === "nt" && arg) return startEditNote(chatId, msgId, arg, fromId);
       return showUsersMenu(chatId, msgId);
     }
-    case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
+    case "rv": {
+      if (!op) return showReviewList(chatId, msgId, "pending", 0);
+      if (op === "f" && arg) return showReviewList(chatId, msgId, arg, 0);
+      if (op === "p" && arg) return showReviewList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showReview(chatId, msgId, arg);
+      if (op === "a" && arg) return approveReview(chatId, msgId, arg, fromId);
+      if (op === "r" && arg) return rejectReview(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return deleteReview(chatId, msgId, arg, fromId);
+      return showReviewList(chatId, msgId, "pending", 0);
+    }
     case "st": return notImplementedStub(chatId, msgId, "Статистика");
     case "pc": {
       if (!op) return showPromoList(chatId, msgId);
@@ -194,8 +214,19 @@ async function handleAdminCallback(
       if (op === "nt" && arg) return setNewPromoType(chatId, msgId, arg, fromId);
       return showPromoList(chatId, msgId);
     }
-    case "inv": return notImplementedStub(chatId, msgId, "Склад");
-    case "lg": return notImplementedStub(chatId, msgId, "Логи");
+    case "inv": {
+      if (!op) return showInventoryProducts(chatId, msgId, 0);
+      if (op === "p" && arg) return showInventoryProducts(chatId, msgId, parseInt(arg) || 0);
+      if (op === "v" && arg) return showInventoryProduct(chatId, msgId, arg);
+      if (op === "a" && arg) return startAddInventory(chatId, msgId, arg, fromId);
+      if (op === "dx" && arg) return deleteAllAvailable(chatId, msgId, arg, fromId);
+      return showInventoryProducts(chatId, msgId, 0);
+    }
+    case "lg": {
+      if (!op) return showLogs(chatId, msgId, 0);
+      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0);
+      return showLogs(chatId, msgId, 0);
+    }
     case "se": {
       if (!op) return showSettingsMenu(chatId, msgId);
       if (op === "e" && arg) return startEditSetting(chatId, msgId, arg, fromId);
@@ -207,7 +238,15 @@ async function handleAdminCallback(
       if (op === "te" && arg && extra) return startEditTemplate(chatId, msgId, arg, extra, fromId);
       return showSettingsMenu(chatId, msgId);
     }
-    case "bc": return notImplementedStub(chatId, msgId, "Рассылка");
+    case "bc": {
+      if (!op) return showBroadcastList(chatId, msgId, 0);
+      if (op === "p" && arg) return showBroadcastList(chatId, msgId, parseInt(arg) || 0);
+      if (op === "n") return startNewBroadcast(chatId, msgId, fromId);
+      if (op === "v" && arg) return showBroadcast(chatId, msgId, arg);
+      if (op === "d" && arg) return deleteBroadcast(chatId, msgId, arg, fromId);
+      if (op === "send" && arg) return sendBroadcast(chatId, msgId, arg, fromId);
+      return showBroadcastList(chatId, msgId, 0);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
@@ -257,6 +296,14 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "se") {
     return await handleSettingsText(chatId, fromId, sess.state, sess.payload, text);
+  }
+  if (scope === "inv" && verb === "add" && a) {
+    await applyAddInventory(chatId, fromId, a, text);
+    return true;
+  }
+  if (scope === "bc" && verb === "new") {
+    await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
+    return true;
   }
   return false;
 }
