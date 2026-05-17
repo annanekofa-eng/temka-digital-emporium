@@ -12,13 +12,6 @@ const categoryEmoji: Record<string, string> = {
   'premium': '👑', 'automation': '🤖', 'ai-tools': '🧠', 'services': '⚡',
 };
 
-const RENT_OPTIONS = [
-  { months: 1, label: '1 мес',  mult: 1 },
-  { months: 3, label: '3 мес',  mult: 2.7 },
-  { months: 6, label: '6 мес',  mult: 5 },
-  { months: 12, label: '1 год', mult: 9 },
-];
-
 const Cart = () => {
   const {
     cart, removeFromCart, updateQuantity, cartTotal, clearCart,
