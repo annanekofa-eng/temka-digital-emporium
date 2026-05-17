@@ -334,6 +334,10 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
     await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
     return true;
   }
+  if (scope === "sb" && verb === "rej" && a) {
+    await applyRejectSbp(chatId, fromId, a, text);
+    return true;
+  }
   return false;
 }
 
