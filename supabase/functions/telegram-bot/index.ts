@@ -203,7 +203,11 @@ async function handleAdminCallback(
       if (op === "d" && arg) return deleteReview(chatId, msgId, arg, fromId);
       return showReviewList(chatId, msgId, "pending", 0);
     }
-    case "st": return notImplementedStub(chatId, msgId, "Статистика");
+    case "st": {
+      if (!op) return showStats(chatId, msgId, "w");
+      if (op === "r" && arg) return showStats(chatId, msgId, arg);
+      return showStats(chatId, msgId, "w");
+    }
     case "pc": {
       if (!op) return showPromoList(chatId, msgId);
       if (op === "v" && arg) return showPromo(chatId, msgId, arg);
