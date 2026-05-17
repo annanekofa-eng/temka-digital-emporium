@@ -54,8 +54,11 @@ serve(async (req) => {
     const serverBalance = Number(profile?.balance || 0);
 
     // Validate items (same logic as create-invoice)
+    const AUTO_TYPES = new Set(["premium_term", "stars"]);
     let serverTotal = 0;
-    const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number }[] = [];
+    let hasAuto = false;
+    let hasRegular = false;
+    const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number; productType: string; recipientUsername: string | null }[] = [];
     for (const item of items) {
       if (!item.productId || !item.quantity || item.quantity <= 0 || item.quantity > 100)
         return jsonRes({ error: "Invalid item data" }, 400);
@@ -63,11 +66,18 @@ serve(async (req) => {
         .select("id, title, price, stock, is_active, product_type, term_options, min_qty, max_qty")
         .eq("id", item.productId).single();
       if (!product || !product.is_active) return jsonRes({ error: "Product not found or inactive" }, 400);
-      if (product.stock < item.quantity) return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
+
+      const ptype = String(product.product_type || "simple");
+      const isAuto = AUTO_TYPES.has(ptype);
+      if (isAuto) hasAuto = true; else hasRegular = true;
+
+      // Auto products skip stock check (no inventory). Regular products require stock.
+      if (!isAuto && product.stock < item.quantity) {
+        return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
+      }
 
       let unitPrice = Number(product.price);
       const clientPrice = Number(item.productPrice);
-      const ptype = String(product.product_type || "simple");
 
       if (ptype === "premium_term") {
         const opts = (product.term_options as Array<{ months: number; price: number }>) || [];
@@ -87,8 +97,29 @@ serve(async (req) => {
         unitPrice = clientPrice;
       }
 
+      // Recipient username validation for auto items
+      let recipient: string | null = null;
+      if (isAuto) {
+        const raw = String(item.recipientUsername || "").trim().replace(/^@+/, "");
+        if (!/^[A-Za-z0-9_]{5,32}$/.test(raw)) {
+          return jsonRes({ error: `${product.title} — укажите корректный @username получателя` }, 400);
+        }
+        recipient = raw;
+      }
+
       serverTotal += unitPrice * item.quantity;
-      validatedItems.push({ productId: product.id, productTitle: item.productTitle || product.title, productPrice: unitPrice, quantity: item.quantity });
+      validatedItems.push({
+        productId: product.id,
+        productTitle: item.productTitle || product.title,
+        productPrice: unitPrice,
+        quantity: item.quantity,
+        productType: ptype,
+        recipientUsername: recipient,
+      });
+    }
+
+    if (hasAuto && hasRegular) {
+      return jsonRes({ error: "Авто-товары оформляются отдельным заказом" }, 400);
     }
 
     // Promo
@@ -136,13 +167,14 @@ serve(async (req) => {
     // Create paid order
     const { data: order, error } = await supabase.from("orders").insert({
       order_number: orderNumber, telegram_id: telegramUserId,
-      status: "paid", payment_status: "paid", total_amount: serverTotal,
+      status: hasAuto ? "processing" : "paid",
+      payment_status: "paid", total_amount: serverTotal,
       currency: "USD", discount_amount: discountAmount,
       promo_code: validatedPromoCode, balance_used: totalAfterDiscount,
+      is_auto: hasAuto, auto_status: hasAuto ? "pending" : null,
     }).select().single();
     if (error) {
       console.error("Order error:", error);
-      // refund
       await supabase.rpc("credit_balance", { p_telegram_id: telegramUserId, p_amount: totalAfterDiscount });
       return jsonRes({ error: "Failed to create order" }, 500);
     }
@@ -150,14 +182,13 @@ serve(async (req) => {
     await supabase.from("order_items").insert(validatedItems.map((i) => ({
       order_id: order.id, product_id: i.productId, product_title: i.productTitle,
       product_price: i.productPrice, quantity: i.quantity,
+      recipient_username: i.recipientUsername,
     })));
 
-    // Promo usage
     if (validatedPromoCode) {
       await supabase.rpc("increment_promo_usage", { p_code: validatedPromoCode });
     }
 
-    // Balance history
     await supabase.from("balance_history").insert({
       telegram_id: telegramUserId,
       amount: -totalAfterDiscount,
@@ -167,10 +198,49 @@ serve(async (req) => {
       admin_telegram_id: 0,
     });
 
+    // Auto order notifications
+    if (hasAuto) {
+      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      const adminIds = (Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "")
+        .split(",").map((s) => s.trim()).filter(Boolean);
+      const itemsText = validatedItems
+        .map((i) => `• ${i.productTitle} → @${i.recipientUsername}`).join("\n");
+      const recipients = validatedItems
+        .map((i) => `@${i.recipientUsername}`).join(", ");
+
+      if (botToken) {
+        // Buyer
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: telegramUserId, parse_mode: "HTML",
+              text: `📦 <b>Заказ принят</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nСумма: $${serverTotal.toFixed(2)}\n\n⏳ Ожидайте выдачи — мы уведомим, как только товар будет передан.`,
+            }),
+          });
+        } catch (e) { console.error("notify buyer:", e); }
+
+        // Admins
+        const adminText = `🆕 <b>Новый авто-заказ</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nПокупатель: <code>${telegramUserId}</code>\nСумма: $${serverTotal.toFixed(2)}\n\nОткройте «Авто-заказы» в /admin.`;
+        for (const aid of adminIds) {
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: Number(aid), parse_mode: "HTML", text: adminText,
+                reply_markup: { inline_keyboard: [[{ text: "🤖 Открыть авто-заказ", callback_data: `a:ao:v:${order.id}` }]] },
+              }),
+            });
+          } catch (e) { console.error("notify admin:", e); }
+        }
+      }
+    }
+
     return jsonRes({
       orderId: order.id,
       orderNumber,
       paid: true,
+      isAuto: hasAuto,
     });
   } catch (e) {
     console.error("pay-with-balance error:", e);
