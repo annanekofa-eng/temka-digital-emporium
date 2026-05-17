@@ -83,8 +83,6 @@ async function showMain(chatId: number, msgId: number | undefined, range: string
 
   const { count: reviewsPending } = await supabase
     .from("reviews").select("id", { count: "exact", head: true }).eq("moderation_status", "pending");
-  const { count: sbpPending } = await supabase
-    .from("sbp_requests").select("id", { count: "exact", head: true }).eq("status", "pending");
 
   const txt = [
     `📊 <b>Статистика — ${r.label}</b>`,
@@ -103,7 +101,6 @@ async function showMain(chatId: number, msgId: number | undefined, range: string
     `Склад: доступно <b>${fmt(invAvail ?? 0)}</b> · продано <b>${fmt(invSold ?? 0)}</b>`,
     ``,
     `⭐ Отзывов на модерации: <b>${fmt(reviewsPending ?? 0)}</b>`,
-    `📨 Заявок СБП в очереди: <b>${fmt(sbpPending ?? 0)}</b>`,
   ].join("\n");
 
   await deleteAndSend(chatId, msgId, {

@@ -752,60 +752,6 @@ export type Database = {
           },
         ]
       }
-      sbp_requests: {
-        Row: {
-          admin_comment: string | null
-          admin_telegram_id: number | null
-          amount_rub: number
-          amount_usd: number
-          comment: string | null
-          created_at: string
-          id: string
-          order_id: string | null
-          rate: number
-          receipt_url: string | null
-          reviewed_at: string | null
-          status: string
-          telegram_id: number
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          admin_comment?: string | null
-          admin_telegram_id?: number | null
-          amount_rub?: number
-          amount_usd?: number
-          comment?: string | null
-          created_at?: string
-          id?: string
-          order_id?: string | null
-          rate?: number
-          receipt_url?: string | null
-          reviewed_at?: string | null
-          status?: string
-          telegram_id: number
-          type?: string
-          updated_at?: string
-        }
-        Update: {
-          admin_comment?: string | null
-          admin_telegram_id?: number | null
-          amount_rub?: number
-          amount_usd?: number
-          comment?: string | null
-          created_at?: string
-          id?: string
-          order_id?: string | null
-          rate?: number
-          receipt_url?: string | null
-          reviewed_at?: string | null
-          status?: string
-          telegram_id?: number
-          type?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       site_settings: {
         Row: {
           key: string

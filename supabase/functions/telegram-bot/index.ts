@@ -40,9 +40,6 @@ import {
 } from "./admin/reviews.ts";
 import { showLogs } from "./admin/logs.ts";
 import {
-  showSbpList, showSbp, approveSbp, startRejectSbp, applyRejectSbp,
-} from "./admin/sbp.ts";
-import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
   deleteBroadcast, sendBroadcast, setBroadcastAudience, testBroadcast,
   handleNewBroadcastPhoto,
@@ -219,15 +216,6 @@ async function handleAdminCallback(
       if (op === "d" && arg) return deleteReview(chatId, msgId, arg, fromId);
       return showReviewList(chatId, msgId, "pending", 0);
     }
-    case "sb": {
-      if (!op) return showSbpList(chatId, msgId, "pending", 0);
-      if (op === "f" && arg) return showSbpList(chatId, msgId, arg, 0);
-      if (op === "p" && arg) return showSbpList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
-      if (op === "v" && arg) return showSbp(chatId, msgId, arg);
-      if (op === "a" && arg) return approveSbp(chatId, msgId, arg, fromId);
-      if (op === "r" && arg) return startRejectSbp(chatId, msgId, arg, fromId);
-      return showSbpList(chatId, msgId, "pending", 0);
-    }
     case "st": {
       if (!op) return showStats(chatId, msgId, "w", "mn");
       if (op === "r" && arg) return showStats(chatId, msgId, arg, "mn");
@@ -343,10 +331,6 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "bc" && verb === "new") {
     await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
-    return true;
-  }
-  if (scope === "sb" && verb === "rej" && a) {
-    await applyRejectSbp(chatId, fromId, a, text);
     return true;
   }
   return false;

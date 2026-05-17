@@ -17,21 +17,18 @@ export function adminMenuKeyboard() {
       ],
       [
         { text: "📁 Проекты", callback_data: "a:pr" },
-        { text: "📨 Заявки СБП", callback_data: "a:sb" },
-      ],
-      [
         { text: "📊 Статистика", callback_data: "a:st" },
+      ],
+      [
         { text: "🏷 Промокоды", callback_data: "a:pc" },
-      ],
-      [
         { text: "🏗 Склад", callback_data: "a:inv" },
+      ],
+      [
         { text: "📜 Логи", callback_data: "a:lg" },
-      ],
-      [
         { text: "⚙️ Настройки", callback_data: "a:se" },
-        { text: "📣 Рассылка", callback_data: "a:bc" },
       ],
       [
+        { text: "📣 Рассылка", callback_data: "a:bc" },
         { text: "⭐ Отзывы", callback_data: "a:rv" },
       ],
     ],
