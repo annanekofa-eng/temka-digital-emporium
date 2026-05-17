@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, Minus, AtSign } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Zap, Plus, Minus, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { useStore } from '@/contexts/StoreContext';
+import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { toast } from 'sonner';
 import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
