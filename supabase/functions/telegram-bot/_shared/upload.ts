@@ -5,7 +5,7 @@ import { supabase } from "./db.ts";
 
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 
-export interface UploadResult { ok: true; url: string } | { ok: false; error: string };
+export type UploadResult = { ok: true; url: string } | { ok: false; error: string };
 
 export async function uploadTelegramPhoto(
   fileId: string,
