@@ -15,9 +15,8 @@ export interface DbProject {
 
 export interface ExtendedProduct extends DbProduct {
   project_id: string | null;
-  product_type: 'simple' | 'premium_term' | 'nft_variant' | 'stars';
+  product_type: 'simple' | 'premium_term' | 'stars';
   term_options: Array<{ months: number; price: number }>;
-  nft_variants: Array<{ key: string; label: string; price: number; image?: string }>;
   min_qty: number;
   max_qty: number;
   external_link: string | null;
