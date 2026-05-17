@@ -161,15 +161,54 @@ const Checkout = () => {
             <span className="text-sm font-bold text-primary">${balance.toFixed(2)}</span>
           </div>
           {toPay > 0 ? (
-            <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
-              <img src={cryptobotLogo} alt="CryptoBot" className="w-8 h-8 rounded-lg mx-auto mb-1" />
-              <div className="text-sm font-medium text-primary">CryptoBot</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {balanceUsed > 0
-                  ? `$${balanceUsed.toFixed(2)} с баланса + $${toPay.toFixed(2)} через CryptoBot`
-                  : 'Оплата криптовалютой через Telegram'}
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMethod('crypto')}
+                  className={`p-3 rounded-xl border text-center transition ${method === 'crypto' ? 'border-primary bg-primary/5' : 'border-border/40 bg-secondary/30'}`}
+                >
+                  <img src={cryptobotLogo} alt="CryptoBot" className="w-7 h-7 rounded-lg mx-auto mb-1" />
+                  <div className="text-xs font-medium">CryptoBot</div>
+                  <div className="text-[10px] text-muted-foreground">USDT, мгновенно</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod('sbp')}
+                  className={`p-3 rounded-xl border text-center transition ${method === 'sbp' ? 'border-primary bg-primary/5' : 'border-border/40 bg-secondary/30'}`}
+                >
+                  <div className="w-7 h-7 rounded-lg mx-auto mb-1 bg-primary/15 text-primary flex items-center justify-center text-xs font-bold">СБП</div>
+                  <div className="text-xs font-medium">СБП (₽)</div>
+                  <div className="text-[10px] text-muted-foreground">ручная проверка</div>
+                </button>
               </div>
-            </div>
+              {balanceUsed > 0 && (
+                <div className="text-[10px] text-muted-foreground mt-2 text-center">
+                  ${balanceUsed.toFixed(2)} с баланса + ${toPay.toFixed(2)} {method === 'sbp' ? 'через СБП' : 'через CryptoBot'}
+                </div>
+              )}
+              {method === 'sbp' && (
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="rounded-lg bg-secondary/40 border border-border/30 p-2.5 text-[11px] leading-snug text-muted-foreground">
+                    Переведите сумму через СБП по реквизитам, выданным поддержкой, и прикрепите ссылку на чек ниже. Заказ активируется после ручного подтверждения.
+                  </div>
+                  <input
+                    type="url"
+                    value={sbpReceipt}
+                    onChange={(e) => setSbpReceipt(e.target.value)}
+                    placeholder="Ссылка на чек (необязательно)"
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/40 border border-border/40 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary"
+                  />
+                  <textarea
+                    value={sbpComment}
+                    onChange={(e) => setSbpComment(e.target.value)}
+                    placeholder="Комментарий для модератора (необязательно)"
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-lg bg-secondary/40 border border-border/40 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+              )}
+            </>
           ) : (
             <div className="p-3 rounded-xl border border-primary bg-primary/5 text-center">
               <Wallet className="w-6 h-6 text-primary mx-auto mb-1" />
