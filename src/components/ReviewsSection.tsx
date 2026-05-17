@@ -30,22 +30,42 @@ const Stars = ({ n }: { n: number }) => (
 );
 
 const ReviewForm = ({ onClose }: { onClose: () => void }) => {
-  const { user } = useTelegram();
+  const { user, initData } = useTelegram();
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const displayName = user?.username
     ? `@${user.username}`
     : user?.firstName || 'Гость';
 
-  const submit = () => {
-    if (!text.trim()) {
-      toast({ title: 'Напишите текст отзыва', variant: 'destructive' });
+  const submit = async () => {
+    const trimmed = text.trim();
+    if (trimmed.length < 3) {
+      toast({ title: 'Напишите текст отзыва (минимум 3 символа)', variant: 'destructive' });
       return;
     }
-    toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
-    onClose();
+    if (!initData) {
+      toast({ title: 'Откройте приложение в Telegram', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-review', {
+        body: { initData, rating, text: trimmed },
+      });
+      if (error || (data as any)?.error) {
+        toast({ title: (data as any)?.error || error?.message || 'Ошибка отправки', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
+      onClose();
+    } catch (e: any) {
+      toast({ title: e?.message || 'Ошибка отправки', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
