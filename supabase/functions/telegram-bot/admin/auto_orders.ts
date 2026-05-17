@@ -42,6 +42,7 @@ export async function showAutoOrderList(
   ];
 
   const rows: any[] = [tabs];
+  rows.push([{ text: "⚙️ Авто-товары (цены/тарифы)", callback_data: "a:ap" }]);
 
   if (!data?.length) {
     rows.push([{ text: "← Меню", callback_data: "a:menu" }]);
