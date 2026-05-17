@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { DbProduct } from '@/types/database';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -64,44 +64,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [promoError, setPromoError] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
 
+  const cartRef = useRef(cart);
   useEffect(() => {
+    cartRef.current = cart;
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = useCallback((product: DbProduct, opts?: { recipientUsername?: string }) => {
     const incomingIsAuto = isAutoProduct(product);
-    let allowed = true;
-    setCart(prev => {
-      const hasAuto = prev.some(it => isAutoProduct(it.product));
-      const hasRegular = prev.some(it => !isAutoProduct(it.product));
-      if (incomingIsAuto && hasRegular) {
-        toast.error('Авто-товары (Stars/Premium) оформляются отдельным заказом. Очистите корзину.');
-        allowed = false;
-        return prev;
-      }
-      if (!incomingIsAuto && hasAuto) {
-        toast.error('В корзине авто-товар. Оформите его отдельно или очистите корзину.');
-        allowed = false;
-        return prev;
-      }
-      if (incomingIsAuto) {
-        // Each auto purchase = its own line (different recipient/amount).
-        return [...prev, {
-          product,
-          quantity: 1,
-          recipientUsername: opts?.recipientUsername,
-          lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        }];
-      }
-      const existing = prev.find(item => !item.lineId && item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item === existing ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-    return allowed;
+    const prev = cartRef.current;
+    const hasAuto = prev.some(it => isAutoProduct(it.product));
+    const hasRegular = prev.some(it => !isAutoProduct(it.product));
+    if (incomingIsAuto && hasRegular) {
+      toast.error('Авто-товары (Stars/Premium) оформляются отдельным заказом. Очистите корзину.');
+      return false;
+    }
+    if (!incomingIsAuto && hasAuto) {
+      toast.error('В корзине авто-товар. Оформите его отдельно или очистите корзину.');
+      return false;
+    }
+    if (incomingIsAuto) {
+      const line: CartItem = {
+        product,
+        quantity: 1,
+        recipientUsername: opts?.recipientUsername,
+        lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      };
+      cartRef.current = [...prev, line];
+      setCart(cartRef.current);
+      return true;
+    }
+    const existing = prev.find(item => !item.lineId && item.product.id === product.id);
+    if (existing) {
+      cartRef.current = prev.map(item =>
+        item === existing ? { ...item, quantity: item.quantity + 1 } : item
+      );
+    } else {
+      cartRef.current = [...prev, { product, quantity: 1 }];
+    }
+    setCart(cartRef.current);
+    return true;
   }, []);
 
   const lineKeyOf = (item: CartItem) => item.lineId ?? item.product.id;
