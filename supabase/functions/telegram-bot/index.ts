@@ -181,6 +181,9 @@ async function handleAdminCallback(
       if (op === "st" && arg && extra) return setOrderStatus(chatId, msgId, arg, extra, fromId);
       if (op === "pt" && arg && extra) return setOrderPayment(chatId, msgId, arg, extra, fromId);
       if (op === "rep" && arg) return sendOrderRep(chatId, msgId, arg, fromId);
+      if (op === "dl" && arg) return fulfilFromInventory(chatId, msgId, arg, fromId);
+      if (op === "rf" && arg) return refundOrderToBalance(chatId, msgId, arg, fromId);
+      if (op === "msg" && arg) return startOrderMessage(chatId, msgId, arg, fromId);
       return showOrderList(chatId, msgId, "all", 0);
     }
     case "u": {
