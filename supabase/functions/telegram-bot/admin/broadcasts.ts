@@ -201,12 +201,22 @@ export async function testBroadcast(
 
 async function fetchAudienceIds(audience: string, afterId: number | null): Promise<number[]> {
   if (audience === "buyers") {
-    let q = supabase
-      .from("orders")
-      .select("telegram_id")
-      .eq("payment_status", "paid");
-    const { data } = await q;
-    const ids = Array.from(new Set((data ?? []).map((o: any) => Number(o.telegram_id))));
+    // Paginate over paid orders so we never silently truncate at 1000.
+    const tidSet = new Set<number>();
+    const PAGE_LIMIT = 1000;
+    let offset = 0;
+    for (let i = 0; i < 50; i++) { // hard cap 50k orders
+      const { data, error } = await supabase
+        .from("orders").select("telegram_id")
+        .eq("payment_status", "paid")
+        .range(offset, offset + PAGE_LIMIT - 1);
+      if (error || !data?.length) break;
+      for (const o of data) tidSet.add(Number((o as any).telegram_id));
+      if (data.length < PAGE_LIMIT) break;
+      offset += PAGE_LIMIT;
+    }
+    const ids = Array.from(tidSet);
+    if (!ids.length) return [];
     // exclude blocked
     const { data: prof } = await supabase
       .from("user_profiles").select("telegram_id, is_blocked").in("telegram_id", ids);
