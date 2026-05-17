@@ -1,16 +1,14 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { adminMenuKeyboard } from "./admin/menu.ts";
 
-Deno.test("adminMenuKeyboard: contains the 12 admin sections from the brief", () => {
+Deno.test("adminMenuKeyboard: contains the expected admin sections", () => {
   const kb = adminMenuKeyboard();
   const labels = kb.inline_keyboard.flat().map((b) => b.text);
-  // Spot-check each expected section. Order doesn't matter for this assertion.
   const expected = [
     "📦 Товары",
     "📂 Категории",
     "🛒 Заказы",
     "👥 Пользователи",
-    "📨 Заявки СБП",
     "📁 Проекты",
     "📊 Статистика",
     "🏷 Промокоды",
@@ -19,10 +17,19 @@ Deno.test("adminMenuKeyboard: contains the 12 admin sections from the brief", ()
     "⚙️ Настройки",
     "📣 Рассылка",
     "⭐ Отзывы",
+    "🤖 Авто-заказы",
   ];
   for (const label of expected) {
     assertEquals(labels.includes(label), true, `missing button: ${label}`);
   }
+});
+
+Deno.test("adminMenuKeyboard: includes the new Авто-заказы section", () => {
+  const kb = adminMenuKeyboard();
+  const buttons = kb.inline_keyboard.flat();
+  const autoBtn = buttons.find((b) => b.text === "🤖 Авто-заказы");
+  assertEquals(!!autoBtn, true, "Авто-заказы button missing");
+  assertEquals(autoBtn?.callback_data, "a:ao");
 });
 
 Deno.test("adminMenuKeyboard: every callback_data stays within 64 bytes", () => {
