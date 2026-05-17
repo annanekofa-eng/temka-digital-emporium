@@ -146,6 +146,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           removed.push(item.product.title);
           continue;
         }
+        // Auto-products (stars/premium) store the computed line total in product.price
+        // along with a customized title (e.g. "... · 5000⭐"). Replacing the product
+        // with the fresh DB row would clobber that total, so preserve the original.
+        if (isAutoProduct(item.product)) {
+          next.push(item);
+          continue;
+        }
         const oldPrice = Number(item.product.price);
         const newPrice = Number(fresh.price);
         if (Math.abs(oldPrice - newPrice) > 0.001) {
