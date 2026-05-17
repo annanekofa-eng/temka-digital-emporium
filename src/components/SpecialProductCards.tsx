@@ -117,7 +117,8 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
 };
 
 export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  const buildPath = useStorefrontPath();
   const minQty = Math.max(1, Number(product.min_qty) || 1);
   const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
   const [qty, setQty] = useState<number>(minQty);
@@ -176,16 +177,21 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
             toast.error('Укажите корректный @username получателя');
             return;
           }
-          const ok = addToCart({
-            ...product,
-            price: Number(total),
-            title: `${product.title} · ${clamped}⭐`,
-          } as any, { recipientUsername: u });
-          if (ok) toast.success(`Звёзды добавлены · @${u}`);
+          navigate(buildPath('/checkout'), {
+            state: {
+              directItem: {
+                productId: product.id,
+                productTitle: `${product.title} · ${clamped}⭐`,
+                productPrice: Number(total),
+                quantity: 1,
+                recipientUsername: u,
+              },
+            },
+          });
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        {canAdd ? `Купить за $${total}` : `Минимум ${minQty}⭐`}
+        <Zap className="w-4 h-4 mr-2" />
+        {canAdd ? `Оплатить $${total}` : `Минимум ${minQty}⭐`}
       </Button>
     </div>
   );
