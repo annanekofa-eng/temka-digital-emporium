@@ -408,7 +408,6 @@ export type Database = {
           is_popular: boolean
           max_qty: number
           min_qty: number
-          nft_variants: Json
           old_price: number | null
           platform: string
           price: number
@@ -443,7 +442,6 @@ export type Database = {
           is_popular?: boolean
           max_qty?: number
           min_qty?: number
-          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price: number
@@ -478,7 +476,6 @@ export type Database = {
           is_popular?: boolean
           max_qty?: number
           min_qty?: number
-          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price?: number
