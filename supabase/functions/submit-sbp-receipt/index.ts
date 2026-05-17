@@ -74,6 +74,12 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }).eq("id", paymentId);
 
+    // Reopen order if it was marked failed after previous rejection
+    await supabase.from("orders").update({
+      status: "pending", payment_status: "awaiting",
+      updated_at: new Date().toISOString(),
+    }).eq("id", payment.order_id).eq("payment_status", "failed");
+
     // Order details for notification
     const { data: order } = await supabase.from("orders").select("order_number, total_amount").eq("id", payment.order_id).maybeSingle();
     const { data: items } = await supabase.from("order_items").select("product_title, quantity").eq("order_id", payment.order_id);
