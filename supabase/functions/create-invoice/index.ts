@@ -57,18 +57,58 @@ serve(async (req) => {
     if ((profile as any)?.is_blocked) return jsonRes({ error: "Account blocked" }, 403);
     const serverBalance = Number(profile?.balance || 0);
 
-    // Validate items
+    // Validate items (with special-type pricing rules)
     let serverTotal = 0;
     const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number }[] = [];
     for (const item of items) {
       if (!item.productId || !item.quantity || item.quantity <= 0 || item.quantity > 100)
         return jsonRes({ error: "Invalid item data" }, 400);
-      const { data: product } = await supabase.from("products").select("id, title, price, stock, is_active")
+      const { data: product } = await supabase.from("products")
+        .select("id, title, price, stock, is_active, product_type, term_options, nft_variants, min_qty, max_qty")
         .eq("id", item.productId).single();
       if (!product || !product.is_active) return jsonRes({ error: "Product not found or inactive" }, 400);
       if (product.stock < item.quantity) return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
-      serverTotal += Number(product.price) * item.quantity;
-      validatedItems.push({ productId: product.id, productTitle: product.title, productPrice: Number(product.price), quantity: item.quantity });
+
+      let unitPrice = Number(product.price);
+      const clientPrice = Number(item.productPrice);
+      const ptype = String(product.product_type || "simple");
+
+      if (ptype === "premium_term") {
+        const opts = (product.term_options as Array<{ months: number; price: number }>) || [];
+        const match = opts.find((o) => Math.abs(Number(o.price) - clientPrice) < 0.01);
+        if (!match) return jsonRes({ error: `${product.title} — invalid term price` }, 400);
+        unitPrice = Number(match.price);
+      } else if (ptype === "nft_variant") {
+        const vars = (product.nft_variants as Array<{ price: number }>) || [];
+        // For Portals/NFT gifts: price chosen on the fly; allow any positive price.
+        if (clientPrice <= 0) return jsonRes({ error: `${product.title} — invalid price` }, 400);
+        if (vars.length > 0) {
+          const match = vars.find((v) => Math.abs(Number(v.price) - clientPrice) < 0.01);
+          if (!match) {
+            // Variant catalog from external API (Portals) — accept positive price
+            unitPrice = clientPrice;
+          } else {
+            unitPrice = Number(match.price);
+          }
+        } else {
+          unitPrice = clientPrice;
+        }
+      } else if (ptype === "stars") {
+        const base = Number(product.price);
+        const minQty = Math.max(1, Number(product.min_qty) || 1);
+        const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
+        // Cart stores quantity=1 and price=qty*base. Infer qty from price.
+        const inferredQty = base > 0 ? Math.round(clientPrice / base) : 0;
+        if (inferredQty < minQty || inferredQty > maxQty)
+          return jsonRes({ error: `${product.title} — invalid stars amount` }, 400);
+        const expected = +(inferredQty * base).toFixed(2);
+        if (Math.abs(expected - clientPrice) > 0.05)
+          return jsonRes({ error: `${product.title} — stars price mismatch` }, 400);
+        unitPrice = clientPrice;
+      }
+
+      serverTotal += unitPrice * item.quantity;
+      validatedItems.push({ productId: product.id, productTitle: item.productTitle || product.title, productPrice: unitPrice, quantity: item.quantity });
     }
 
     // Promo
