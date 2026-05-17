@@ -127,7 +127,6 @@ export async function applyAddInventory(chatId: number, adminId: number, product
   const rows = lines.map((content) => ({ product_id: productId, content, status: "available" }));
   const { error } = await supabase.from("inventory_items").insert(rows);
   if (!error) {
-    await supabase.rpc("set_config", {}).catch(() => null); // noop, ignore
     await writeAuditLog(adminId, "inventory.add", productId, { count: rows.length });
   }
   await clearSession(adminId);
