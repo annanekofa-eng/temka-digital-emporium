@@ -19,6 +19,9 @@ const Checkout = () => {
   const buildPath = useStorefrontPath();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [method, setMethod] = useState<'crypto' | 'sbp'>('crypto');
+  const [sbpReceipt, setSbpReceipt] = useState('');
+  const [sbpComment, setSbpComment] = useState('');
 
   const displayName = user
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`
