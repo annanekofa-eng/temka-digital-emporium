@@ -41,7 +41,8 @@ import {
 import { showLogs } from "./admin/logs.ts";
 import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
-  deleteBroadcast, sendBroadcast,
+  deleteBroadcast, sendBroadcast, setBroadcastAudience, testBroadcast,
+  handleNewBroadcastPhoto,
 } from "./admin/broadcasts.ts";
 import { showStats } from "./admin/stats.ts";
 
@@ -255,6 +256,8 @@ async function handleAdminCallback(
       if (op === "v" && arg) return showBroadcast(chatId, msgId, arg);
       if (op === "d" && arg) return deleteBroadcast(chatId, msgId, arg, fromId);
       if (op === "send" && arg) return sendBroadcast(chatId, msgId, arg, fromId);
+      if (op === "test" && arg) return testBroadcast(chatId, msgId, arg, fromId);
+      if (op === "aud" && arg && extra) return setBroadcastAudience(chatId, msgId, arg, extra, fromId);
       return showBroadcastList(chatId, msgId, 0);
     }
     default:
@@ -370,14 +373,18 @@ Deno.serve(async (req) => {
     const photos = message?.photo as Array<{ file_id: string }> | undefined;
 
     if (chatId && fromId) {
-      // Photo upload during product image/gallery edit session
+      // Photo upload during product image/gallery edit or broadcast wizard
       if (photos?.length && isAdmin(fromId)) {
         const sess = await getSession(fromId);
         if (sess) {
           const [scope, verb, a, b] = sess.state.split(":");
+          const fileId = photos[photos.length - 1].file_id; // largest
           if (scope === "p" && verb === "edit" && a && (b === "image" || b === "gallery")) {
-            const fileId = photos[photos.length - 1].file_id; // largest
             await applyEditProductPhoto(chatId, fromId, a, b, fileId);
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+          }
+          if (scope === "bc" && verb === "new" && a === "photo") {
+            await handleNewBroadcastPhoto(chatId, fromId, fileId);
             return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
           }
         }
