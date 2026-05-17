@@ -123,14 +123,15 @@ export async function showOrder(chatId: number, msgId: number | undefined, id: s
     o.notes ? `\n📝 ${escapeHtml(o.notes)}` : "",
   ].filter(Boolean).join("\n");
 
-  const kb = [
-    [{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }],
-    [{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }],
-    [{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
-    [{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }],
-    [{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }],
-    [{ text: "← К списку", callback_data: "a:o" }, ...backRow()],
-  ];
+  const isRefunded = o.payment_status === "refunded";
+  const isFinal = o.status === "delivered" || o.status === "completed" || o.status === "cancelled";
+  const kb: any[] = [];
+  if (!isFinal) kb.push([{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }]);
+  kb.push([{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }]);
+  kb.push([{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }]);
+  if (!isRefunded) kb.push([{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }]);
+  kb.push([{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }]);
+  kb.push([{ text: "← К списку", callback_data: "a:o" }, ...backRow()]);
 
   await deleteAndSend(chatId, msgId, { text, parse_mode: "HTML", reply_markup: { inline_keyboard: kb } });
 }
