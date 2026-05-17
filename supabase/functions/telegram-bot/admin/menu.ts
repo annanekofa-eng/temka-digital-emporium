@@ -33,6 +33,7 @@ export function adminMenuKeyboard() {
       ],
       [
         { text: "🤖 Авто-заказы", callback_data: "a:ao" },
+        { text: "📥 Заявки СБП", callback_data: "a:sbp" },
       ],
     ],
   };
