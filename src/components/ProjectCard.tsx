@@ -27,7 +27,7 @@ const ProjectCard = ({ project, index }: Props) => {
     >
       <Link
         to={`/p/${project.id}`}
-        className="group relative block overflow-hidden rounded-3xl border border-primary/40 bg-card p-4 transition-all hover:border-primary hover:-translate-y-0.5"
+        className="group relative block overflow-hidden rounded-[2rem] border border-primary/40 bg-card p-4 transition-all hover:border-primary hover:-translate-y-0.5"
         style={{
           boxShadow:
             '0 0 0 1px hsl(var(--primary) / 0.15), 0 0 20px -2px hsl(var(--primary) / 0.35), inset 0 0 24px -8px hsl(var(--primary) / 0.25)',
