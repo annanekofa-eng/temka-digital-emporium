@@ -1,84 +1,65 @@
-## Цель
+# Авто-товары: Stars / Premium — полный цикл
 
-Пройти все 12 разделов админки + общий слой (router/auth/session/log) и найти/починить все баги, разрывы связей между модулями, нарушения §14 (безопасность/целостность), сломанные callback'и и расхождения с ТЗ.
+## Что уже есть
+- На фронте есть карточки `PremiumTermCard` и `StarsCard` (`src/components/SpecialProductCards.tsx`) — кладут товар в корзину как обычный продукт.
+- В БД `products` имеют `product_type` (`premium_term` / `stars`), `term_options`, `min_qty`, `max_qty`.
+- Чекаут идёт через обычный flow (`pay-with-balance` / `create-invoice` → `cryptobot-webhook`).
+- Админка в Telegram-боте уже модульная (`supabase/functions/telegram-bot/admin/*`).
 
-## Этап 1 — Сбор фактов (read-only)
+## Чего не хватает
+1. У авто-товаров в заказе нет привязки **@username получателя** (кому слать Stars/Premium).
+2. Нет очереди **«Авто-заказы»** в админке бота с действиями «Выдать» / «Ошибка».
+3. Нет уведомлений пользователю «Принят → Выдан».
+4. Если в одном заказе авто-товар + обычный товар — нужно разделять (заказ должен быть либо полностью авто, либо обычный).
 
-1. **Router-карта.** Прочитать `index.ts` целиком и составить таблицу `callback prefix → handler → ожидаемые args`. Сверить с тем, что реально шлют `admin/*.ts` (кнопки `callback_data`).
-2. **Контракт shared-слоя.** `_shared/auth.ts`, `session.ts`, `tg.ts`, `db.ts`, `upload.ts` — проверить:
-   - `safeSlice` применяется ко всем `text` кнопок и `callback_data` ≤ 64 B;
-   - все `tg()` вызовы обёрнуты в try/catch и логи проходят через `maskToken`;
-   - `deleteAndSend` используется вместо `editMessage` (memory: Bot UX Stability);
-   - сессии/callback-токены чистятся `cleanup_admin_expired` (cron жив).
-3. **Проверка прав.** В каждой точке входа (`/admin`, `/rep`, callback `a:*`, текст в FSM) вызывается `isAdmin`. Найти пути в обход.
-4. **DB-схема vs код.** Сопоставить поля, которые читает/пишет каждый модуль, со схемой `<supabase-tables>` (типы, nullable, default). Особое внимание: `orders.balance_used`, `sbp_requests.status enum`, `products.term_options`/`gallery`/`min_qty`/`max_qty`, `broadcasts.cursor_telegram_id`, `balance_history.balance_after`.
-5. **Аудит-лог.** Каждая мутация → `writeAuditLog`. Найти модули, где `update/insert/delete` идёт без логирования.
-6. **Транзакционность баланса.** Любые движения баланса — только через `credit_balance`/`deduct_balance` + строка в `balance_history`. Найти прямые `update user_profiles set balance` (особенно в `users.ts`, `sbp.ts`).
+## План реализации
 
-## Этап 2 — Покомпонентный аудит
+### 1. БД (миграция)
+- В `order_items` добавить `recipient_username text` (для конкретной позиции авто-товара).
+- В `orders` добавить:
+  - `is_auto boolean default false` — содержит ли заказ хотя бы один авто-товар.
+  - `auto_status text` — `pending` | `delivered` | `error` (для авто-заказов).
+  - `auto_delivered_at timestamptz`, `auto_delivered_by bigint`, `auto_error_note text`.
+- Индекс `orders(is_auto, auto_status)` для списка в админке.
 
-Для каждого модуля — чек-лист: список view, callback'ов, FSM-стейтов, мутаций; что валидируется; что логируется; пустые состояния; пагинация.
+### 2. Фронт: указание @username
+- В `PremiumTermCard` и `StarsCard` добавить обязательное поле ввода `@username` (валидация `^@?[A-Za-z0-9_]{5,32}$`).
+- Хранить `recipient_username` на уровне cart item (расширить `StoreContext` / `addToCart`).
+- **Запретить смешивание**: при попытке добавить авто-товар, если в корзине есть обычный (и наоборот) — показывать toast «Авто-товары оформляются отдельным заказом» и предлагать очистить корзину.
+- Передавать `recipient_username` в `create-invoice` / `pay-with-balance`.
 
-| Модуль | Что особенно проверить |
-|---|---|
-| `menu.ts` | 12 кнопок, длины callback_data, иконки совпадают с ТЗ |
-| `products.ts` | wizard FSM (все шаги доводят до save), upload фото (bucket `product-images`, путь, public URL), `term_options`/`gallery` JSON-валидация, `min_qty ≤ max_qty`, дефолт `project_id='vieto'` |
-| `categories.ts` | CRUD, slug-уникальность, защита от удаления категории, на которой висят товары |
-| `projects.ts` | редактор FLUX/VIETO/CURSOR, обновление баннера через upload, нельзя удалить |
-| `orders.ts` | фильтры status/date/project, смена `status`+`payment_status`, one-click `/rep` (доставка содержимого `inventory_items` + `external_payload`), запись `admin_log` action=`rep_sent` |
-| `users.ts` | поиск по `telegram_id`/`username`, ± баланс через RPC + `balance_history`, блок/разблок (`is_blocked`), заметка (`internal_note`) |
-| `reviews.ts` | approve/reject/delete, `moderation_status` enum, обновление UI |
-| `sbp.ts` | approve→`credit_balance`+order paid+уведомление клиенту, reject→причина+уведомление, идемпотентность (`status` переход только из `pending`) |
-| `promocodes.ts` | CRUD, типы percent/fixed, лимиты, валидация дат |
-| `inventory.ts` | bulk-add (split по строкам), trim, `status='available'`, лог |
-| `logs.ts` | `admin_log` + `balance_history` пагинация, без N+1 |
-| `settings.ts` | `site_settings` upsert по `key`, `message_templates` CRUD, marquee toggle, faq_url |
-| `stats.ts` | окна 24h/7d/30d/all, top products/buyers, daily ASCII; проверить лимит 1000 строк |
-| `broadcasts.ts` | wizard (text→photo→audience→preview→send), self-invoke воркер, курсор, throttle ~25/сек, fallback sendPhoto→sendMessage, прогресс |
+### 3. Edge Functions
+- `pay-with-balance` и `create-invoice`: принимать `items[].recipient_username`, сохранять в `order_items`, выставлять `orders.is_auto = true` если хоть одна позиция — авто-товар, и `auto_status='pending'`.
+- `cryptobot-webhook` (и balance-flow): после успешной оплаты, если `is_auto = true`:
+  - НЕ дёргать `reserve_inventory` для авто-позиций.
+  - Слать покупателю: «✅ Заказ принят, ожидайте выдачи».
+  - Слать в админ-чат (всем `ADMIN_TELEGRAM_IDS`) уведомление о новом авто-заказе с кнопкой «Открыть».
 
-## Этап 3 — Связи между модулями
+### 4. Админка бота — раздел «🤖 Авто-заказы»
+Новый файл `supabase/functions/telegram-bot/admin/auto_orders.ts`:
+- В главном меню (`admin/menu.ts`) добавить кнопку `🤖 Авто-заказы` (callback `a:ao`).
+- Список авто-заказов: фильтр `pending` / `delivered` / `error`, постранично.
+- Карточка заказа: номер, товар (Stars 50⭐ / Premium 3 мес), получатель `@username`, покупатель `telegram_id`, сумма, статус, кнопки:
+  - ✅ Подтвердить выдачу → `auto_status='delivered'`, уведомление покупателю.
+  - ❌ Ошибка выдачи → запросить причину текстом → `auto_status='error'`, вернуть на баланс, уведомить.
+- Роутер callback-ов в `index.ts`.
 
-- `orders` ⇄ `inventory_items` (reserve/release при ручной смене статуса).
-- `sbp_requests` ⇄ `orders` ⇄ `balance_history`.
-- `products` ⇄ `categories`/`projects` (FK-целостность на уровне приложения).
-- `broadcasts` ⇄ `user_profiles` (сегменты `all/buyers/no_orders/with_balance`).
-- `admin_callbacks` ⇄ длинные payload'ы (UUID товаров/заказов) — нет ли потери токена при перезаходе.
+### 5. Уведомления
+- При создании авто-заказа: покупателю «Заказ принят», админам — новый заказ.
+- При «Выдан»: покупателю «✅ Ваш заказ выдан».
+- При «Ошибка»: покупателю «❌ Не удалось выдать, сумма возвращена на баланс».
 
-## Этап 4 — Сценарии E2E (curl_edge_functions + read_query)
-
-Симулировать `update` для каждого основного callback (по 1–2 на модуль): `/admin`, открыть товары→создать→upload фото→сохранить; заказ→сменить статус→/rep; user→±баланс→блок; sbp→approve; broadcast→test-send. После каждого — `read_query` в соответствующие таблицы + `admin_log`.
-
-## Этап 5 — Линтер и тесты
-
-- `supabase--linter` для DB-варнингов.
-- `deno test` по shared + admin (`admin_menu_test`, `shared_auth_test`, `shared_tg_test` + добавить недостающие на `products`, `orders`, `users`, `broadcasts` FSM).
-- `edge_function_logs telegram-bot` за последние сутки — отфильтровать `error`/`failed`.
-
-## Этап 6 — Реестр дефектов и фикс
-
-По итогам 1–5 — единый список «дефект → файл:строка → фикс → тест». Чиним группами:
-1. Безопасность/целостность (баланс, isAdmin, idempotency).
-2. Сломанные callback'и/длины.
-3. Расхождения со схемой/RLS.
-4. UX (delete+send, пустые состояния, ошибки).
-5. Логирование (`admin_log` пробелы).
-6. Производительность (лимит 1000, индексы при необходимости — отдельной миграцией).
-
-Каждый фикс — точечный edit, после блока — повторный smoke + тесты.
-
-## Этап 7 — Финальный прогон §16 ТЗ
-
-Полный чек по `.lovable/plan.md` шаг 10 (главный экран, FLUX/VIETO/CURSOR, корзина, оплата, /rep, контент из админки, пустые состояния, ошибки) и сводный отчёт.
-
-## Что НЕ входит
-
-- Веб-страница `/admin` (по решению пользователя).
-- Multi-admin роли.
-- Новые фичи сверх ТЗ.
+### 6. Скрытие авто-товаров из обычного раздела «Товары» в админке
+- В `admin/products.ts` фильтровать `product_type NOT IN ('stars','premium_term')` — управление ценами/настройками этих товаров идёт через отдельный подраздел.
+- Внутри «Авто-заказы» добавить подменю «⚙️ Настройки Premium» и «⚙️ Настройки Stars» (как на скриншотах 26/27): редактирование цен 3/6/12 мес и цены за 1 звезду, min/max, включить/выключить.
 
 ## Технические детали
+- `recipient_username` нормализуем — всегда сохраняем БЕЗ `@`, выводим С `@`.
+- Возврат при ошибке: `credit_balance(telegram_id, total_amount)` + запись в `balance_history` (type='refund_auto').
+- Идемпотентность: повторное нажатие «Выдать» — no-op если уже `delivered`.
+- Все админ-действия пишутся в `admin_log` (`writeAuditLog`).
 
-- Read-only инструменты: `code--view`, `rg`, `supabase--read_query`, `supabase--linter`, `supabase--edge_function_logs`, `supabase--curl_edge_functions`.
-- Любые изменения схемы — отдельной миграцией с описанием.
-- Все фиксы — через `code--line_replace`, без перезаписи файлов целиком.
-- Деплой `telegram-bot` после каждой группы фиксов + smoke.
+## Объём
+Большая фича: ~1 миграция, 2 фронт-компонента, 1 контекст, 3 edge-функции, 1 новый файл админки + правки menu/index, новые ключи `message_templates` для уведомлений.
+
+Подтвердите план — приступаю к миграции и реализации.
