@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, Minus, LayoutGrid } from 'lucide-react';
+import { ShoppingCart, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import NftCatalogDialog from '@/components/NftCatalogDialog';
 import { useStore } from '@/contexts/StoreContext';
 import { toast } from 'sonner';
 import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
-import logoNft from '@/assets/logo-tg-nft.png';
 import type { ExtendedProduct } from '@/hooks/useShop';
 
 export const STAR_PRESETS = [15, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 
 export const SPECIAL_PRODUCT_TYPES = [
   'premium_term',
-  'nft_variant',
   'stars',
 ] as const;
 
@@ -75,27 +72,6 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
         <ShoppingCart className="w-4 h-4 mr-2" />
         {opt ? `Купить за $${opt.price}` : 'Выберите срок'}
       </Button>
-    </div>
-  );
-};
-
-export const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-3 mb-3">
-        <LogoBox src={logoNft} alt="NFT подарки" />
-        <div className="flex-1 min-w-0">
-          <h3 className="font-display font-bold text-base">{product.title}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-1">
-            {product.subtitle || 'Подарки Telegram'}
-          </p>
-        </div>
-      </div>
-      <Button className="w-full" onClick={() => setOpen(true)}>
-        <LayoutGrid className="w-4 h-4 mr-2" /> Открыть каталог
-      </Button>
-      <NftCatalogDialog open={open} onClose={() => setOpen(false)} mode="gift" />
     </div>
   );
 };
@@ -172,8 +148,6 @@ export const renderSpecialProduct = (p: ExtendedProduct) => {
   switch (p.product_type) {
     case 'premium_term':
       return <PremiumTermCard key={p.id} product={p} />;
-    case 'nft_variant':
-      return <NftVariantCard key={p.id} product={p} />;
     case 'stars':
       return <StarsCard key={p.id} product={p} />;
     default:

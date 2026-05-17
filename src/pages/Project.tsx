@@ -221,7 +221,7 @@ const Project = () => {
       </section>
 
       <div className="container-main mx-auto max-w-2xl px-4 space-y-6">
-        {/* Special products (premium / nft / stars / etc.) */}
+        {/* Special products (premium / stars) */}
         {special.length > 0 && (
           <section>
             <h2 className="font-display text-lg font-bold mb-3 px-1">Специальные товары</h2>

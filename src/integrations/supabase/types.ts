@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_callbacks: {
+        Row: {
+          created_at: string
+          expires_at: string
+          payload: Json
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          payload?: Json
+          token: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          payload?: Json
+          token?: string
+        }
+        Relationships: []
+      }
       admin_log: {
         Row: {
           action: string
@@ -38,6 +59,30 @@ export type Database = {
           id?: string
           meta?: Json
           target?: string | null
+        }
+        Relationships: []
+      }
+      admin_sessions: {
+        Row: {
+          expires_at: string
+          payload: Json
+          state: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          expires_at?: string
+          payload?: Json
+          state: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string
+          payload?: Json
+          state?: string
+          telegram_id?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -71,6 +116,54 @@ export type Database = {
           id?: string
           telegram_id?: number
           type?: string
+        }
+        Relationships: []
+      }
+      broadcasts: {
+        Row: {
+          admin_telegram_id: number
+          audience: string
+          created_at: string
+          cursor_telegram_id: number | null
+          error_message: string | null
+          failed_count: number
+          id: string
+          photo_url: string | null
+          sent_count: number
+          status: string
+          text: string
+          total_count: number
+          updated_at: string
+        }
+        Insert: {
+          admin_telegram_id: number
+          audience?: string
+          created_at?: string
+          cursor_telegram_id?: number | null
+          error_message?: string | null
+          failed_count?: number
+          id?: string
+          photo_url?: string | null
+          sent_count?: number
+          status?: string
+          text?: string
+          total_count?: number
+          updated_at?: string
+        }
+        Update: {
+          admin_telegram_id?: number
+          audience?: string
+          created_at?: string
+          cursor_telegram_id?: number | null
+          error_message?: string | null
+          failed_count?: number
+          id?: string
+          photo_url?: string | null
+          sent_count?: number
+          status?: string
+          text?: string
+          total_count?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -408,7 +501,6 @@ export type Database = {
           is_popular: boolean
           max_qty: number
           min_qty: number
-          nft_variants: Json
           old_price: number | null
           platform: string
           price: number
@@ -443,7 +535,6 @@ export type Database = {
           is_popular?: boolean
           max_qty?: number
           min_qty?: number
-          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price: number
@@ -478,7 +569,6 @@ export type Database = {
           is_popular?: boolean
           max_qty?: number
           min_qty?: number
-          nft_variants?: Json
           old_price?: number | null
           platform?: string
           price?: number
@@ -782,6 +872,7 @@ export type Database = {
       }
     }
     Functions: {
+      cleanup_admin_expired: { Args: never; Returns: undefined }
       credit_balance: {
         Args: { p_amount: number; p_telegram_id: number }
         Returns: number

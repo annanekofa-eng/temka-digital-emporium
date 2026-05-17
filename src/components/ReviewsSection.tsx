@@ -12,7 +12,7 @@ import { useTelegram } from '@/contexts/TelegramContext';
 const FALLBACK = [
   { id: 'r1', author: 'alex_volkov',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
   { id: 'r2', author: 'mary_blossom', text: 'Купила Telegram Stars, цена приятная, доставка моментальная.',          rating: 5, avatar: '🌸' },
-  { id: 'r3', author: 'dmitry_p',     text: 'NFT-подарок дошёл за пару минут. Поддержка отвечает быстро.',           rating: 5, avatar: '🐧' },
+  { id: 'r3', author: 'dmitry_p',     text: 'Premium активировался за пару минут. Поддержка отвечает быстро.',     rating: 5, avatar: '🐧' },
   { id: 'r4', author: 'nika_bow',     text: 'FLUX-дизайн — топ. Отличный вкус, всё аккуратно.',                       rating: 5, avatar: '🎀' },
   { id: 'r5', author: 'igor_play',    text: 'Брал ключ Steam — активировался без проблем. Рекомендую.',               rating: 5, avatar: '🎮' },
 ];

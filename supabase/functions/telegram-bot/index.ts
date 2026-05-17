@@ -1,42 +1,15 @@
-// Standalone shop Telegram bot: /start welcome from DB + WebApp button + /rep admin command
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Telegram bot: /start, /rep, /admin command + callback router
+import { tg, deleteAndSend, answerCallback, maskToken } from "./_shared/tg.ts";
+import { supabase, getSetting, writeAuditLog } from "./_shared/db.ts";
+import { isAdmin } from "./_shared/auth.ts";
+import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
 
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
-const ADMIN_TELEGRAM_IDS = (Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "")
-  .split(",").map((s) => s.trim()).filter(Boolean);
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-const TG_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 const FALLBACK_WELCOME =
   "👋 Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог 👇";
-
-async function tg(method: string, body: unknown) {
-  const res = await fetch(`${TG_API}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return res.json();
-}
-
-async function getSetting(key: string, fallback = ""): Promise<string> {
-  const { data } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", key)
-    .maybeSingle();
-  return (data?.value as string) ?? fallback;
-}
-
-function isAdmin(tgId: number | string): boolean {
-  return ADMIN_TELEGRAM_IDS.includes(String(tgId));
-}
 
 async function handleStart(chatId: number) {
   const welcome = await getSetting("welcome_text", FALLBACK_WELCOME);
@@ -51,7 +24,6 @@ async function handleStart(chatId: number) {
 }
 
 async function handleRep(adminChatId: number, adminId: number, args: string) {
-  // /rep #1234 — find order, send template to user
   const match = args.match(/#?(\S+)/);
   if (!match) {
     await tg("sendMessage", { chat_id: adminChatId, text: "❌ Использование: /rep #номер_заказа" });
@@ -83,11 +55,9 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
 
   const send = await tg("sendMessage", { chat_id: order.telegram_id, text: body });
 
-  await supabase.from("admin_log").insert({
-    admin_telegram_id: adminId,
-    action: "rep",
-    target: order.order_number,
-    meta: { ok: !!send?.ok, response: send },
+  await writeAuditLog(adminId, "rep", String(order.order_number), {
+    ok: !!send?.ok,
+    response: send,
   });
 
   if (send?.ok) {
@@ -100,6 +70,54 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
       chat_id: adminChatId,
       text: `⚠️ Не удалось доставить сообщение пользователю по заказу #${order.order_number}.\n${send?.description ?? ""}`,
     });
+  }
+}
+
+// Map "a:<section>" callbacks to handlers. As blocks land in later steps the
+// stubs here will be swapped for real screens.
+async function handleAdminCallback(
+  chatId: number,
+  fromId: number,
+  msgId: number | undefined,
+  callbackId: string,
+  data: string,
+) {
+  if (!isAdmin(fromId)) {
+    await answerCallback(callbackId, "⛔ Только для администраторов", true);
+    return;
+  }
+  await answerCallback(callbackId);
+  const parts = data.split(":"); // a:<section>:<...>
+  const section = parts[1] ?? "menu";
+
+  switch (section) {
+    case "menu":
+      await sendAdminMenu(chatId, fromId, msgId);
+      return;
+    case "p":
+      return notImplementedStub(chatId, msgId, "Товары");
+    case "c":
+      return notImplementedStub(chatId, msgId, "Категории");
+    case "o":
+      return notImplementedStub(chatId, msgId, "Заказы");
+    case "u":
+      return notImplementedStub(chatId, msgId, "Пользователи");
+    case "rv":
+      return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
+    case "st":
+      return notImplementedStub(chatId, msgId, "Статистика");
+    case "pc":
+      return notImplementedStub(chatId, msgId, "Промокоды");
+    case "inv":
+      return notImplementedStub(chatId, msgId, "Склад");
+    case "lg":
+      return notImplementedStub(chatId, msgId, "Логи");
+    case "se":
+      return notImplementedStub(chatId, msgId, "Настройки");
+    case "bc":
+      return notImplementedStub(chatId, msgId, "Рассылка");
+    default:
+      await sendAdminMenu(chatId, fromId, msgId);
   }
 }
 
@@ -130,12 +148,27 @@ Deno.serve(async (req) => {
   let update: any;
   try { update = await req.json(); } catch { return new Response("Bad request", { status: 400 }); }
 
-  const message = update?.message ?? update?.edited_message;
-  const chatId = message?.chat?.id as number | undefined;
-  const fromId = message?.from?.id as number | undefined;
-  const text: string = message?.text ?? "";
-
   try {
+    // --- callback_query ---
+    const cb = update?.callback_query;
+    if (cb?.data && typeof cb.data === "string" && cb.data.startsWith("a:")) {
+      const chatId = cb.message?.chat?.id as number | undefined;
+      const fromId = cb.from?.id as number | undefined;
+      const msgId = cb.message?.message_id as number | undefined;
+      if (chatId && fromId) {
+        await handleAdminCallback(chatId, fromId, msgId, cb.id, cb.data);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // --- messages ---
+    const message = update?.message ?? update?.edited_message;
+    const chatId = message?.chat?.id as number | undefined;
+    const fromId = message?.from?.id as number | undefined;
+    const text: string = message?.text ?? "";
+
     if (chatId && fromId) {
       if (text.startsWith("/start") || text === "/help") {
         await handleStart(chatId);
@@ -145,10 +178,16 @@ Deno.serve(async (req) => {
         } else {
           await handleRep(chatId, fromId, text.replace(/^\/rep\s*/, ""));
         }
+      } else if (text === "/admin" || text.startsWith("/admin ")) {
+        if (!isAdmin(fromId)) {
+          await tg("sendMessage", { chat_id: chatId, text: "⛔ Команда доступна только администраторам." });
+        } else {
+          await sendAdminMenu(chatId, fromId);
+        }
       }
     }
   } catch (e) {
-    console.error("Bot error:", e);
+    console.error("Bot error:", maskToken(String(e)));
   }
 
   return new Response(JSON.stringify({ ok: true }), {

@@ -16,7 +16,7 @@ const sortOptions = [
   { value: 'newest', label: 'Новинки' },
 ];
 
-// Renders products: special types (stars / nft / premium) get unique UI as a full-width list,
+// Renders products: special types (stars / premium) get unique UI as a full-width list,
 // regular products use the standard grid/list ProductCard.
 const ProductsList = ({ items, viewMode }: { items: any[]; viewMode: 'grid' | 'list' }) => {
   const specials = items.filter(isSpecialProduct);
