@@ -2,7 +2,19 @@
 import { tg, deleteAndSend, answerCallback, maskToken } from "./_shared/tg.ts";
 import { supabase, getSetting, writeAuditLog } from "./_shared/db.ts";
 import { isAdmin } from "./_shared/auth.ts";
+import { getSession, clearSession } from "./_shared/session.ts";
 import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
+import {
+  showProductList, showProduct, toggleProduct, askDeleteProduct, confirmDeleteProduct,
+  startEditProduct, applyEditProduct, startCreateProduct, handleCreateProductStep,
+} from "./admin/products.ts";
+import {
+  showCategoryList, showCategory, toggleCategory, askDeleteCategory, confirmDeleteCategory,
+  startEditCategory, applyEditCategory, startCreateCategory, handleCreateCategoryStep,
+} from "./admin/categories.ts";
+import {
+  showProjectList, showProject, toggleProject, startEditProject, applyEditProject,
+} from "./admin/projects.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -73,8 +85,6 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
   }
 }
 
-// Map "a:<section>" callbacks to handlers. As blocks land in later steps the
-// stubs here will be swapped for real screens.
 async function handleAdminCallback(
   chatId: number,
   fromId: number,
@@ -87,38 +97,97 @@ async function handleAdminCallback(
     return;
   }
   await answerCallback(callbackId);
-  const parts = data.split(":"); // a:<section>:<...>
+  // a:<section>:<op>:<arg>:<extra>
+  const parts = data.split(":");
   const section = parts[1] ?? "menu";
+  const op = parts[2];
+  const arg = parts[3];
+  const extra = parts[4];
 
   switch (section) {
     case "menu":
-      await sendAdminMenu(chatId, fromId, msgId);
-      return;
-    case "p":
-      return notImplementedStub(chatId, msgId, "Товары");
-    case "c":
-      return notImplementedStub(chatId, msgId, "Категории");
-    case "o":
-      return notImplementedStub(chatId, msgId, "Заказы");
-    case "u":
-      return notImplementedStub(chatId, msgId, "Пользователи");
-    case "rv":
-      return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
-    case "st":
-      return notImplementedStub(chatId, msgId, "Статистика");
-    case "pc":
-      return notImplementedStub(chatId, msgId, "Промокоды");
-    case "inv":
-      return notImplementedStub(chatId, msgId, "Склад");
-    case "lg":
-      return notImplementedStub(chatId, msgId, "Логи");
-    case "se":
-      return notImplementedStub(chatId, msgId, "Настройки");
-    case "bc":
-      return notImplementedStub(chatId, msgId, "Рассылка");
+      return sendAdminMenu(chatId, fromId, msgId);
+
+    // --- products ---
+    case "p": {
+      if (!op) return showProductList(chatId, msgId, 0);
+      if (op === "l") return showProductList(chatId, msgId, parseInt(arg ?? "0") || 0);
+      if (op === "v" && arg) return showProduct(chatId, msgId, arg);
+      if (op === "t" && arg) return toggleProduct(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return askDeleteProduct(chatId, msgId, arg);
+      if (op === "dc" && arg) return confirmDeleteProduct(chatId, msgId, arg, fromId);
+      if (op === "e" && arg && extra) return startEditProduct(chatId, msgId, arg, extra, fromId);
+      if (op === "n") return startCreateProduct(chatId, msgId, fromId);
+      return showProductList(chatId, msgId, 0);
+    }
+
+    // --- categories ---
+    case "c": {
+      if (!op) return showCategoryList(chatId, msgId);
+      if (op === "v" && arg) return showCategory(chatId, msgId, arg);
+      if (op === "t" && arg) return toggleCategory(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return askDeleteCategory(chatId, msgId, arg);
+      if (op === "dc" && arg) return confirmDeleteCategory(chatId, msgId, arg, fromId);
+      if (op === "e" && arg && extra) return startEditCategory(chatId, msgId, arg, extra, fromId);
+      if (op === "n") return startCreateCategory(chatId, msgId, fromId);
+      return showCategoryList(chatId, msgId);
+    }
+
+    // --- projects ---
+    case "pr": {
+      if (!op) return showProjectList(chatId, msgId);
+      if (op === "v" && arg) return showProject(chatId, msgId, arg);
+      if (op === "t" && arg) return toggleProject(chatId, msgId, arg, fromId);
+      if (op === "e" && arg && extra) return startEditProject(chatId, msgId, arg, extra, fromId);
+      return showProjectList(chatId, msgId);
+    }
+
+    case "o": return notImplementedStub(chatId, msgId, "Заказы");
+    case "u": return notImplementedStub(chatId, msgId, "Пользователи");
+    case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
+    case "st": return notImplementedStub(chatId, msgId, "Статистика");
+    case "pc": return notImplementedStub(chatId, msgId, "Промокоды");
+    case "inv": return notImplementedStub(chatId, msgId, "Склад");
+    case "lg": return notImplementedStub(chatId, msgId, "Логи");
+    case "se": return notImplementedStub(chatId, msgId, "Настройки");
+    case "bc": return notImplementedStub(chatId, msgId, "Рассылка");
     default:
-      await sendAdminMenu(chatId, fromId, msgId);
+      return sendAdminMenu(chatId, fromId, msgId);
   }
+}
+
+// Route plain-text input by admin FSM state (`<scope>:<verb>:...`).
+async function handleAdminText(chatId: number, fromId: number, text: string): Promise<boolean> {
+  if (!isAdmin(fromId)) return false;
+  const sess = await getSession(fromId);
+  if (!sess) return false;
+  if (text.startsWith("/")) {
+    await clearSession(fromId);
+    return false;
+  }
+  const [scope, verb, a, b] = sess.state.split(":");
+
+  if (scope === "p" && verb === "new") {
+    await handleCreateProductStep(chatId, fromId, text);
+    return true;
+  }
+  if (scope === "p" && verb === "edit" && a && b) {
+    await applyEditProduct(chatId, fromId, a, b, text);
+    return true;
+  }
+  if (scope === "c" && verb === "new") {
+    await handleCreateCategoryStep(chatId, fromId, text);
+    return true;
+  }
+  if (scope === "c" && verb === "edit" && a && b) {
+    await applyEditCategory(chatId, fromId, a, b, text);
+    return true;
+  }
+  if (scope === "pr" && verb === "edit" && a && b) {
+    await applyEditProject(chatId, fromId, a, b, text);
+    return true;
+  }
+  return false;
 }
 
 Deno.serve(async (req) => {
@@ -149,7 +218,6 @@ Deno.serve(async (req) => {
   try { update = await req.json(); } catch { return new Response("Bad request", { status: 400 }); }
 
   try {
-    // --- callback_query ---
     const cb = update?.callback_query;
     if (cb?.data && typeof cb.data === "string" && cb.data.startsWith("a:")) {
       const chatId = cb.message?.chat?.id as number | undefined;
@@ -163,7 +231,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- messages ---
     const message = update?.message ?? update?.edited_message;
     const chatId = message?.chat?.id as number | undefined;
     const fromId = message?.from?.id as number | undefined;
@@ -184,6 +251,8 @@ Deno.serve(async (req) => {
         } else {
           await sendAdminMenu(chatId, fromId);
         }
+      } else if (text) {
+        await handleAdminText(chatId, fromId, text);
       }
     }
   } catch (e) {

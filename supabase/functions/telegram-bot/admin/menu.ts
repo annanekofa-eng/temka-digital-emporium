@@ -16,6 +16,7 @@ export function adminMenuKeyboard() {
         { text: "👥 Пользователи", callback_data: "a:u" },
       ],
       [
+        { text: "📁 Проекты", callback_data: "a:pr" },
         { text: "📨 Заявки", callback_data: "a:rv:pending" },
       ],
       [
