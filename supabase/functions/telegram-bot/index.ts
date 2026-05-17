@@ -214,8 +214,19 @@ async function handleAdminCallback(
       if (op === "nt" && arg) return setNewPromoType(chatId, msgId, arg, fromId);
       return showPromoList(chatId, msgId);
     }
-    case "inv": return notImplementedStub(chatId, msgId, "Склад");
-    case "lg": return notImplementedStub(chatId, msgId, "Логи");
+    case "inv": {
+      if (!op) return showInventoryProducts(chatId, msgId, 0);
+      if (op === "p" && arg) return showInventoryProducts(chatId, msgId, parseInt(arg) || 0);
+      if (op === "v" && arg) return showInventoryProduct(chatId, msgId, arg);
+      if (op === "a" && arg) return startAddInventory(chatId, msgId, arg, fromId);
+      if (op === "dx" && arg) return deleteAllAvailable(chatId, msgId, arg, fromId);
+      return showInventoryProducts(chatId, msgId, 0);
+    }
+    case "lg": {
+      if (!op) return showLogs(chatId, msgId, 0);
+      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0);
+      return showLogs(chatId, msgId, 0);
+    }
     case "se": {
       if (!op) return showSettingsMenu(chatId, msgId);
       if (op === "e" && arg) return startEditSetting(chatId, msgId, arg, fromId);
