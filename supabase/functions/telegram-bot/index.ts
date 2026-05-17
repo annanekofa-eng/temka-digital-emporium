@@ -41,7 +41,8 @@ import {
 import { showLogs } from "./admin/logs.ts";
 import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
-  deleteBroadcast, sendBroadcast,
+  deleteBroadcast, sendBroadcast, setBroadcastAudience, testBroadcast,
+  handleNewBroadcastPhoto,
 } from "./admin/broadcasts.ts";
 import { showStats } from "./admin/stats.ts";
 
