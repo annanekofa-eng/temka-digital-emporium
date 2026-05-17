@@ -18,7 +18,7 @@ vi.mock('sonner', () => ({
 
 import { StoreProvider, useStore, isAutoProduct, AUTO_PRODUCT_TYPES } from '@/contexts/StoreContext';
 
-const makeProduct = (overrides: Partial<any> = {}) => ({
+const makeProduct = (overrides: Partial<any> = {}): any => ({
   id: overrides.id ?? 'p-' + Math.random().toString(36).slice(2, 8),
   title: 'Item',
   price: 10,
