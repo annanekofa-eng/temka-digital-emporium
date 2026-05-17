@@ -41,6 +41,7 @@ import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
   deleteBroadcast, sendBroadcast,
 } from "./admin/broadcasts.ts";
+import { showStats } from "./admin/stats.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
