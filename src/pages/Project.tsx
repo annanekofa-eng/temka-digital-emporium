@@ -195,11 +195,11 @@ const Project = () => {
             {(() => {
               const photo = project.banner || PROJECT_PHOTOS[project.id];
               return photo ? (
-                <div className="aspect-[21/9] bg-secondary">
-                  <img src={photo} alt={project.title} className="w-full h-full object-cover" />
+                <div className="bg-secondary">
+                  <img src={photo} alt={project.title} className="w-full h-auto object-contain" />
                 </div>
               ) : (
-                <div className="aspect-[21/9] bg-gradient-to-br from-secondary to-muted flex items-center justify-center text-7xl">
+                <div className="aspect-square bg-gradient-to-br from-secondary to-muted flex items-center justify-center text-7xl">
                   {project.icon}
                 </div>
               );

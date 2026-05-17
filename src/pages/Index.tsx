@@ -46,7 +46,8 @@ const Index = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05, duration: 0.5 }}
-              className="font-display text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none drop-shadow-[0_2px_24px_hsl(var(--background)/0.6)]"
+              style={{ fontFamily: "'Six Caps', sans-serif" }}
+              className="text-7xl sm:text-8xl lg:text-9xl tracking-wide leading-none drop-shadow-[0_2px_24px_hsl(var(--background)/0.6)]"
             >
               {shopName}
             </motion.h1>
