@@ -256,6 +256,8 @@ async function handleAdminCallback(
       if (op === "v" && arg) return showBroadcast(chatId, msgId, arg);
       if (op === "d" && arg) return deleteBroadcast(chatId, msgId, arg, fromId);
       if (op === "send" && arg) return sendBroadcast(chatId, msgId, arg, fromId);
+      if (op === "test" && arg) return testBroadcast(chatId, msgId, arg, fromId);
+      if (op === "aud" && arg && extra) return setBroadcastAudience(chatId, msgId, arg, extra, fromId);
       return showBroadcastList(chatId, msgId, 0);
     }
     default:
