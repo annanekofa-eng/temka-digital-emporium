@@ -32,8 +32,8 @@ const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
 
 export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
-  const [selected, setSelected] = useState(0);
-  const opt = product.term_options?.[selected];
+  const [selected, setSelected] = useState<number | null>(null);
+  const opt = selected !== null ? product.term_options?.[selected] : null;
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -61,6 +61,7 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
       </div>
       <Button
         className="w-full"
+        disabled={!opt}
         onClick={() => {
           if (!opt) return;
           addToCart({
@@ -71,7 +72,8 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
           toast.success('Добавлено в корзину');
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" /> Купить за ${opt?.price ?? 0}
+        <ShoppingCart className="w-4 h-4 mr-2" />
+        {opt ? `Купить за $${opt.price}` : 'Выберите срок'}
       </Button>
     </div>
   );
@@ -100,9 +102,12 @@ export const NftVariantCard = ({ product }: { product: ExtendedProduct }) => {
 
 export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
   const { addToCart } = useStore();
-  const [idx, setIdx] = useState(2);
-  const qty = STAR_PRESETS[idx];
-  const total = (qty * Number(product.price)).toFixed(2);
+  const minQty = Math.max(1, Number(product.min_qty) || 1);
+  const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
+  const [qty, setQty] = useState<number>(minQty);
+  const clamped = Math.min(maxQty, Math.max(0, Math.floor(qty || 0)));
+  const total = (clamped * Number(product.price)).toFixed(2);
+  const canAdd = clamped >= minQty;
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -115,60 +120,49 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
         </div>
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <Button variant="outline" size="icon" onClick={() => setIdx(Math.max(0, idx - 1))}>
+        <Button variant="outline" size="icon" onClick={() => setQty(Math.max(0, clamped - 1))}>
           <Minus className="w-4 h-4" />
         </Button>
-        <div className="flex-1 h-10 flex items-center justify-center bg-secondary border border-border rounded-lg font-display font-bold">
-          {qty} ⭐
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIdx(Math.min(STAR_PRESETS.length - 1, idx + 1))}
-        >
+        <input
+          type="number"
+          min={0}
+          max={maxQty}
+          value={clamped}
+          onChange={(e) => setQty(Number(e.target.value))}
+          className="flex-1 h-10 text-center bg-secondary border border-border rounded-lg font-display font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+        <Button variant="outline" size="icon" onClick={() => setQty(Math.min(maxQty, clamped + 1))}>
           <Plus className="w-4 h-4" />
         </Button>
       </div>
       <div className="px-1 mb-3">
         <Slider
-          value={[idx]}
+          value={[clamped]}
           min={0}
-          max={STAR_PRESETS.length - 1}
+          max={maxQty}
           step={1}
-          onValueChange={(v) => setIdx(v[0])}
+          onValueChange={(v) => setQty(v[0])}
         />
         <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
-          <span>{STAR_PRESETS[0]}⭐</span>
-          <span>{STAR_PRESETS[STAR_PRESETS.length - 1]}⭐</span>
+          <span>0⭐</span>
+          <span>{maxQty.toLocaleString('ru')}⭐</span>
         </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {STAR_PRESETS.map((p, i) => (
-          <button
-            key={p}
-            onClick={() => setIdx(i)}
-            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-              idx === i
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-secondary border-border text-muted-foreground'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
       </div>
       <Button
         className="w-full"
+        disabled={!canAdd}
         onClick={() => {
+          if (!canAdd) return;
           addToCart({
             ...product,
             price: Number(total),
-            title: `${product.title} · ${qty}⭐`,
+            title: `${product.title} · ${clamped}⭐`,
           } as any);
           toast.success('Звёзды добавлены');
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" /> Купить за ${total}
+        <ShoppingCart className="w-4 h-4 mr-2" />
+        {canAdd ? `Купить за $${total}` : `Минимум ${minQty}⭐`}
       </Button>
     </div>
   );

@@ -6,11 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const CRYPTOBOT_API_URL = "https://pay.crypt.bot/api";
 const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-function verifyAndExtractUser(initData: string, botToken: string): { id: number; first_name: string } | null {
+function verifyAndExtractUser(initData: string, botToken: string): { id: number } | null {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
   if (!hash) return null;
@@ -28,14 +27,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { initData, amount, currency, description, orderNumber, items, promoCode, balanceUsed: clientBalanceUsed } = await req.json();
+    const { initData, orderNumber, items, promoCode } = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const cryptobotToken = Deno.env.get("CRYPTOBOT_API_TOKEN");
-    const botUsername = Deno.env.get("BOT_USERNAME") || "Tele_Store_Robot";
     if (!botToken) return jsonRes({ error: "Bot not configured" }, 500);
-    if (!cryptobotToken) return jsonRes({ error: "Платежи не настроены." }, 500);
     if (!initData) return jsonRes({ error: "Authentication required" }, 401);
 
     const tgUser = verifyAndExtractUser(initData, botToken);
@@ -52,12 +48,12 @@ serve(async (req) => {
     if (count && count >= 15) return jsonRes({ error: "Too many requests" }, 429);
     await supabase.from("rate_limits").insert({ identifier: String(telegramUserId), action: "create_order" });
 
-    // Blocked + balance
+    // Profile + balance
     const { data: profile } = await supabase.from("user_profiles").select("is_blocked, balance").eq("telegram_id", telegramUserId).maybeSingle();
     if ((profile as any)?.is_blocked) return jsonRes({ error: "Account blocked" }, 403);
     const serverBalance = Number(profile?.balance || 0);
 
-    // Validate items (with special-type pricing rules)
+    // Validate items (same logic as create-invoice)
     let serverTotal = 0;
     const validatedItems: { productId: string; productTitle: string; productPrice: number; quantity: number }[] = [];
     for (const item of items) {
@@ -80,16 +76,10 @@ serve(async (req) => {
         unitPrice = Number(match.price);
       } else if (ptype === "nft_variant") {
         const vars = (product.nft_variants as Array<{ price: number }>) || [];
-        // For Portals/NFT gifts: price chosen on the fly; allow any positive price.
         if (clientPrice <= 0) return jsonRes({ error: `${product.title} — invalid price` }, 400);
         if (vars.length > 0) {
           const match = vars.find((v) => Math.abs(Number(v.price) - clientPrice) < 0.01);
-          if (!match) {
-            // Variant catalog from external API (Portals) — accept positive price
-            unitPrice = clientPrice;
-          } else {
-            unitPrice = Number(match.price);
-          }
+          unitPrice = match ? Number(match.price) : clientPrice;
         } else {
           unitPrice = clientPrice;
         }
@@ -97,7 +87,6 @@ serve(async (req) => {
         const base = Number(product.price);
         const minQty = Math.max(1, Number(product.min_qty) || 1);
         const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
-        // Cart stores quantity=1 and price=qty*base. Infer qty from price.
         const inferredQty = base > 0 ? Math.round(clientPrice / base) : 0;
         if (inferredQty < minQty || inferredQty > maxQty)
           return jsonRes({ error: `${product.title} — invalid stars amount` }, 400);
@@ -141,53 +130,59 @@ serve(async (req) => {
     }
 
     const totalAfterDiscount = Math.max(0, serverTotal - discountAmount);
-    const balanceUsed = Math.min(Math.max(0, Number(clientBalanceUsed) || 0), serverBalance, totalAfterDiscount);
-    const toPay = Math.max(0, totalAfterDiscount - balanceUsed);
-    if (toPay <= 0) return jsonRes({ error: "Use balance-only payment endpoint" }, 400);
+    if (serverBalance < totalAfterDiscount) return jsonRes({ error: "Insufficient balance" }, 400);
 
+    // Atomic deduct
+    const { data: newBalance, error: deductErr } = await supabase.rpc("deduct_balance", {
+      p_telegram_id: telegramUserId,
+      p_amount: totalAfterDiscount,
+    });
+    if (deductErr) {
+      console.error("Deduct error:", deductErr);
+      return jsonRes({ error: "Failed to charge balance" }, 400);
+    }
+
+    // Create paid order
     const { data: order, error } = await supabase.from("orders").insert({
       order_number: orderNumber, telegram_id: telegramUserId,
-      status: "pending", payment_status: "unpaid", total_amount: serverTotal,
-      currency: currency || "USD", discount_amount: discountAmount,
-      promo_code: validatedPromoCode, balance_used: balanceUsed,
+      status: "paid", payment_status: "paid", total_amount: serverTotal,
+      currency: "USD", discount_amount: discountAmount,
+      promo_code: validatedPromoCode, balance_used: totalAfterDiscount,
     }).select().single();
-    if (error) { console.error("Order error:", error); return jsonRes({ error: "Failed to create order" }, 500); }
+    if (error) {
+      console.error("Order error:", error);
+      // refund
+      await supabase.rpc("credit_balance", { p_telegram_id: telegramUserId, p_amount: totalAfterDiscount });
+      return jsonRes({ error: "Failed to create order" }, 500);
+    }
 
-    await supabase.from("order_items").insert(validatedItems.map(i => ({
+    await supabase.from("order_items").insert(validatedItems.map((i) => ({
       order_id: order.id, product_id: i.productId, product_title: i.productTitle,
       product_price: i.productPrice, quantity: i.quantity,
     })));
 
-    const response = await fetch(`${CRYPTOBOT_API_URL}/createInvoice`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Crypto-Pay-API-Token": cryptobotToken },
-      body: JSON.stringify({
-        currency_type: "fiat", fiat: "USD",
-        amount: String(toPay.toFixed(2)),
-        description: description || "Order payment",
-        payload: JSON.stringify({ orderId: order.id, orderNumber, telegramUserId, balanceUsed }),
-        paid_btn_name: "callback",
-        paid_btn_url: `https://t.me/${botUsername}`,
-      }),
-    });
-    const data = await response.json();
-    if (!data.ok) {
-      await supabase.from("orders").update({ status: "error" }).eq("id", order.id);
-      console.error("CryptoBot error:", data);
-      return jsonRes({ error: data.error?.name || "Failed to create invoice" }, 400);
+    // Promo usage
+    if (validatedPromoCode) {
+      await supabase.rpc("increment_promo_usage", { p_code: validatedPromoCode });
     }
 
-    await supabase.from("orders").update({
-      invoice_id: String(data.result.invoice_id), pay_url: data.result.pay_url,
-      status: "awaiting_payment", payment_status: "awaiting",
-    }).eq("id", order.id);
+    // Balance history
+    await supabase.from("balance_history").insert({
+      telegram_id: telegramUserId,
+      amount: -totalAfterDiscount,
+      type: "debit",
+      balance_after: Number(newBalance ?? (serverBalance - totalAfterDiscount)),
+      comment: `Order ${orderNumber}`,
+      admin_telegram_id: 0,
+    });
 
     return jsonRes({
-      invoiceId: data.result.invoice_id, payUrl: data.result.pay_url,
-      miniAppUrl: data.result.mini_app_invoice_url, orderNumber, orderId: order.id,
+      orderId: order.id,
+      orderNumber,
+      paid: true,
     });
   } catch (e) {
-    console.error("Invoice error:", e);
+    console.error("pay-with-balance error:", e);
     return jsonRes({ error: "Internal server error" }, 500);
   }
 });
