@@ -16,22 +16,22 @@ export async function tg(method: string, body: unknown): Promise<any> {
   }
 }
 
-// Trim a string so its UTF-8 byte length stays under `maxBytes`.
-// Telegram inline button text limits are byte-based; naive `slice` cuts
-// codepoints and can leave broken emoji or push past the 64-byte callback_data
-// ceiling. We measure with TextEncoder and cut on a UTF-16 unit boundary.
+// Trim a string so its UTF-8 byte length stays under `maxBytes`. Telegram
+// button labels and callback_data have byte-based limits. We iterate by
+// codepoint (not UTF-16 unit) so we never split a surrogate pair.
 export function safeSlice(input: string, maxBytes: number): string {
   if (!input) return "";
   const enc = new TextEncoder();
   if (enc.encode(input).length <= maxBytes) return input;
-  let lo = 0;
-  let hi = input.length;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (enc.encode(input.slice(0, mid)).length <= maxBytes) lo = mid;
-    else hi = mid - 1;
+  let out = "";
+  let bytes = 0;
+  for (const ch of input) {
+    const chBytes = enc.encode(ch).length;
+    if (bytes + chBytes > maxBytes) break;
+    out += ch;
+    bytes += chBytes;
   }
-  return input.slice(0, lo);
+  return out;
 }
 
 // Replace Telegram bot tokens in any string with a redacted placeholder so we
