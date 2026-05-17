@@ -28,16 +28,7 @@ const Cart = () => {
   const { user, initData } = useTelegram();
   const { data: products } = useProducts();
 
-  // local-only rental period multipliers per cart item id
-  const [rent, setRent] = useState<Record<string, number>>({});
-  const getMult = (id: string) => rent[id] ?? 1;
-
-  // Adjusted totals applying rent multiplier
-  const adjustedItemPrice = (item: typeof cart[number]) => {
-    const isRent = (item.product as any).product_type === 'nft_rent';
-    const mult = isRent ? getMult(item.product.id) : 1;
-    return Number(item.product.price) * mult;
-  };
+  const adjustedItemPrice = (item: typeof cart[number]) => Number(item.product.price);
   const adjustedTotal = cart.reduce((s, i) => s + adjustedItemPrice(i) * i.quantity, 0);
   const adjustedDiscount = promoResult
     ? promoResult.discountType === 'percent'
