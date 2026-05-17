@@ -188,6 +188,13 @@ async function handleAdminCallback(
       if (op === "dl" && arg) return fulfilFromInventory(chatId, msgId, arg, fromId);
       if (op === "rf" && arg) return refundOrderToBalance(chatId, msgId, arg, fromId);
       if (op === "msg" && arg) return startOrderMessage(chatId, msgId, arg, fromId);
+      if (op === "user" && arg) {
+        // jump from order card to buyer profile
+        const { data: o } = await supabase
+          .from("orders").select("telegram_id").eq("id", arg).maybeSingle();
+        if (o?.telegram_id) return showUser(chatId, msgId, String(o.telegram_id));
+        return showOrder(chatId, msgId, arg);
+      }
       return showOrderList(chatId, msgId, "all", 0);
     }
     case "u": {
@@ -247,9 +254,12 @@ async function handleAdminCallback(
       return showInventoryProducts(chatId, msgId, 0);
     }
     case "lg": {
-      if (!op) return showLogs(chatId, msgId, 0);
-      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0);
-      return showLogs(chatId, msgId, 0);
+      if (!op) return showLogs(chatId, msgId, 0, "a");
+      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0, "a");
+      if (op === "t" && (arg === "a" || arg === "b")) {
+        return showLogs(chatId, msgId, parseInt(extra ?? "0") || 0, arg);
+      }
+      return showLogs(chatId, msgId, 0, "a");
     }
     case "se": {
       if (!op) return showSettingsMenu(chatId, msgId);

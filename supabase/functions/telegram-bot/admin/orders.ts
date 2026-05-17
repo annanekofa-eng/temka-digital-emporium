@@ -123,14 +123,15 @@ export async function showOrder(chatId: number, msgId: number | undefined, id: s
     o.notes ? `\n📝 ${escapeHtml(o.notes)}` : "",
   ].filter(Boolean).join("\n");
 
-  const kb = [
-    [{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }],
-    [{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }],
-    [{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }],
-    [{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }],
-    [{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }],
-    [{ text: "← К списку", callback_data: "a:o" }, ...backRow()],
-  ];
+  const isRefunded = o.payment_status === "refunded";
+  const isFinal = o.status === "delivered" || o.status === "completed" || o.status === "cancelled";
+  const kb: any[] = [];
+  if (!isFinal) kb.push([{ text: `📤 Выдать со склада`, callback_data: `a:o:dl:${id}` }]);
+  kb.push([{ text: `💬 Написать клиенту`, callback_data: `a:o:msg:${id}` }, { text: `📤 /rep`, callback_data: `a:o:rep:${id}` }]);
+  kb.push([{ text: "🔄 Статус", callback_data: `a:o:ss:${id}` }, { text: "💳 Оплата", callback_data: `a:o:sp:${id}` }]);
+  if (!isRefunded) kb.push([{ text: "↩️ Вернуть на баланс", callback_data: `a:o:rf:${id}` }]);
+  kb.push([{ text: "👤 Покупатель", callback_data: `a:o:user:${id}` }]);
+  kb.push([{ text: "← К списку", callback_data: "a:o" }, ...backRow()]);
 
   await deleteAndSend(chatId, msgId, { text, parse_mode: "HTML", reply_markup: { inline_keyboard: kb } });
 }
@@ -250,16 +251,23 @@ export async function fulfilFromInventory(
   });
 }
 
-// --- Refund order total to user balance. ---
+// --- Refund order total to user balance. Idempotent: skip if already refunded. ---
 export async function refundOrderToBalance(
   chatId: number, msgId: number | undefined, id: string, adminId: number,
 ) {
   const { data: o } = await supabase
     .from("orders")
-    .select("id, order_number, telegram_id, total_amount, payment_status")
+    .select("id, order_number, telegram_id, total_amount, payment_status, status")
     .eq("id", id)
     .maybeSingle();
   if (!o) return showOrderList(chatId, msgId);
+
+  if (o.payment_status === "refunded") {
+    return deleteAndSend(chatId, msgId, {
+      text: `ℹ️ Заказ #${o.order_number} уже возвращён ранее.`,
+      reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+    });
+  }
   const amount = Number(o.total_amount);
   if (!amount || amount <= 0) {
     return deleteAndSend(chatId, msgId, {
@@ -267,10 +275,27 @@ export async function refundOrderToBalance(
       reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
     });
   }
+  // Flip status FIRST to lock out concurrent clicks (idempotency guard).
+  const { data: locked, error: lockErr } = await supabase
+    .from("orders").update({
+      payment_status: "refunded", status: "cancelled", updated_at: new Date().toISOString(),
+    })
+    .eq("id", id).neq("payment_status", "refunded")
+    .select("id").maybeSingle();
+  if (lockErr || !locked) {
+    return deleteAndSend(chatId, msgId, {
+      text: `ℹ️ Возврат уже выполнен или невозможен.`,
+      reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
+    });
+  }
   const { data: newBal, error } = await supabase.rpc("credit_balance", {
     p_telegram_id: o.telegram_id, p_amount: amount,
   });
   if (error) {
+    // best-effort rollback so we don't leave order refunded without credit
+    await supabase.from("orders").update({
+      payment_status: o.payment_status, status: o.status,
+    }).eq("id", id);
     return deleteAndSend(chatId, msgId, {
       text: `❌ Ошибка возврата: ${escapeHtml(error.message)}`,
       reply_markup: { inline_keyboard: [[{ text: "← К заказу", callback_data: `a:o:v:${id}` }]] },
@@ -280,9 +305,6 @@ export async function refundOrderToBalance(
     telegram_id: o.telegram_id, admin_telegram_id: adminId, amount, type: "credit",
     comment: `Возврат по заказу #${o.order_number}`, balance_after: Number(newBal ?? 0),
   });
-  await supabase.from("orders").update({
-    payment_status: "refunded", status: "cancelled", updated_at: new Date().toISOString(),
-  }).eq("id", id);
   await writeAuditLog(adminId, "order.refund", String(o.order_number), { amount });
 
   await tg("sendMessage", {

@@ -1,126 +1,84 @@
 ## Цель
 
-Реализовать `/admin` в Telegram-боте — инлайн-меню (12 кнопок как на скрине), которое **закрывает §10 ТЗ полностью** и опирается на остальные разделы (§7–§9, §11, §13, §14). NFT-аренда, NFT-покупка и NFT-юзернеймы исключаются из проекта полностью (см. §«Зачистка»).
+Пройти все 12 разделов админки + общий слой (router/auth/session/log) и найти/починить все баги, разрывы связей между модулями, нарушения §14 (безопасность/целостность), сломанные callback'и и расхождения с ТЗ.
 
-## Маппинг ТЗ → разделы админки
+## Этап 1 — Сбор фактов (read-only)
 
-| ТЗ | Раздел `/admin` | Что делает |
-|---|---|---|
-| §10.1 «название магазина» | ⚙️ Настройки → `site_settings.shop_name` | редактирование |
-| §10.1 «бегущая строка» (§2.1) | ⚙️ Настройки → `site_settings.marquee_text` | вкл/выкл + текст |
-| §10.1 «FAQ-ссылка» (§2.4) | ⚙️ Настройки → `site_settings.faq_url` | Telegraph URL |
-| §10.1 «баннеры, описания» проектов | 📁 Проекты | редактирование FLUX/VIETO/CURSOR (banner/title/subtitle/description/icon) |
-| §10.1 «категории» (§4.2) | 📂 Категории | CRUD категорий VIETO (Футболки/Худи…) |
-| §10.1 «товары, цены, вкл/выкл» (§3–§6) | 📦 Товары | CRUD + флаг `is_active`, цена, slug, привязка к проекту, дефолт `vieto` |
-| §6.1 Premium term_options | 📦 Товары → редактор `term_options` | сроки 3/6/9 мес + цены |
-| §6.3 Звёзды min/max | 📦 Товары → `min_qty`/`max_qty` | дефолт max 10000 |
-| §10.1 «примеры работ» (§3.5) | 📦 Товары → `gallery` | URL-список превью со ссылками |
-| §10.1 «внешние ссылки» | 📦 Товары → `external_link` | редактирование |
-| §10.1 «отзывы» (§2.3) | ⭐ Отзывы | CRUD + рейтинг + аватар |
-| §10.1 «модерация заявок» | 📨 Заявки | список `reviews.moderation_status='pending'` → approve/reject |
-| §8 «заказы», §8.3 статусы | 🛒 Заказы | фильтры (статус/дата/проект), карточка, ручная смена `status`/`payment_status` |
-| §10.2 `/rep #номер` | 🛒 Заказы → кнопка «Отправить /rep» + 📜 Логи | one-click отправка, лог в `admin_log` |
-| §10.1 «шаблоны сообщений» | ⚙️ Настройки → Шаблоны | редактор `message_templates` (`rep_default` + др.) |
-| §11 «пользователь» | 👥 Пользователи | поиск, баланс, блок/разблок, заметка |
-| §14 «логирование критичных действий» | 📜 Логи | просмотр `admin_log` + `balance_history` |
-| §11 «инструкция/шаблон сообщения» | 📣 Рассылка | разовая рассылка по аудитории, прогресс |
-| §6.3 «склад» (цифровая выдача) | 🏗 Склад | bulk-добавление `inventory_items` по товару |
-| общая статистика | 📊 Статистика | заказы/выручка/новые юзеры за день/7/30 |
+1. **Router-карта.** Прочитать `index.ts` целиком и составить таблицу `callback prefix → handler → ожидаемые args`. Сверить с тем, что реально шлют `admin/*.ts` (кнопки `callback_data`).
+2. **Контракт shared-слоя.** `_shared/auth.ts`, `session.ts`, `tg.ts`, `db.ts`, `upload.ts` — проверить:
+   - `safeSlice` применяется ко всем `text` кнопок и `callback_data` ≤ 64 B;
+   - все `tg()` вызовы обёрнуты в try/catch и логи проходят через `maskToken`;
+   - `deleteAndSend` используется вместо `editMessage` (memory: Bot UX Stability);
+   - сессии/callback-токены чистятся `cleanup_admin_expired` (cron жив).
+3. **Проверка прав.** В каждой точке входа (`/admin`, `/rep`, callback `a:*`, текст в FSM) вызывается `isAdmin`. Найти пути в обход.
+4. **DB-схема vs код.** Сопоставить поля, которые читает/пишет каждый модуль, со схемой `<supabase-tables>` (типы, nullable, default). Особое внимание: `orders.balance_used`, `sbp_requests.status enum`, `products.term_options`/`gallery`/`min_qty`/`max_qty`, `broadcasts.cursor_telegram_id`, `balance_history.balance_after`.
+5. **Аудит-лог.** Каждая мутация → `writeAuditLog`. Найти модули, где `update/insert/delete` идёт без логирования.
+6. **Транзакционность баланса.** Любые движения баланса — только через `credit_balance`/`deduct_balance` + строка в `balance_history`. Найти прямые `update user_profiles set balance` (особенно в `users.ts`, `sbp.ts`).
 
-Итого 12 кнопок: **Товары · Категории · Заказы · Пользователи · Заявки · Статистика · Промокоды · Склад · Логи · Настройки · Рассылка · Отзывы** — 1:1 со скрином.
+## Этап 2 — Покомпонентный аудит
 
-## Архитектура (с учётом §14 «безопасность»)
+Для каждого модуля — чек-лист: список view, callback'ов, FSM-стейтов, мутаций; что валидируется; что логируется; пустые состояния; пагинация.
 
-```
-TG update → telegram-bot → verify X-Telegram-Bot-Api-Secret-Token
-  → if /admin or callback "a:*": requireAdmin(ADMIN_TELEGRAM_IDS)
-    → router → handler → service_role SQL → admin_log
-```
-
-- Сессии мастеров (создание товара, рассылка, ручной баланс) — в новой таблице `admin_sessions` (PK `telegram_id`, `state`, `payload jsonb`, `expires_at`).
-- Длинные ID — через `admin_callbacks` (8-симв токен → payload), чтобы уложиться в 64 байта `callback_data` (memory: «Telegram Button Encoding»).
-- Все TG-вызовы в try/catch, `maskToken` в логах (memory: «Token Leak Prevention»).
-- Обновление экрана = `deleteMessage` + `sendMessage`/`sendPhoto` (memory: «Bot UX Stability»).
-- Каждая мутация → `admin_log` (action/target/meta с diff), §14.
-- Баланс — только через `credit_balance`/`deduct_balance` RPC + строка в `balance_history` (memory: «Transactional Integrity»).
-- Цены/итоги пересчитываются на бэкенде (§14).
-
-## Новые таблицы (одна миграция)
-
-| Таблица | Назначение |
+| Модуль | Что особенно проверить |
 |---|---|
-| `admin_sessions` | FSM-стейт админских мастеров, TTL 30 мин |
-| `admin_callbacks` | токен → payload для длинных параметров |
-| `broadcasts` | очередь и прогресс рассылок (text, photo_url, audience, status, sent/failed counts) |
+| `menu.ts` | 12 кнопок, длины callback_data, иконки совпадают с ТЗ |
+| `products.ts` | wizard FSM (все шаги доводят до save), upload фото (bucket `product-images`, путь, public URL), `term_options`/`gallery` JSON-валидация, `min_qty ≤ max_qty`, дефолт `project_id='vieto'` |
+| `categories.ts` | CRUD, slug-уникальность, защита от удаления категории, на которой висят товары |
+| `projects.ts` | редактор FLUX/VIETO/CURSOR, обновление баннера через upload, нельзя удалить |
+| `orders.ts` | фильтры status/date/project, смена `status`+`payment_status`, one-click `/rep` (доставка содержимого `inventory_items` + `external_payload`), запись `admin_log` action=`rep_sent` |
+| `users.ts` | поиск по `telegram_id`/`username`, ± баланс через RPC + `balance_history`, блок/разблок (`is_blocked`), заметка (`internal_note`) |
+| `reviews.ts` | approve/reject/delete, `moderation_status` enum, обновление UI |
+| `sbp.ts` | approve→`credit_balance`+order paid+уведомление клиенту, reject→причина+уведомление, идемпотентность (`status` переход только из `pending`) |
+| `promocodes.ts` | CRUD, типы percent/fixed, лимиты, валидация дат |
+| `inventory.ts` | bulk-add (split по строкам), trim, `status='available'`, лог |
+| `logs.ts` | `admin_log` + `balance_history` пагинация, без N+1 |
+| `settings.ts` | `site_settings` upsert по `key`, `message_templates` CRUD, marquee toggle, faq_url |
+| `stats.ts` | окна 24h/7d/30d/all, top products/buyers, daily ASCII; проверить лимит 1000 строк |
+| `broadcasts.ts` | wizard (text→photo→audience→preview→send), self-invoke воркер, курсор, throttle ~25/сек, fallback sendPhoto→sendMessage, прогресс |
 
-RLS: только `service_role`, `No public access`.
-`pg_cron` каждые 5 мин чистит просроченные `admin_sessions`/`admin_callbacks`.
+## Этап 3 — Связи между модулями
 
-## Что НЕ относится к админке, но проверяем за один проход (§ТЗ)
+- `orders` ⇄ `inventory_items` (reserve/release при ручной смене статуса).
+- `sbp_requests` ⇄ `orders` ⇄ `balance_history`.
+- `products` ⇄ `categories`/`projects` (FK-целостность на уровне приложения).
+- `broadcasts` ⇄ `user_profiles` (сегменты `all/buyers/no_orders/with_balance`).
+- `admin_callbacks` ⇄ длинные payload'ы (UUID товаров/заказов) — нет ли потери токена при перезаходе.
 
-- **§3.5/§10.1 «примеры работ → внешние ссылки»** — поле редактора `gallery[].href` уже поддерживается схемой (`gallery jsonb`); в редакторе товара выводим как список.
-- **§13 «цена изменилась до оплаты», «товар недоступен»** — уже сделано в `Cart.tsx` (`syncCartWithProducts`). Админка ничего нового не вводит.
-- **§8.3 статусы** — уже соответствуют `ORDER_STATUS_LABELS`. Админка просто их выставляет вручную.
+## Этап 4 — Сценарии E2E (curl_edge_functions + read_query)
 
-## Полное удаление NFT-функционала (по твоей правке)
+Симулировать `update` для каждого основного callback (по 1–2 на модуль): `/admin`, открыть товары→создать→upload фото→сохранить; заказ→сменить статус→/rep; user→±баланс→блок; sbp→approve; broadcast→test-send. После каждого — `read_query` в соответствующие таблицы + `admin_log`.
 
-- DB: удалить столбец `products.nft_variants`; удалить записи `products.product_type IN ('nft','nft_rent','nft_purchase','nft_username')`; удалить категорию/товары `cursor` касающиеся NFT-аренды/покупки/юзернеймов.
-- Сторфронт: удалить `NftCatalogDialog.tsx`, любые ветки `product_type === 'nft*'` в `ProductDetails.tsx`, `Cart.tsx`, `Catalog.tsx`. Убрать кнопку «NFT Аренда/Покупка/Звёзды-юзернеймы» из CURSOR.
-- Edge: удалить функцию `portals-gifts` (она же tonapi/getgems-related). Снять упоминания GetGems из `Cart`/`Checkout`.
-- Зависимости: удалить `tonapi`/`tonweb`/`@getgems/*` если есть. Перечитаю `package.json` перед сносом.
-- В CURSOR оставляем только: **Premium** (термы) и **Звёзды** (слайдер qty). Premium и Звёзды — это не NFT, это inline-конфигурация по ТЗ §6.1/§6.3.
+## Этап 5 — Линтер и тесты
 
-## Файловая структура
+- `supabase--linter` для DB-варнингов.
+- `deno test` по shared + admin (`admin_menu_test`, `shared_auth_test`, `shared_tg_test` + добавить недостающие на `products`, `orders`, `users`, `broadcasts` FSM).
+- `edge_function_logs telegram-bot` за последние сутки — отфильтровать `error`/`failed`.
 
-```
-supabase/functions/telegram-bot/
-  index.ts                  — роутер /start /rep /admin + callback_query
-  _shared/tg.ts             — tg(), safeSlice, deleteAndSend, maskToken
-  _shared/session.ts        — get/set/clear session + callback tokens
-  _shared/auth.ts           — isAdmin, requireAdmin
-  _shared/log.ts            — writeAuditLog
-  admin/menu.ts             — главное меню /admin
-  admin/products.ts         — list + wizard create/edit (term_options, gallery, min/max, project=vieto)
-  admin/categories.ts       — CRUD категорий VIETO
-  admin/projects.ts         — редактирование FLUX/VIETO/CURSOR
-  admin/orders.ts           — фильтры, карточка, статус, one-click /rep
-  admin/users.ts            — поиск, баланс ±, блок, заметка
-  admin/reviews.ts          — модерация + CRUD
-  admin/stats.ts            — KPI 1/7/30
-  admin/promocodes.ts       — CRUD
-  admin/inventory.ts        — bulk add по product_id
-  admin/logs.ts             — admin_log + balance_history
-  admin/settings.ts         — site_settings + message_templates + marquee + faq_url
-  admin/broadcast.ts        — wizard + self-invoke воркер
-```
+## Этап 6 — Реестр дефектов и фикс
 
-## Тесты (Deno, рядом с кодом)
+По итогам 1–5 — единый список «дефект → файл:строка → фикс → тест». Чиним группами:
+1. Безопасность/целостность (баланс, isAdmin, idempotency).
+2. Сломанные callback'и/длины.
+3. Расхождения со схемой/RLS.
+4. UX (delete+send, пустые состояния, ошибки).
+5. Логирование (`admin_log` пробелы).
+6. Производительность (лимит 1000, индексы при необходимости — отдельной миграцией).
 
-- `_shared/auth_test.ts` — `isAdmin` whitelist.
-- `_shared/session_test.ts` — set/get/expire, callback token round-trip.
-- `_shared/tg_test.ts` — `safeSlice` UTF-8 границы, `maskToken`.
-- `admin/products_test.ts` — wizard FSM, дефолт `project_id='vieto'`, валидация `term_options`/`min_qty`/`max_qty`.
-- `admin/orders_test.ts` — фильтр + смена статуса + лог.
-- `admin/users_test.ts` — баланс ±, запись в `balance_history`, блок.
-- `admin/broadcast_test.ts` — батч, прогресс.
-- Smoke через `supabase--curl_edge_functions`: симулируем `/admin` и по одному `callback_query` на раздел.
-- После каждого блока — прогон тестов, фиксы до зелёного.
+Каждый фикс — точечный edit, после блока — повторный smoke + тесты.
 
-## План реализации (поэтапно, тесты обязательны после каждого шага)
+## Этап 7 — Финальный прогон §16 ТЗ
 
-1. **Снос NFT** (DB + код + удаление `portals-gifts`) + правка сторфронта (`NftCatalogDialog` и ветки `nft_*`). Smoke сторфронта.
-2. **Фундамент админки**: миграция `admin_sessions`/`admin_callbacks`/`broadcasts` + cleanup-cron; `_shared/*`; команда `/admin` → меню. Тесты shared.
-3. **Товары + Категории + Проекты** (с дефолтом VIETO, term_options, gallery, min/max). Тесты.
-4. **Заказы** (фильтры, статусы по §8.3, one-click `/rep`). Тесты.
-5. **Пользователи + балансы** (RPC + history). Тесты.
-6. **Промокоды + Настройки + Шаблоны + Marquee + FAQ_url**. Тесты.
-7. **Склад + Отзывы/Заявки**. Тесты.
-8. **Статистика + Логи**.
-9. **Рассылка** (wizard + self-invoke воркер с курсором).
-10. **Финальный QA**: чек-лист §16 ТЗ (главный экран, FLUX/VIETO/CURSOR, корзина, оплата, /rep, контент из админки, пустые состояния, ошибки).
+Полный чек по `.lovable/plan.md` шаг 10 (главный экран, FLUX/VIETO/CURSOR, корзина, оплата, /rep, контент из админки, пустые состояния, ошибки) и сводный отчёт.
 
 ## Что НЕ входит
 
-- Веб-страница `/admin` в Mini App (по скрину админка — в боте).
-- Multi-admin роли (используем `ADMIN_TELEGRAM_IDS` из секретов).
-- Загрузка фото товара из бота в Storage (на этом этапе — URL; bucket `product-images` уже есть, добавлю uploader отдельной итерацией если попросишь).
+- Веб-страница `/admin` (по решению пользователя).
+- Multi-admin роли.
+- Новые фичи сверх ТЗ.
+
+## Технические детали
+
+- Read-only инструменты: `code--view`, `rg`, `supabase--read_query`, `supabase--linter`, `supabase--edge_function_logs`, `supabase--curl_edge_functions`.
+- Любые изменения схемы — отдельной миграцией с описанием.
+- Все фиксы — через `code--line_replace`, без перезаписи файлов целиком.
+- Деплой `telegram-bot` после каждой группы фиксов + smoke.
