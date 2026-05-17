@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import cryptobotLogo from '@/assets/cryptobot-logo.jpeg';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, Zap, Lock, CheckCircle2, ArrowLeft, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
@@ -11,14 +11,44 @@ import PriceRub from '@/components/PriceRub';
 import { useUserProfile } from '@/hooks/useOrders';
 import { supabase } from '@/integrations/supabase/client';
 
+interface DirectItem {
+  productId: string;
+  productTitle: string;
+  productPrice: number;
+  quantity: number;
+  recipientUsername?: string | null;
+}
+
 const Checkout = () => {
-  const { cart, cartTotal, clearCart, discount, totalAfterDiscount, promoResult } = useStore();
+  const { cart, clearCart, discount, totalAfterDiscount, promoResult } = useStore();
   const { user, isInTelegram, openTelegramLink, haptic, initData } = useTelegram();
   const { data: profile } = useUserProfile();
   const navigate = useNavigate();
+  const location = useLocation();
   const buildPath = useStorefrontPath();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+
+  // Direct checkout: bypass cart entirely (for Stars / Premium auto-products)
+  const directItem = (location.state as { directItem?: DirectItem } | null)?.directItem || null;
+  const isDirect = !!directItem;
+
+  // Normalised item list + totals depending on mode
+  const items = useMemo<DirectItem[]>(() => {
+    if (isDirect) return [directItem!];
+    return cart.map(item => ({
+      productId: item.product.id,
+      productTitle: item.product.title,
+      productPrice: Number(item.product.price),
+      quantity: item.quantity,
+      recipientUsername: (item as any).recipientUsername || null,
+    }));
+  }, [isDirect, directItem, cart]);
+
+  const subtotal = items.reduce((s, it) => s + it.productPrice * it.quantity, 0);
+  const effectiveDiscount = isDirect ? 0 : discount;
+  const effectivePromo = isDirect ? null : promoResult;
+  const effectiveAfterDiscount = isDirect ? subtotal : totalAfterDiscount;
 
   const displayName = user
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`
@@ -26,10 +56,10 @@ const Checkout = () => {
   const avatar = user?.firstName?.[0]?.toUpperCase() || 'T';
 
   const balance = Number(profile?.balance || 0);
-  const balanceUsed = Math.min(balance, totalAfterDiscount);
-  const toPay = Math.max(0, totalAfterDiscount - balanceUsed);
+  const balanceUsed = Math.min(balance, effectiveAfterDiscount);
+  const toPay = Math.max(0, effectiveAfterDiscount - balanceUsed);
 
-  if (cart.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="container-main mx-auto px-4 py-16 text-center">
         <div className="text-5xl mb-4">🛒</div>
@@ -46,32 +76,24 @@ const Checkout = () => {
 
     try {
       const orderNumber = `TK-${Date.now().toString(36).toUpperCase()}`;
-      const description = cart.map(item => `${item.product.title} ×${item.quantity}`).join(', ');
-      const itemsPayload = cart.map(item => ({
-        productId: item.product.id,
-        productTitle: item.product.title,
-        productPrice: Number(item.product.price),
-        quantity: item.quantity,
-        recipientUsername: (item as any).recipientUsername || null,
-      }));
+      const description = items.map(it => `${it.productTitle} ×${it.quantity}`).join(', ');
+      const itemsPayload = items;
 
       if (toPay <= 0) {
-        // Full balance payment
         const { data, error: fnError } = await supabase.functions.invoke('pay-with-balance', {
           body: {
             initData,
             orderNumber,
             items: itemsPayload,
-            promoCode: promoResult?.code || null,
+            promoCode: effectivePromo?.code || null,
           },
         });
         if (fnError) throw new Error(fnError.message);
         if (data?.error) throw new Error(data.error);
         haptic.notification('success');
-        clearCart();
+        if (!isDirect) clearCart();
         navigate(`${buildPath('/order-success')}?order=${data?.orderNumber || orderNumber}`);
       } else {
-        // CryptoBot payment (partial or full)
         const { data, error: fnError } = await supabase.functions.invoke('create-invoice', {
           body: {
             initData,
@@ -80,7 +102,7 @@ const Checkout = () => {
             description,
             orderNumber,
             items: itemsPayload,
-            promoCode: promoResult?.code || null,
+            promoCode: effectivePromo?.code || null,
             balanceUsed: balanceUsed,
           },
         });
@@ -107,12 +129,17 @@ const Checkout = () => {
     }
   };
 
+  const backHref = isDirect ? buildPath('/catalog') : buildPath('/cart');
+  const backLabel = isDirect ? 'Назад в каталог' : 'Назад в корзину';
+
   return (
     <div className="container-main mx-auto px-4 py-4 sm:py-6">
-      <Link to={buildPath('/cart')} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
-        <ArrowLeft className="w-3 h-3" /> Назад в корзину
+      <Link to={backHref} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
+        <ArrowLeft className="w-3 h-3" /> {backLabel}
       </Link>
-      <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">Оформление заказа</h1>
+      <h1 className="font-display text-xl sm:text-2xl font-bold mb-4">
+        {isDirect ? 'Быстрая оплата' : 'Оформление заказа'}
+      </h1>
 
       <div className="space-y-3">
         <div className="bg-card border border-border/50 rounded-xl p-4">
@@ -171,19 +198,22 @@ const Checkout = () => {
         <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3">
           <h3 className="font-display font-semibold text-sm">Итого заказа</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {cart.map(item => (
-              <div key={item.product.id} className="flex justify-between text-xs">
-                <span className="text-muted-foreground line-clamp-1 flex-1">{item.product.title} ×{item.quantity}</span>
-                <span className="font-medium ml-2">${(Number(item.product.price) * item.quantity).toFixed(2)}</span>
-                <span className="ml-1"><PriceRub usd={Number(item.product.price) * item.quantity} /></span>
+            {items.map((it, idx) => (
+              <div key={`${it.productId}-${idx}`} className="flex justify-between text-xs">
+                <span className="text-muted-foreground line-clamp-1 flex-1">
+                  {it.productTitle}{it.quantity > 1 ? ` ×${it.quantity}` : ''}
+                  {it.recipientUsername ? ` · @${it.recipientUsername}` : ''}
+                </span>
+                <span className="font-medium ml-2">${(it.productPrice * it.quantity).toFixed(2)}</span>
+                <span className="ml-1"><PriceRub usd={it.productPrice * it.quantity} /></span>
               </div>
             ))}
           </div>
 
-          {discount > 0 && (
+          {effectiveDiscount > 0 && (
             <div className="flex justify-between text-xs text-primary">
-              <span>Промокод ({promoResult?.code})</span>
-              <span>-${discount.toFixed(2)}</span>
+              <span>Промокод ({effectivePromo?.code})</span>
+              <span>-${effectiveDiscount.toFixed(2)}</span>
             </div>
           )}
 
@@ -197,7 +227,7 @@ const Checkout = () => {
           <div className="border-t border-border/30 pt-2 space-y-1">
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>Сумма заказа</span>
-              <span>${totalAfterDiscount.toFixed(2)}</span>
+              <span>${effectiveAfterDiscount.toFixed(2)}</span>
             </div>
             {toPay > 0 ? (
               <div className="flex justify-between font-display font-bold text-base">
@@ -211,8 +241,8 @@ const Checkout = () => {
               <div className="flex justify-between font-display font-bold text-base">
                 <span>К оплате (баланс)</span>
                 <div className="text-right">
-                  <div>${totalAfterDiscount.toFixed(2)}</div>
-                  <PriceRub usd={totalAfterDiscount} className="font-normal" />
+                  <div>${effectiveAfterDiscount.toFixed(2)}</div>
+                  <PriceRub usd={effectiveAfterDiscount} className="font-normal" />
                 </div>
               </div>
             )}
