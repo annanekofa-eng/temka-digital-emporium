@@ -20,6 +20,7 @@ interface StoreContextType {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  syncCartWithProducts: (products: DbProduct[]) => { removed: string[]; priceChanged: Array<{ title: string; oldPrice: number; newPrice: number }> };
   cartTotal: number;
   cartCount: number;
   searchQuery: string;
@@ -98,6 +99,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   }, []);
 
+  const syncCartWithProducts = useCallback((products: DbProduct[]) => {
+    const map = new Map(products.map(p => [p.id, p]));
+    const removed: string[] = [];
+    const priceChanged: Array<{ title: string; oldPrice: number; newPrice: number }> = [];
+    setCart(prev => {
+      const next: CartItem[] = [];
+      for (const item of prev) {
+        const fresh = map.get(item.product.id);
+        if (!fresh || !fresh.is_active) {
+          removed.push(item.product.title);
+          continue;
+        }
+        const oldPrice = Number(item.product.price);
+        const newPrice = Number(fresh.price);
+        if (Math.abs(oldPrice - newPrice) > 0.001) {
+          priceChanged.push({ title: fresh.title, oldPrice, newPrice });
+        }
+        next.push({ product: fresh, quantity: item.quantity });
+      }
+      return next;
+    });
+    return { removed, priceChanged };
+  }, []);
+
   const cartTotal = cart.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -155,7 +180,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{
-      cart, addToCart, removeFromCart, updateQuantity, clearCart,
+      cart, addToCart, removeFromCart, updateQuantity, clearCart, syncCartWithProducts,
       cartTotal, cartCount, searchQuery, setSearchQuery,
       promoCode, setPromoCode, promoResult, promoError, promoLoading,
       applyPromo, clearPromo, discount, totalAfterDiscount,
