@@ -46,11 +46,11 @@ const ProjectCard = ({ project, index }: Props) => {
             <img
               src={logo}
               alt={project.title}
-              className="w-14 h-14 rounded-xl object-cover shrink-0 bg-black"
+              className="w-14 h-14 rounded-full object-cover shrink-0 bg-black"
               loading="lazy"
             />
           ) : (
-            <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center text-2xl shrink-0">
+            <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center text-2xl shrink-0">
               {project.icon}
             </div>
           )}
