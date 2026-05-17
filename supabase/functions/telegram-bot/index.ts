@@ -363,6 +363,16 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
     await applyAutoOrderError(chatId, fromId, a, text);
     return true;
   }
+  if (scope === "ap" && verb === "e" && a && b) {
+    // ap:e:<kind>:<field>  (kind = s|p, field = title|price|min|max)
+    await applyEditAutoProduct(chatId, fromId, a as "s" | "p", b, text);
+    return true;
+  }
+  if (scope === "ap" && verb === "pn") {
+    // ap:pn:m → ap:pn:p (new premium term wizard)
+    await handleNewPremiumTermStep(chatId, fromId, text);
+    return true;
+  }
   return false;
 }
 
