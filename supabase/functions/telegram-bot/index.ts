@@ -373,14 +373,18 @@ Deno.serve(async (req) => {
     const photos = message?.photo as Array<{ file_id: string }> | undefined;
 
     if (chatId && fromId) {
-      // Photo upload during product image/gallery edit session
+      // Photo upload during product image/gallery edit or broadcast wizard
       if (photos?.length && isAdmin(fromId)) {
         const sess = await getSession(fromId);
         if (sess) {
           const [scope, verb, a, b] = sess.state.split(":");
+          const fileId = photos[photos.length - 1].file_id; // largest
           if (scope === "p" && verb === "edit" && a && (b === "image" || b === "gallery")) {
-            const fileId = photos[photos.length - 1].file_id; // largest
             await applyEditProductPhoto(chatId, fromId, a, b, fileId);
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+          }
+          if (scope === "bc" && verb === "new" && a === "photo") {
+            await handleNewBroadcastPhoto(chatId, fromId, fileId);
             return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
           }
         }
