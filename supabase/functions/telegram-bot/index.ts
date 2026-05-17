@@ -288,6 +288,15 @@ async function handleAdminCallback(
       if (op === "err" && arg) return startAutoOrderError(chatId, msgId, arg, fromId);
       return showAutoOrderList(chatId, msgId, "pending", 0);
     }
+    case "ap": {
+      if (!op) return showAutoProductsMenu(chatId, msgId);
+      if (op === "v" && (arg === "s" || arg === "p")) return showAutoProduct(chatId, msgId, arg);
+      if (op === "t" && (arg === "s" || arg === "p")) return toggleAutoProduct(chatId, msgId, arg, fromId);
+      if (op === "e" && (arg === "s" || arg === "p") && extra) return startEditAutoProduct(chatId, msgId, arg, extra, fromId);
+      if (op === "pn") return startNewPremiumTerm(chatId, msgId, fromId);
+      if (op === "pd" && arg) return deletePremiumTerm(chatId, msgId, parseInt(arg) || 0, fromId);
+      return showAutoProductsMenu(chatId, msgId);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
