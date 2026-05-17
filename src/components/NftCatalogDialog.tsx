@@ -10,7 +10,7 @@ const TonIcon = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
   <img src={tonLogo} alt="TON" className={`inline-block ${className}`} />
 );
 
-export type CatalogMode = 'gift' | 'nft_rent' | 'username_rent';
+export type CatalogMode = 'gift';
 
 interface PortalsCollection {
   id: string;
