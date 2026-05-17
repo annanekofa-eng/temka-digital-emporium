@@ -267,8 +267,9 @@ export async function sendBroadcast(chatId: number, msgId: number | undefined, i
     reply_markup: { inline_keyboard: [[{ text: "🔄 Обновить", callback_data: `a:bc:v:${id}` }]] },
   });
 
-  // fire-and-forget
-  (async () => {
+  // Background worker. Use EdgeRuntime.waitUntil so the runtime keeps the
+  // promise alive after we respond to the Telegram webhook.
+  const worker = (async () => {
     let sent = b.sent_count ?? 0;
     let failed = b.failed_count ?? 0;
     let lastCursor = resumeFrom;
@@ -298,4 +299,6 @@ export async function sendBroadcast(chatId: number, msgId: number | undefined, i
       await writeAuditLog(adminId, "broadcast.send.failed", id, { sent, failed, error: String(e).slice(0, 200) });
     }
   })();
+  const er = (globalThis as any).EdgeRuntime;
+  if (er && typeof er.waitUntil === "function") er.waitUntil(worker);
 }
