@@ -64,7 +64,7 @@ serve(async (req) => {
       if (!item.productId || !item.quantity || item.quantity <= 0 || item.quantity > 100)
         return jsonRes({ error: "Invalid item data" }, 400);
       const { data: product } = await supabase.from("products")
-        .select("id, title, price, stock, is_active, product_type, term_options, nft_variants, min_qty, max_qty")
+        .select("id, title, price, stock, is_active, product_type, term_options, min_qty, max_qty")
         .eq("id", item.productId).single();
       if (!product || !product.is_active) return jsonRes({ error: "Product not found or inactive" }, 400);
       if (product.stock < item.quantity) return jsonRes({ error: `${product.title} — insufficient stock (${product.stock})` }, 400);
@@ -78,21 +78,6 @@ serve(async (req) => {
         const match = opts.find((o) => Math.abs(Number(o.price) - clientPrice) < 0.01);
         if (!match) return jsonRes({ error: `${product.title} — invalid term price` }, 400);
         unitPrice = Number(match.price);
-      } else if (ptype === "nft_variant") {
-        const vars = (product.nft_variants as Array<{ price: number }>) || [];
-        // For Portals/NFT gifts: price chosen on the fly; allow any positive price.
-        if (clientPrice <= 0) return jsonRes({ error: `${product.title} — invalid price` }, 400);
-        if (vars.length > 0) {
-          const match = vars.find((v) => Math.abs(Number(v.price) - clientPrice) < 0.01);
-          if (!match) {
-            // Variant catalog from external API (Portals) — accept positive price
-            unitPrice = clientPrice;
-          } else {
-            unitPrice = Number(match.price);
-          }
-        } else {
-          unitPrice = clientPrice;
-        }
       } else if (ptype === "stars") {
         const base = Number(product.price);
         const minQty = Math.max(1, Number(product.min_qty) || 1);
