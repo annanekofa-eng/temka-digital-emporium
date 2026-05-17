@@ -38,6 +38,10 @@ import {
 import {
   showReviewList, showReview, approveReview, rejectReview, deleteReview,
 } from "./admin/reviews.ts";
+import {
+  showSbpList, showSbpPayment, approveSbpPayment, startRejectSbp,
+  showSbpRequisites, startEditSbpField, handleSbpText,
+} from "./admin/sbp.ts";
 import { showLogs } from "./admin/logs.ts";
 import {
   showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
@@ -297,6 +301,17 @@ async function handleAdminCallback(
       if (op === "pd" && arg) return deletePremiumTerm(chatId, msgId, parseInt(arg) || 0, fromId);
       return showAutoProductsMenu(chatId, msgId);
     }
+    case "sbp": {
+      if (!op) return showSbpList(chatId, msgId, "pending", 0);
+      if (op === "req") return showSbpRequisites(chatId, msgId);
+      if (op === "re" && arg) return startEditSbpField(chatId, msgId, arg, fromId);
+      if (op === "f" && arg) return showSbpList(chatId, msgId, arg, 0);
+      if (op === "p" && arg) return showSbpList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showSbpPayment(chatId, msgId, arg);
+      if (op === "ok" && arg) return approveSbpPayment(chatId, msgId, arg, fromId);
+      if (op === "rj" && arg) return startRejectSbp(chatId, msgId, arg, fromId);
+      return showSbpList(chatId, msgId, "pending", 0);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
@@ -350,6 +365,9 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "se") {
     return await handleSettingsText(chatId, fromId, sess.state, sess.payload, text);
+  }
+  if (scope === "sbp") {
+    return await handleSbpText(chatId, fromId, sess.state, text);
   }
   if (scope === "inv" && verb === "add" && a) {
     await applyAddInventory(chatId, fromId, a, text);
