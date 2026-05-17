@@ -1,6 +1,8 @@
-// Orders admin: list with filters, view card, status change, one-click /rep.
+// Orders admin: list with filters, view card, status change, one-click /rep,
+// fulfil from inventory, message buyer, refund to balance.
 import { tg, deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog, getSetting } from "../_shared/db.ts";
+import { setSession, clearSession } from "../_shared/session.ts";
 
 const PAGE_SIZE = 8;
 
