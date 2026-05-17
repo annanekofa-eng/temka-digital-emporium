@@ -55,7 +55,8 @@ const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
 );
 
 export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  const buildPath = useStorefrontPath();
   const [selected, setSelected] = useState<number | null>(null);
   const [recipient, setRecipient] = useState('');
   const opt = selected !== null ? product.term_options?.[selected] : null;
@@ -95,16 +96,21 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
             toast.error('Укажите корректный @username получателя');
             return;
           }
-          const ok = addToCart({
-            ...product,
-            price: opt.price,
-            title: `${product.title} · ${opt.months} мес`,
-          } as any, { recipientUsername: u });
-          if (ok) toast.success(`Добавлено · получатель @${u}`);
+          navigate(buildPath('/checkout'), {
+            state: {
+              directItem: {
+                productId: product.id,
+                productTitle: `${product.title} · ${opt.months} мес`,
+                productPrice: Number(opt.price),
+                quantity: 1,
+                recipientUsername: u,
+              },
+            },
+          });
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        {opt ? `Купить за $${opt.price}` : 'Выберите срок'}
+        <Zap className="w-4 h-4 mr-2" />
+        {opt ? `Оплатить $${opt.price}` : 'Выберите срок'}
       </Button>
     </div>
   );
