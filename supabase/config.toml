@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.get-exchange-rate]
 verify_jwt = false
+
+[functions.create-sbp-request]
+verify_jwt = false
