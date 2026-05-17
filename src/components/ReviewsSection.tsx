@@ -10,13 +10,6 @@ import { toast } from '@/hooks/use-toast';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { supabase } from '@/integrations/supabase/client';
 
-const FALLBACK = [
-  { id: 'r1', author: 'alex_volkov',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
-  { id: 'r2', author: 'mary_blossom', text: 'Купила Telegram Stars, цена приятная, доставка моментальная.',          rating: 5, avatar: '🌸' },
-  { id: 'r3', author: 'dmitry_p',     text: 'Premium активировался за пару минут. Поддержка отвечает быстро.',     rating: 5, avatar: '🐧' },
-  { id: 'r4', author: 'nika_bow',     text: 'FLUX-дизайн — топ. Отличный вкус, всё аккуратно.',                       rating: 5, avatar: '🎀' },
-  { id: 'r5', author: 'igor_play',    text: 'Брал ключ Steam — активировался без проблем. Рекомендую.',               rating: 5, avatar: '🎮' },
-];
 
 const Stars = ({ n }: { n: number }) => (
   <div className="flex gap-0.5">
@@ -121,7 +114,7 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
 
 const ReviewsSection = () => {
   const { data } = useReviews();
-  const reviews = (data && data.length > 0 ? data : FALLBACK).slice(0, 12);
+  const reviews = (data || []).slice(0, 12);
   const [open, setOpen] = useState(false);
 
   return (
@@ -145,33 +138,41 @@ const ReviewsSection = () => {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex lg:grid lg:container-main lg:mx-auto lg:max-w-6xl lg:grid-cols-3 gap-3 overflow-x-auto lg:overflow-visible px-4 pb-3 scrollbar-hide snap-x snap-mandatory lg:snap-none">
-        {reviews.map((r: any) => (
-          <article
-            key={r.id}
-            className="snap-start shrink-0 w-72 sm:w-80 lg:w-auto lg:shrink rounded-2xl border border-border bg-card p-4 flex flex-col"
-          >
-            <div className="flex items-center gap-3">
-              {r.avatar && r.avatar.startsWith('http') ? (
-                <img src={r.avatar} alt={r.author} className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-lg">
-                  {r.avatar || r.author?.[0] || '★'}
+      {reviews.length === 0 ? (
+        <div className="container-main mx-auto max-w-2xl lg:max-w-6xl px-4">
+          <div className="rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center text-sm text-muted-foreground">
+            Пока нет отзывов — будьте первым!
+          </div>
+        </div>
+      ) : (
+        <div className="flex lg:grid lg:container-main lg:mx-auto lg:max-w-6xl lg:grid-cols-3 gap-3 overflow-x-auto lg:overflow-visible px-4 pb-3 scrollbar-hide snap-x snap-mandatory lg:snap-none">
+          {reviews.map((r: any) => (
+            <article
+              key={r.id}
+              className="snap-start shrink-0 w-72 sm:w-80 lg:w-auto lg:shrink rounded-2xl border border-border bg-card p-4 flex flex-col"
+            >
+              <div className="flex items-center gap-3">
+                {r.avatar && r.avatar.startsWith('http') ? (
+                  <img src={r.avatar} alt={r.author} className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-lg">
+                    {r.avatar || r.author?.[0] || '★'}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="font-display font-semibold text-sm truncate">
+                    {r.author?.startsWith('@') || !r.author ? r.author : `@${r.author}`}
+                  </div>
+                  <Stars n={Number(r.rating) || 5} />
                 </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="font-display font-semibold text-sm truncate">
-                  {r.author?.startsWith('@') || !r.author ? r.author : `@${r.author}`}
-                </div>
-                <Stars n={Number(r.rating) || 5} />
               </div>
-            </div>
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed line-clamp-4">
-              {r.text}
-            </p>
-          </article>
-        ))}
-      </div>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed line-clamp-4">
+                {r.text}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 };
