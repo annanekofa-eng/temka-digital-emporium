@@ -4,10 +4,11 @@
 import { deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
 import { setSession, clearSession, getSession } from "../_shared/session.ts";
+import { uploadTelegramPhoto } from "../_shared/upload.ts";
 
 const PAGE_SIZE = 8;
 
-type FieldType = "text" | "num" | "json" | "bool";
+type FieldType = "text" | "num" | "json" | "bool" | "lines" | "kv";
 const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> = {
   title: { label: "Название", type: "text" },
   subtitle: { label: "Подзаголовок", type: "text" },
@@ -18,11 +19,26 @@ const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> 
   project_id: { label: "Проект", type: "text", hint: "flux/vieto/cursor" },
   category_id: { label: "Категория", type: "text", hint: "id категории или -" },
   product_type: { label: "Тип", type: "text", hint: "simple / premium_terms / stars_qty" },
-  image: { label: "Главное фото (URL)", type: "text" },
+  image: {
+    label: "Главное фото",
+    type: "text",
+    hint: "Отправьте фото в чат ИЛИ ссылку. Чтобы очистить — <code>-</code>",
+  },
   external_link: { label: "Внешняя ссылка", type: "text" },
   min_qty: { label: "Мин. кол-во", type: "num" },
   max_qty: { label: "Макс. кол-во", type: "num" },
   slug: { label: "Slug", type: "text" },
+  subcategory: { label: "Подкатегория", type: "text" },
+  platform: { label: "Платформа", type: "text", hint: "iOS / Android / PC / Web …" },
+  region: { label: "Регион", type: "text", hint: "по умолчанию: Глобальный" },
+  delivery_type: { label: "Тип доставки", type: "text", hint: "instant / manual / on_demand" },
+  tags: { label: "Теги", type: "lines", hint: "по одному на строку" },
+  features: { label: "Преимущества", type: "lines", hint: "по одному на строку" },
+  specifications: {
+    label: "Характеристики",
+    type: "kv",
+    hint: "Ключ: значение — по одной паре на строку",
+  },
   term_options: {
     label: "Сроки (term_options)",
     type: "json",
@@ -31,7 +47,7 @@ const FIELDS: Record<string, { label: string; type: FieldType; hint?: string }> 
   gallery: {
     label: "Галерея",
     type: "json",
-    hint: 'JSON массив: [{"url":"https://...","href":"https://..."}]',
+    hint: 'Отправьте фото — добавлю в галерею. Или JSON: [{"url":"...","href":"..."}]. <code>-</code> очистит.',
   },
 };
 
