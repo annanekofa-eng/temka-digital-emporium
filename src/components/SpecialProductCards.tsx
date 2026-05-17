@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, Minus, AtSign } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Zap, Plus, Minus, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { useStore } from '@/contexts/StoreContext';
+import { useStorefrontPath } from '@/contexts/StorefrontContext';
 import { toast } from 'sonner';
 import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
@@ -54,7 +55,8 @@ const LogoBox = ({ src, alt }: { src: string; alt: string }) => (
 );
 
 export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  const buildPath = useStorefrontPath();
   const [selected, setSelected] = useState<number | null>(null);
   const [recipient, setRecipient] = useState('');
   const opt = selected !== null ? product.term_options?.[selected] : null;
@@ -94,23 +96,29 @@ export const PremiumTermCard = ({ product }: { product: ExtendedProduct }) => {
             toast.error('Укажите корректный @username получателя');
             return;
           }
-          const ok = addToCart({
-            ...product,
-            price: opt.price,
-            title: `${product.title} · ${opt.months} мес`,
-          } as any, { recipientUsername: u });
-          if (ok) toast.success(`Добавлено · получатель @${u}`);
+          navigate(buildPath('/checkout'), {
+            state: {
+              directItem: {
+                productId: product.id,
+                productTitle: `${product.title} · ${opt.months} мес`,
+                productPrice: Number(opt.price),
+                quantity: 1,
+                recipientUsername: u,
+              },
+            },
+          });
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        {opt ? `Купить за $${opt.price}` : 'Выберите срок'}
+        <Zap className="w-4 h-4 mr-2" />
+        {opt ? `Оплатить $${opt.price}` : 'Выберите срок'}
       </Button>
     </div>
   );
 };
 
 export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
-  const { addToCart } = useStore();
+  const navigate = useNavigate();
+  const buildPath = useStorefrontPath();
   const minQty = Math.max(1, Number(product.min_qty) || 1);
   const maxQty = Math.max(minQty, Number(product.max_qty) || 10000);
   const [qty, setQty] = useState<number>(minQty);
@@ -169,16 +177,21 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
             toast.error('Укажите корректный @username получателя');
             return;
           }
-          const ok = addToCart({
-            ...product,
-            price: Number(total),
-            title: `${product.title} · ${clamped}⭐`,
-          } as any, { recipientUsername: u });
-          if (ok) toast.success(`Звёзды добавлены · @${u}`);
+          navigate(buildPath('/checkout'), {
+            state: {
+              directItem: {
+                productId: product.id,
+                productTitle: `${product.title} · ${clamped}⭐`,
+                productPrice: Number(total),
+                quantity: 1,
+                recipientUsername: u,
+              },
+            },
+          });
         }}
       >
-        <ShoppingCart className="w-4 h-4 mr-2" />
-        {canAdd ? `Купить за $${total}` : `Минимум ${minQty}⭐`}
+        <Zap className="w-4 h-4 mr-2" />
+        {canAdd ? `Оплатить $${total}` : `Минимум ${minQty}⭐`}
       </Button>
     </div>
   );
