@@ -30,6 +30,17 @@ import {
   showSettingsMenu, startEditSetting, showTemplateList, showTemplate, toggleTemplate,
   deleteTemplate, startEditTemplate, startNewTemplate, handleSettingsText,
 } from "./admin/settings.ts";
+import {
+  showInventoryProducts, showInventoryProduct, startAddInventory, applyAddInventory, deleteAllAvailable,
+} from "./admin/inventory.ts";
+import {
+  showReviewList, showReview, approveReview, rejectReview, deleteReview,
+} from "./admin/reviews.ts";
+import { showLogs } from "./admin/logs.ts";
+import {
+  showBroadcastList, showBroadcast, startNewBroadcast, handleNewBroadcastStep,
+  deleteBroadcast, sendBroadcast,
+} from "./admin/broadcasts.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
