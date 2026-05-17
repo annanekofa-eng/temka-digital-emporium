@@ -66,8 +66,10 @@ const Cart = () => {
           {cart.map(item => {
             const outOfStock = item.product.stock <= 0;
             const lineTotal = adjustedItemPrice(item) * item.quantity;
+            const lineKey = (item as any).lineId ?? item.product.id;
+            const isAuto = ['premium_term', 'stars'].includes(String(item.product.product_type || ''));
             return (
-              <div key={item.product.id} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 ${outOfStock ? 'opacity-60' : ''}`}>
+              <div key={lineKey} className={`bg-card border border-border/50 rounded-xl p-3 sm:p-4 ${outOfStock && !isAuto ? 'opacity-60' : ''}`}>
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/50 rounded-lg flex items-center justify-center text-2xl sm:text-3xl shrink-0 overflow-hidden">
                     {item.product.image ? (
@@ -86,33 +88,44 @@ const Cart = () => {
                     {item.product.subtitle && (
                       <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.product.subtitle}</p>
                     )}
+                    {isAuto && (item as any).recipientUsername && (
+                      <p className="text-[10px] sm:text-xs text-primary mt-0.5">
+                        Получатель: @{(item as any).recipientUsername}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1 mt-1">
-                      {item.product.delivery_type === 'instant' ? (
+                      {isAuto ? (
+                        <span className="text-[10px] text-primary flex items-center gap-0.5"><Clock className="w-3 h-3" /> Ручная выдача</span>
+                      ) : item.product.delivery_type === 'instant' ? (
                         <span className="text-[10px] text-primary flex items-center gap-0.5"><Zap className="w-3 h-3" /> Мгновенно</span>
                       ) : (
                         <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-3 h-3" /> Вручную</span>
                       )}
-                      {outOfStock && <span className="text-[10px] text-destructive ml-2">Нет в наличии</span>}
+                      {outOfStock && !isAuto && <span className="text-[10px] text-destructive ml-2">Нет в наличии</span>}
                     </div>
                     <div className="flex items-center justify-between mt-2 sm:mt-3 gap-2">
                       <div className="flex items-center gap-1.5 sm:gap-2">
-                        <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                          disabled={item.quantity >= item.product.stock}
-                          className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                          <Plus className="w-3 h-3" />
-                        </button>
+                        {!isAuto && (
+                          <>
+                            <button onClick={() => updateQuantity(lineKey, item.quantity - 1)}
+                              className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(lineKey, item.quantity + 1)}
+                              disabled={item.quantity >= item.product.stock}
+                              className="w-7 h-7 rounded-md bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <div className="text-right">
                           <div className="font-display font-bold text-sm sm:text-base">${lineTotal.toFixed(2)}</div>
                           <PriceRub usd={lineTotal} />
                         </div>
-                        <button onClick={() => removeFromCart(item.product.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <button onClick={() => removeFromCart(lineKey)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
