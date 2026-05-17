@@ -1,5 +1,4 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { isAdmin } from "./auth.ts";
 
 // We test isAdmin without importing the module directly because the module
 // reads ADMIN_TELEGRAM_IDS at import time. Re-implementing the same logic
