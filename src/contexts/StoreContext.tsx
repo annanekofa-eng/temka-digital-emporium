@@ -74,7 +74,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cartRef = useRef(cart);
   useEffect(() => {
     cartRef.current = cart;
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    localStorage.setItem(getCartStorageKey(), JSON.stringify(cart));
   }, [cart]);
 
   const addToCart = useCallback((product: DbProduct, opts?: { recipientUsername?: string }) => {
@@ -137,7 +137,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPromoCode('');
     setPromoError('');
     try {
-      localStorage.removeItem(CART_STORAGE_KEY);
+      localStorage.removeItem(getCartStorageKey());
     } catch {}
   }, []);
 
