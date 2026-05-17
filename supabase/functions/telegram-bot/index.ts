@@ -297,6 +297,14 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   if (scope === "se") {
     return await handleSettingsText(chatId, fromId, sess.state, sess.payload, text);
   }
+  if (scope === "inv" && verb === "add" && a) {
+    await applyAddInventory(chatId, fromId, a, text);
+    return true;
+  }
+  if (scope === "bc" && verb === "new") {
+    await handleNewBroadcastStep(chatId, fromId, sess.state, sess.payload, text);
+    return true;
+  }
   return false;
 }
 
