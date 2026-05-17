@@ -192,7 +192,16 @@ async function handleAdminCallback(
       if (op === "nt" && arg) return startEditNote(chatId, msgId, arg, fromId);
       return showUsersMenu(chatId, msgId);
     }
-    case "rv": return notImplementedStub(chatId, msgId, "Отзывы / Заявки");
+    case "rv": {
+      if (!op) return showReviewList(chatId, msgId, "pending", 0);
+      if (op === "f" && arg) return showReviewList(chatId, msgId, arg, 0);
+      if (op === "p" && arg) return showReviewList(chatId, msgId, arg, parseInt(extra ?? "0") || 0);
+      if (op === "v" && arg) return showReview(chatId, msgId, arg);
+      if (op === "a" && arg) return approveReview(chatId, msgId, arg, fromId);
+      if (op === "r" && arg) return rejectReview(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return deleteReview(chatId, msgId, arg, fromId);
+      return showReviewList(chatId, msgId, "pending", 0);
+    }
     case "st": return notImplementedStub(chatId, msgId, "Статистика");
     case "pc": {
       if (!op) return showPromoList(chatId, msgId);
