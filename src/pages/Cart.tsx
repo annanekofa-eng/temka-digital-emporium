@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Trash2, Plus, Minus, ArrowRight, Shield, Zap, Clock, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
@@ -16,10 +18,22 @@ const Cart = () => {
   const {
     cart, removeFromCart, updateQuantity, cartTotal, clearCart,
     promoCode, setPromoCode, promoResult, promoError, promoLoading,
-    applyPromo, discount, totalAfterDiscount,
+    applyPromo, discount, totalAfterDiscount, syncCartWithProducts,
   } = useStore();
   const { user, initData } = useTelegram();
   const { data: products } = useProducts();
+
+  const syncedOnce = useRef(false);
+  useEffect(() => {
+    if (!products || syncedOnce.current) return;
+    syncedOnce.current = true;
+    const { removed, priceChanged } = syncCartWithProducts(products);
+    removed.forEach(title => toast.warning(`«${title}» больше недоступен и удалён из корзины`));
+    priceChanged.forEach(({ title, oldPrice, newPrice }) =>
+      toast.info(`Цена «${title}» изменилась: $${oldPrice.toFixed(2)} → $${newPrice.toFixed(2)}`)
+    );
+  }, [products, syncCartWithProducts]);
+
 
   const adjustedItemPrice = (item: typeof cart[number]) => Number(item.product.price);
   const adjustedTotal = cart.reduce((s, i) => s + adjustedItemPrice(i) * i.quantity, 0);
