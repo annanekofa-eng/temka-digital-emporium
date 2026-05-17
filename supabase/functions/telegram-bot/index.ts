@@ -254,9 +254,12 @@ async function handleAdminCallback(
       return showInventoryProducts(chatId, msgId, 0);
     }
     case "lg": {
-      if (!op) return showLogs(chatId, msgId, 0);
-      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0);
-      return showLogs(chatId, msgId, 0);
+      if (!op) return showLogs(chatId, msgId, 0, "a");
+      if (op === "p" && arg) return showLogs(chatId, msgId, parseInt(arg) || 0, "a");
+      if (op === "t" && (arg === "a" || arg === "b")) {
+        return showLogs(chatId, msgId, parseInt(extra ?? "0") || 0, arg);
+      }
+      return showLogs(chatId, msgId, 0, "a");
     }
     case "se": {
       if (!op) return showSettingsMenu(chatId, msgId);
