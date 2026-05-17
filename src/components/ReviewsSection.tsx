@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, PenLine } from 'lucide-react';
+import { Star, PenLine, Loader2 } from 'lucide-react';
 import { useReviews } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,6 +8,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { useTelegram } from '@/contexts/TelegramContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const FALLBACK = [
   { id: 'r1', author: 'alex_volkov',  text: 'Заказывал Premium на 6 месяцев — пришло мгновенно, работает идеально.', rating: 5, avatar: '🦊' },
