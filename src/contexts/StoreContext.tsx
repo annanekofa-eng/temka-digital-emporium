@@ -1,10 +1,17 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { DbProduct } from '@/types/database';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export const AUTO_PRODUCT_TYPES = ['premium_term', 'stars'] as const;
+export const isAutoProduct = (p: any) =>
+  !!p?.product_type && (AUTO_PRODUCT_TYPES as readonly string[]).includes(p.product_type);
 
 interface CartItem {
   product: DbProduct;
   quantity: number;
+  recipientUsername?: string;
+  lineId?: string; // unique line id for auto items so they don't merge
 }
 
 export interface PromoResult {
