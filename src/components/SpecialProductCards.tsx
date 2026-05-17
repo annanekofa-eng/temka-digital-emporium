@@ -8,8 +8,6 @@ import { toast } from 'sonner';
 import logoPremium from '@/assets/logo-tg-premium.jpg';
 import logoStars from '@/assets/logo-tg-stars.jpg';
 import logoNft from '@/assets/logo-tg-nft.png';
-import logoNftRent from '@/assets/logo-nft-rent.png';
-import logoNftUsernames from '@/assets/logo-nft-usernames.png';
 import type { ExtendedProduct } from '@/hooks/useShop';
 
 export const STAR_PRESETS = [15, 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
@@ -18,8 +16,6 @@ export const SPECIAL_PRODUCT_TYPES = [
   'premium_term',
   'nft_variant',
   'stars',
-  'nft_rent',
-  'nft_buy',
 ] as const;
 
 export const isSpecialProduct = (p: any) =>
