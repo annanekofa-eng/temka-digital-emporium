@@ -20,7 +20,7 @@ const BottomNav = () => {
 
   const navItems = [
     { path: buildPath('/'), icon: Home, label: 'Главная', exact: true },
-    { path: buildPath('/wheel'), icon: WheelIcon, label: 'Удача' },
+    { path: buildPath('/wheel'), icon: Home, label: 'Удача' },
     { path: buildPath('/cart'), icon: ShoppingCart, label: 'Корзина' },
     { path: buildPath('/account'), icon: User, label: 'Профиль' },
   ];
