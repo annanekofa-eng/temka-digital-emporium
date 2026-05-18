@@ -124,7 +124,6 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
     ],
     [
       { text: "💰 Старая цена", callback_data: `a:p:e:${id}:old_price` },
-      { text: "📦 Остаток", callback_data: `a:p:e:${id}:stock` },
     ],
     [
       { text: "📁 Проект", callback_data: `a:p:e:${id}:project_id` },
