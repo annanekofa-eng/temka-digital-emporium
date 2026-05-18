@@ -201,42 +201,77 @@ serve(async (req) => {
       admin_telegram_id: 0,
     });
 
-    // Auto order notifications
+    const escapeHtml = (s: string) =>
+      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // Auto order notifications (Stars/Premium — manual fulfilment)
     if (hasAuto) {
-      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
       const adminIds = (Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "")
         .split(",").map((s) => s.trim()).filter(Boolean);
       const itemsText = validatedItems
         .map((i) => `• ${i.productTitle} → @${i.recipientUsername}`).join("\n");
-      const recipients = validatedItems
-        .map((i) => `@${i.recipientUsername}`).join(", ");
 
-      if (botToken) {
-        // Buyer
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: telegramUserId, parse_mode: "HTML",
+            text: `📦 <b>Заказ принят</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nСумма: $${serverTotal.toFixed(2)}\n\n⏳ Ожидайте выдачи — мы уведомим, как только товар будет передан.`,
+          }),
+        });
+      } catch (e) { console.error("notify buyer:", e); }
+
+      const adminText = `🆕 <b>Новый авто-заказ</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nПокупатель: <code>${telegramUserId}</code>\nСумма: $${serverTotal.toFixed(2)}\n\nОткройте «Авто-заказы» в /admin.`;
+      for (const aid of adminIds) {
         try {
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              chat_id: telegramUserId, parse_mode: "HTML",
-              text: `📦 <b>Заказ принят</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nСумма: $${serverTotal.toFixed(2)}\n\n⏳ Ожидайте выдачи — мы уведомим, как только товар будет передан.`,
+              chat_id: Number(aid), parse_mode: "HTML", text: adminText,
+              reply_markup: { inline_keyboard: [[{ text: "🤖 Открыть авто-заказ", callback_data: `a:ao:v:${order.id}` }]] },
             }),
           });
-        } catch (e) { console.error("notify buyer:", e); }
+        } catch (e) { console.error("notify admin:", e); }
+      }
+    } else {
+      // Regular order — auto-fulfil from inventory (Склад)
+      const deliveredBlocks: string[] = [];
+      let allDelivered = true;
 
-        // Admins
-        const adminText = `🆕 <b>Новый авто-заказ</b>\n\nНомер: <code>${orderNumber}</code>\n${itemsText}\nПокупатель: <code>${telegramUserId}</code>\nСумма: $${serverTotal.toFixed(2)}\n\nОткройте «Авто-заказы» в /admin.`;
-        for (const aid of adminIds) {
-          try {
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: Number(aid), parse_mode: "HTML", text: adminText,
-                reply_markup: { inline_keyboard: [[{ text: "🤖 Открыть авто-заказ", callback_data: `a:ao:v:${order.id}` }]] },
-              }),
-            });
-          } catch (e) { console.error("notify admin:", e); }
+      for (const it of validatedItems) {
+        const { data: reserved } = await supabase.rpc("reserve_inventory", {
+          p_product_id: it.productId, p_quantity: it.quantity, p_order_id: order.id,
+        });
+        const got = (reserved as Array<{ content: string }> | null) ?? [];
+        if (got.length < it.quantity) allDelivered = false;
+        if (got.length) {
+          const lines = got.map((g) => `<code>${escapeHtml(g.content)}</code>`).join("\n");
+          deliveredBlocks.push(`📦 <b>${escapeHtml(it.productTitle)}</b> (×${got.length}):\n${lines}`);
+          const { count: remaining } = await supabase.from("inventory_items")
+            .select("id", { count: "exact", head: true })
+            .eq("product_id", it.productId).eq("status", "available");
+          await supabase.from("products").update({
+            stock: remaining || 0, updated_at: new Date().toISOString(),
+          }).eq("id", it.productId);
         }
       }
+
+      await supabase.from("orders").update({
+        status: allDelivered ? "delivered" : "processing",
+        updated_at: new Date().toISOString(),
+      }).eq("id", order.id);
+
+      const header = `✅ <b>Оплата балансом подтверждена!</b>\n📦 Заказ: <code>${orderNumber}</code>\n💰 Списано: $${totalAfterDiscount.toFixed(2)}`;
+      const body = deliveredBlocks.length
+        ? `${header}\n\n🎁 <b>Ваши товары:</b>\n\n${deliveredBlocks.join("\n\n")}\n\n⚠️ <b>Сохраните данные!</b>\nСпасибо за покупку!`
+        : `${header}\n\n⏳ Товара временно нет на складе — администратор выдаст его вручную в ближайшее время.`;
+
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: telegramUserId, parse_mode: "HTML", text: body }),
+        });
+      } catch (e) { console.error("notify buyer:", e); }
     }
 
     return jsonRes({
