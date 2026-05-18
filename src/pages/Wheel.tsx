@@ -152,17 +152,22 @@ const Wheel = () => {
     return 'shadow-[0_0_35px_8px_rgba(255,255,255,0.45)]';
   }, [resultState, lastWin]);
 
-  const radius = 150;
   const cx = 160;
   const cy = 160;
+  const rimOuter = 158;     // outer edge of chrome ring
+  const rimInner = 128;     // inner edge of chrome ring = segments outer
+  const segRadius = rimInner - 2;
+  const studRadius = (rimOuter + rimInner) / 2; // where LED studs sit
+  const tickRadius = rimInner + 4;              // where small arrow ticks sit
+
   const segPath = (i: number) => {
     const a0 = (i * SEG_ANGLE - 90) * Math.PI / 180;
     const a1 = ((i + 1) * SEG_ANGLE - 90) * Math.PI / 180;
-    const x0 = cx + radius * Math.cos(a0);
-    const y0 = cy + radius * Math.sin(a0);
-    const x1 = cx + radius * Math.cos(a1);
-    const y1 = cy + radius * Math.sin(a1);
-    return `M${cx},${cy} L${x0},${y0} A${radius},${radius} 0 0 1 ${x1},${y1} Z`;
+    const x0 = cx + segRadius * Math.cos(a0);
+    const y0 = cy + segRadius * Math.sin(a0);
+    const x1 = cx + segRadius * Math.cos(a1);
+    const y1 = cy + segRadius * Math.sin(a1);
+    return `M${cx},${cy} L${x0},${y0} A${segRadius},${segRadius} 0 0 1 ${x1},${y1} Z`;
   };
 
   return (
