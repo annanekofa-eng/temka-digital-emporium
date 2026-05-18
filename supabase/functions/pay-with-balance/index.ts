@@ -167,13 +167,15 @@ serve(async (req) => {
       return jsonRes({ error: "Failed to charge balance" }, 400);
     }
 
-    // Create paid order
+    // Create paid order — balance already deducted atomically.
+    const nowIso = new Date().toISOString();
     const { data: order, error } = await supabase.from("orders").insert({
       order_number: orderNumber, telegram_id: telegramUserId,
       status: hasAuto ? "processing" : "paid",
       payment_status: "paid", total_amount: serverTotal,
       currency: "USD", discount_amount: discountAmount,
       promo_code: validatedPromoCode, balance_used: totalAfterDiscount,
+      balance_charged_at: nowIso,
       is_auto: hasAuto, auto_status: hasAuto ? "pending" : null,
     }).select().single();
     if (error) {
@@ -234,7 +236,7 @@ serve(async (req) => {
         } catch (e) { console.error("notify admin:", e); }
       }
     } else {
-      // Regular order — auto-fulfil from inventory (Склад)
+      // Regular order — auto-fulfil from inventory (Склад). Trigger syncs products.stock.
       const deliveredBlocks: string[] = [];
       let allDelivered = true;
 
@@ -247,24 +249,19 @@ serve(async (req) => {
         if (got.length) {
           const lines = got.map((g) => `<code>${escapeHtml(g.content)}</code>`).join("\n");
           deliveredBlocks.push(`📦 <b>${escapeHtml(it.productTitle)}</b> (×${got.length}):\n${lines}`);
-          const { count: remaining } = await supabase.from("inventory_items")
-            .select("id", { count: "exact", head: true })
-            .eq("product_id", it.productId).eq("status", "available");
-          await supabase.from("products").update({
-            stock: remaining || 0, updated_at: new Date().toISOString(),
-          }).eq("id", it.productId);
         }
       }
 
       await supabase.from("orders").update({
         status: allDelivered ? "delivered" : "processing",
+        fulfilled_at: allDelivered ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       }).eq("id", order.id);
 
       const header = `✅ <b>Оплата балансом подтверждена!</b>\n📦 Заказ: <code>${orderNumber}</code>\n💰 Списано: $${totalAfterDiscount.toFixed(2)}`;
       const body = deliveredBlocks.length
         ? `${header}\n\n🎁 <b>Ваши товары:</b>\n\n${deliveredBlocks.join("\n\n")}\n\n⚠️ <b>Сохраните данные!</b>\nСпасибо за покупку!`
-        : `${header}\n\n⏳ Товара временно нет на складе — администратор выдаст его вручную в ближайшее время.`;
+        : `${header}\n\n⏳ Товара временно нет на складе — мы автоматически выдадим его, как только он появится.`;
 
       try {
         await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {

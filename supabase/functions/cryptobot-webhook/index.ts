@@ -59,22 +59,26 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
 
   const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
   if (!order) return false;
-  if (order.payment_status === "paid") return true;
+  // Already fully delivered → idempotent exit. Otherwise we may still need to retry fulfilment.
+  if (order.payment_status === "paid" && order.fulfilled_at) return true;
 
-  // Mark paid
-  await supabase.from("orders").update({
-    status: "processing", payment_status: "paid", updated_at: new Date().toISOString(),
-  }).eq("id", orderId);
+  // Mark paid (idempotent)
+  if (order.payment_status !== "paid") {
+    await supabase.from("orders").update({
+      status: "processing", payment_status: "paid", updated_at: new Date().toISOString(),
+    }).eq("id", orderId);
+  }
 
-  // Promo usage
-  if (order.promo_code) {
+  // Promo usage — only once
+  if (order.promo_code && !order.balance_charged_at && order.payment_status !== "paid") {
     await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
   }
 
-  // Deduct balance used
-  if (balanceUsed > 0) {
+  // Deduct balance used — only once (guarded by balance_charged_at)
+  if (balanceUsed > 0 && !order.balance_charged_at) {
     const { data: nb, error } = await supabase.rpc("deduct_balance", { p_telegram_id: tgId, p_amount: balanceUsed });
     if (!error) {
+      await supabase.from("orders").update({ balance_charged_at: new Date().toISOString() }).eq("id", orderId);
       await supabase.from("balance_history").insert({
         telegram_id: tgId, amount: -balanceUsed, balance_after: nb, type: "order",
         comment: `Оплата заказа ${order.order_number}`, admin_telegram_id: tgId,
@@ -82,7 +86,7 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     }
   }
 
-  // Reserve inventory and deliver (skip auto items)
+  // Reserve inventory and deliver (skip auto items). Trigger keeps products.stock in sync.
   const { data: items } = await supabase.from("order_items").select("*").eq("order_id", orderId);
   let allDelivered = true;
   const escapeHtml = (s: string) =>
@@ -96,23 +100,27 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
       autoItems.push(item);
       continue;
     }
+    // Skip items that were already delivered on a previous webhook attempt.
+    const { count: already } = await supabase.from("inventory_items")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId).eq("product_id", item.product_id);
+    const need = item.quantity - (already || 0);
+    if (need <= 0) continue;
     const { data: reserved } = await supabase.rpc("reserve_inventory", {
-      p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
+      p_product_id: item.product_id, p_quantity: need, p_order_id: orderId,
     });
     const got = (reserved as Array<{ content: string }> | null) ?? [];
-    if (got.length < item.quantity) allDelivered = false;
+    if (got.length < need) allDelivered = false;
     if (got.length) {
       const lines = got.map((g: any) => `<code>${escapeHtml(g.content)}</code>`).join("\n");
       deliveredBlocks.push(`📦 <b>${escapeHtml(item.product_title)}</b> (×${got.length}):\n${lines}`);
-      const { count: remaining } = await supabase.from("inventory_items").select("id", { count: "exact", head: true })
-        .eq("product_id", item.product_id).eq("status", "available");
-      await supabase.from("products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
     }
   }
 
   const isAutoOrder = order.is_auto || autoItems.length > 0;
   await supabase.from("orders").update({
     status: isAutoOrder ? "processing" : (allDelivered ? "delivered" : "processing"),
+    fulfilled_at: (!isAutoOrder && allDelivered) ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   }).eq("id", orderId);
 
@@ -142,7 +150,7 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     const header = `✅ <b>Оплата подтверждена!</b>\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)}`;
     const text = deliveredBlocks.length
       ? `${header}\n\n🎁 <b>Ваши товары:</b>\n\n${deliveredBlocks.join("\n\n")}\n\n⚠️ <b>Сохраните данные!</b>\nСпасибо за покупку!`
-      : `${header}\n\n⏳ Товара временно нет на складе — администратор выдаст его вручную в ближайшее время.`;
+      : `${header}\n\n⏳ Товара временно нет на складе — мы автоматически выдадим его, как только он появится.`;
     await notify(botToken, tgId, text);
   }
   return true;
