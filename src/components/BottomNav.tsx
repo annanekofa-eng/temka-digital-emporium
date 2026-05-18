@@ -1,17 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, User } from 'lucide-react';
+import { Home, ShoppingCart, User, Disc3 } from 'lucide-react';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 
-const WheelIcon = ({ active }: { active: boolean }) => (
-  <span
-    className={`text-xl leading-none transition ${
-      active ? 'grayscale-0 opacity-100' : 'opacity-70'
-    }`}
-    aria-hidden
-  >
-    🎰
-  </span>
-);
 
 const BottomNav = () => {
   const location = useLocation();
