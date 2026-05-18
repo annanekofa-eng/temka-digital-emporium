@@ -128,6 +128,9 @@ serve(async (req) => {
     if (promoCode) {
       const trimmedCode = String(promoCode).trim().toUpperCase();
       const { data: promo } = await supabase.from("promocodes").select("*").eq("code", trimmedCode).eq("is_active", true).maybeSingle();
+      if (promo && promo.owner_telegram_id != null && Number(promo.owner_telegram_id) !== Number(telegramUserId)) {
+        return jsonRes({ error: "Этот промокод принадлежит другому пользователю" }, 400);
+      }
       if (promo) {
         const now = new Date().toISOString();
         const valid = (!promo.valid_from || now >= promo.valid_from) &&
