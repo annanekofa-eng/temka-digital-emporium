@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { Flame, HelpCircle, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { useSiteSettings } from '@/hooks/useShop';
+import casePencil from '@/assets/case-pencil.jpg';
+import casePalette from '@/assets/case-palette.jpg';
+import caseOrganizer from '@/assets/case-organizer.jpg';
 
 interface Case {
   id: string;
@@ -11,7 +14,7 @@ interface Case {
   full: string;
   price: number;
   oldPrice: number;
-  emoji: string;
+  image: string;
   hit?: boolean;
 }
 
