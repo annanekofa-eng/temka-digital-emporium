@@ -194,9 +194,6 @@ const Wheel = () => {
       </div>
 
       <div className="relative w-full aspect-square max-w-sm mx-auto select-none">
-        <div className={`absolute inset-4 rounded-full transition-shadow duration-500 ${glowClass}`} />
-
-      <div className="relative w-full aspect-square max-w-sm mx-auto select-none">
         {/* Soft outer halo */}
         <div className={`absolute inset-6 rounded-full transition-shadow duration-500 ${glowClass}`} />
 
