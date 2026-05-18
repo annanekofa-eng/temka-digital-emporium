@@ -6,15 +6,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { toast } from 'sonner';
 
+// Alternating dark segments (chrome wheel aesthetic). Values still drive prize logic.
 const SEGMENTS = [
-  { value: 75, color: '#a78bfa' },
-  { value: 0,  color: '#1a1a1a' },
-  { value: 50, color: '#60a5fa' },
-  { value: 5,  color: '#374151' },
-  { value: 25, color: '#34d399' },
-  { value: 10, color: '#f59e0b' },
-  { value: 15, color: '#f87171' },
-  { value: 0,  color: '#1a1a1a' },
+  { value: 75, color: '#1f1f1f' },
+  { value: 0,  color: '#070707' },
+  { value: 50, color: '#1f1f1f' },
+  { value: 5,  color: '#070707' },
+  { value: 25, color: '#1f1f1f' },
+  { value: 10, color: '#070707' },
+  { value: 15, color: '#1f1f1f' },
+  { value: 0,  color: '#070707' },
 ] as const;
 
 const SEG_COUNT = SEGMENTS.length;
