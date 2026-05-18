@@ -1,16 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, ShoppingCart, User } from 'lucide-react';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
-import wheelLogo from '@/assets/wheel-logo.jpg';
 
 const WheelIcon = ({ active }: { active: boolean }) => (
-  <img
-    src={wheelLogo}
-    alt=""
-    className={`w-6 h-6 rounded-full object-cover ring-1 transition ${
-      active ? 'ring-primary' : 'ring-border/60 opacity-80'
+  <span
+    className={`text-xl leading-none transition ${
+      active ? 'grayscale-0 opacity-100' : 'opacity-70'
     }`}
-  />
+    aria-hidden
+  >
+    🎰
+  </span>
 );
 
 const BottomNav = () => {
