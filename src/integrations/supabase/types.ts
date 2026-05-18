@@ -772,7 +772,7 @@ export type Database = {
           created_at: string
           id: string
           moderation_status: string
-          product_id: string
+          product_id: string | null
           rating: number
           telegram_id: number | null
           text: string
@@ -784,7 +784,7 @@ export type Database = {
           created_at?: string
           id?: string
           moderation_status?: string
-          product_id: string
+          product_id?: string | null
           rating: number
           telegram_id?: number | null
           text?: string
@@ -796,21 +796,13 @@ export type Database = {
           created_at?: string
           id?: string
           moderation_status?: string
-          product_id?: string
+          product_id?: string | null
           rating?: number
           telegram_id?: number | null
           text?: string
           verified?: boolean
         }
-        Relationships: [
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       sbp_payments: {
         Row: {
@@ -1019,15 +1011,7 @@ export type Database = {
           text?: string | null
           verified?: boolean | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
