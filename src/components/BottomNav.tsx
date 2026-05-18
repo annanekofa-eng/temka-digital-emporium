@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, User } from 'lucide-react';
+import { Home, ShoppingCart, User, Sparkles } from 'lucide-react';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 
 const BottomNav = () => {
@@ -9,6 +9,7 @@ const BottomNav = () => {
 
   const navItems = [
     { path: buildPath('/'), icon: Home, label: 'Главная', exact: true },
+    { path: buildPath('/wheel'), icon: Sparkles, label: 'Удача' },
     { path: buildPath('/cart'), icon: ShoppingCart, label: 'Корзина' },
     { path: buildPath('/account'), icon: User, label: 'Профиль' },
   ];

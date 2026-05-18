@@ -917,6 +917,30 @@ export type Database = {
         }
         Relationships: []
       }
+      wheel_spins: {
+        Row: {
+          created_at: string
+          id: string
+          prize_value: number
+          promo_code: string | null
+          telegram_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prize_value: number
+          promo_code?: string | null
+          telegram_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prize_value?: number
+          promo_code?: string | null
+          telegram_id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_reviews: {
@@ -974,6 +998,7 @@ export type Database = {
         Args: { p_amount: number; p_telegram_id: number }
         Returns: number
       }
+      get_wheel_status: { Args: { p_telegram_id: number }; Returns: Json }
       increment_promo_usage: { Args: { p_code: string }; Returns: undefined }
       reserve_inventory: {
         Args: { p_order_id: string; p_product_id: string; p_quantity: number }

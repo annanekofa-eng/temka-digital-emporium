@@ -19,6 +19,7 @@ const Project = React.lazy(() => import("./pages/Project"));
 const Catalog = React.lazy(() => import("./pages/Catalog"));
 const ProductDetails = React.lazy(() => import("./pages/ProductDetails"));
 const Cart = React.lazy(() => import("./pages/Cart"));
+const Wheel = React.lazy(() => import("./pages/Wheel"));
 const Checkout = React.lazy(() => import("./pages/Checkout"));
 const SbpPayment = React.lazy(() => import("./pages/SbpPayment"));
 const OrderSuccess = React.lazy(() => import("./pages/OrderSuccess"));
@@ -83,6 +84,7 @@ const App = () => (
                   <Route path="/catalog" element={<Catalog />} />
                   <Route path="/product/:id" element={<ProductDetails />} />
                   <Route path="/cart" element={<Cart />} />
+                  <Route path="/wheel" element={<Wheel />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/sbp-payment" element={<SbpPayment />} />
                   <Route path="/order-success" element={<OrderSuccess />} />
