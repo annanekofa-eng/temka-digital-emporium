@@ -670,6 +670,7 @@ export type Database = {
           is_active: boolean
           max_uses: number | null
           max_uses_per_user: number | null
+          owner_telegram_id: number | null
           used_count: number
           valid_from: string | null
           valid_until: string | null
@@ -683,6 +684,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number | null
           max_uses_per_user?: number | null
+          owner_telegram_id?: number | null
           used_count?: number
           valid_from?: string | null
           valid_until?: string | null
@@ -696,6 +698,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number | null
           max_uses_per_user?: number | null
+          owner_telegram_id?: number | null
           used_count?: number
           valid_from?: string | null
           valid_until?: string | null
@@ -989,6 +992,10 @@ export type Database = {
       }
     }
     Functions: {
+      attach_wheel_promo: {
+        Args: { p_code: string; p_spin_id: string; p_telegram_id: number }
+        Returns: undefined
+      }
       cleanup_admin_expired: { Args: never; Returns: undefined }
       credit_balance: {
         Args: { p_amount: number; p_telegram_id: number }
@@ -1006,6 +1013,10 @@ export type Database = {
           content: string
           id: string
         }[]
+      }
+      try_claim_wheel_spin: {
+        Args: { p_prize: number; p_telegram_id: number }
+        Returns: Json
       }
       validate_promo_code: { Args: { p_code: string }; Returns: Json }
     }
