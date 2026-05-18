@@ -7,7 +7,7 @@ import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
 import {
   showProductList, showProduct, toggleProduct, askDeleteProduct, confirmDeleteProduct,
   startEditProduct, applyEditProduct, startCreateProduct, handleCreateProductStep,
-  applyEditProductPhoto,
+  applyEditProductPhoto, setProductReference,
 } from "./admin/products.ts";
 import {
   showCategoryList, showCategory, toggleCategory, askDeleteCategory, confirmDeleteCategory,
@@ -159,6 +159,10 @@ async function handleAdminCallback(
       if (op === "d" && arg) return askDeleteProduct(chatId, msgId, arg);
       if (op === "dc" && arg) return confirmDeleteProduct(chatId, msgId, arg, fromId);
       if (op === "e" && arg && extra) return startEditProduct(chatId, msgId, arg, extra, fromId);
+      if (op === "sc" && arg && extra) return setProductReference(chatId, msgId, arg, "category_id", extra, fromId);
+      if (op === "sp" && arg && extra) return setProductReference(chatId, msgId, arg, "project_id", extra, fromId);
+      if (op === "st" && arg && extra) return setProductReference(chatId, msgId, arg, "product_type", extra, fromId);
+      if (op === "sd" && arg && extra) return setProductReference(chatId, msgId, arg, "delivery_type", extra, fromId);
       if (op === "n") return startCreateProduct(chatId, msgId, fromId);
       return showProductList(chatId, msgId, 0);
     }

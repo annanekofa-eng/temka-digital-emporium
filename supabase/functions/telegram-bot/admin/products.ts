@@ -209,6 +209,79 @@ export async function startEditProduct(
 ) {
   const f = FIELDS[field];
   if (!f) return showProduct(chatId, msgId, id);
+
+  // Pickers instead of free-text for reference fields
+  if (field === "category_id") {
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("id,name,icon,is_active")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    const rows: any[] = [];
+    for (const c of cats ?? []) {
+      rows.push([{ text: `${c.icon ?? "📂"} ${c.name}`, callback_data: `a:p:sc:${id}:${c.id}` }]);
+    }
+    rows.push([{ text: "🗑 Очистить", callback_data: `a:p:sc:${id}:_` }]);
+    rows.push([{ text: "Отмена", callback_data: `a:p:v:${id}` }]);
+    await clearSession(adminId);
+    return deleteAndSend(chatId, msgId, {
+      text: `📂 Выберите <b>категорию</b> для товара:`,
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
+  if (field === "project_id") {
+    const { data: projs } = await supabase
+      .from("projects")
+      .select("id,title,icon,is_active")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true });
+    const rows: any[] = [];
+    for (const pr of projs ?? []) {
+      rows.push([{ text: `${pr.icon ?? "✨"} ${pr.title}`, callback_data: `a:p:sp:${id}:${pr.id}` }]);
+    }
+    rows.push([{ text: "🗑 Очистить", callback_data: `a:p:sp:${id}:_` }]);
+    rows.push([{ text: "Отмена", callback_data: `a:p:v:${id}` }]);
+    await clearSession(adminId);
+    return deleteAndSend(chatId, msgId, {
+      text: `📁 Выберите <b>проект</b> для товара:`,
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
+  if (field === "product_type") {
+    const types = [
+      { id: "simple", label: "🧩 simple (склад кодов)" },
+      { id: "premium_term", label: "⭐️ premium_term (Telegram Premium)" },
+      { id: "stars", label: "✨ stars (Telegram Stars)" },
+    ];
+    const rows = types.map((t) => [{ text: t.label, callback_data: `a:p:st:${id}:${t.id}` }]);
+    rows.push([{ text: "Отмена", callback_data: `a:p:v:${id}` }]);
+    await clearSession(adminId);
+    return deleteAndSend(chatId, msgId, {
+      text: `🏷 Выберите <b>тип</b> товара:`,
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
+  if (field === "delivery_type") {
+    const opts = [
+      { id: "instant", label: "⚡️ instant (мгновенно)" },
+      { id: "manual", label: "✋ manual (ручная)" },
+      { id: "on_demand", label: "📦 on_demand (по запросу)" },
+    ];
+    const rows = opts.map((t) => [{ text: t.label, callback_data: `a:p:sd:${id}:${t.id}` }]);
+    rows.push([{ text: "Отмена", callback_data: `a:p:v:${id}` }]);
+    await clearSession(adminId);
+    return deleteAndSend(chatId, msgId, {
+      text: `🚚 Выберите <b>тип доставки</b>:`,
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
+
   await setSession(adminId, `p:edit:${id}:${field}`, {});
   const hint = f.hint ? `\n\n<i>${f.hint}</i>` : "";
   await deleteAndSend(chatId, msgId, {
@@ -216,6 +289,24 @@ export async function startEditProduct(
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: [[{ text: "Отмена", callback_data: `a:p:v:${id}` }]] },
   });
+}
+
+export async function setProductReference(
+  chatId: number,
+  msgId: number | undefined,
+  id: string,
+  field: "category_id" | "project_id" | "product_type" | "delivery_type",
+  value: string,
+  adminId: number,
+) {
+  const newValue = value === "_" ? null : value;
+  await supabase
+    .from("products")
+    .update({ [field]: newValue, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  await writeAuditLog(adminId, "product.update", id, { field, value: newValue });
+  await clearSession(adminId);
+  return showProduct(chatId, msgId, id);
 }
 
 function parseFieldValue(field: string, raw: string): { ok: true; value: unknown } | { ok: false; err: string } {
