@@ -93,7 +93,10 @@ export async function showReview(chatId: number, msgId: number | undefined, id: 
 }
 
 async function setStatus(chatId: number, msgId: number | undefined, id: string, status: string, adminId: number) {
-  await supabase.from("reviews").update({ moderation_status: status }).eq("id", id);
+  const patch: Record<string, unknown> = { moderation_status: status };
+  if (status === "approved") patch.verified = true;
+  if (status === "rejected") patch.verified = false;
+  await supabase.from("reviews").update(patch).eq("id", id);
   await writeAuditLog(adminId, "review.moderate", id, { status });
   return showReview(chatId, msgId, id);
 }
