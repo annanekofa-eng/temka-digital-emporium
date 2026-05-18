@@ -26,7 +26,7 @@ const CASES: Case[] = [
     full: 'При покупке кейса студия дизайна делает вам Фирменный логотип (3D и 2D), 3 статичных баннера. Накручиваем до 1000 реакций / просмотров / подписчиков.',
     price: 2589,
     oldPrice: 3100,
-    emoji: '✏️',
+    image: casePencil,
   },
   {
     id: 'extended',
@@ -35,7 +35,7 @@ const CASES: Case[] = [
     full: 'При покупке кейса студия дизайна делает вам Фирменный логотип, 3 статичных баннера, мини-лендинг. Накручиваем до 5000 реакций / просмотров / подписчиков. Выдаём план продвижения с выходом на доход в конце месяца.',
     price: 3289,
     oldPrice: 4000,
-    emoji: '🎨',
+    image: casePalette,
     hit: true,
   },
   {
@@ -45,7 +45,7 @@ const CASES: Case[] = [
     full: 'При покупке кейса студия дизайна делает вам Фирменный логотип, 4 статичных баннера, лендинг, 5 уникальных постов. Накручиваем до 10000 реакций / просмотров / подписчиков.',
     price: 4289,
     oldPrice: 5500,
-    emoji: '🖋️',
+    image: caseOrganizer,
   },
 ];
 
@@ -58,8 +58,9 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
     transition={{ delay: i * 0.08, duration: 0.4 }}
     className="relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden text-left w-full hover:border-primary/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
   >
-    <div className="relative aspect-square bg-black flex items-center justify-center">
-      <span className="text-7xl grayscale opacity-90">{c.emoji}</span>
+    <div className="relative aspect-square bg-black flex items-center justify-center overflow-hidden">
+      <img src={c.image} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+
       {c.hit && (
         <div className="absolute top-3 right-3 flex items-center gap-1 bg-orange-500 text-white text-[10px] font-bold rounded-full px-2.5 py-1">
           <Flame className="w-3 h-3" />
@@ -120,9 +121,10 @@ const CasesSection = () => {
               </DialogClose>
 
               <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
-                <div className="aspect-[4/3] md:aspect-square bg-black flex items-center justify-center shrink-0">
-                  <span className="text-7xl sm:text-9xl grayscale">{openCase.emoji}</span>
+                <div className="aspect-[4/3] md:aspect-square bg-black flex items-center justify-center shrink-0 overflow-hidden">
+                  <img src={openCase.image} alt={openCase.title} className="w-full h-full object-cover" />
                 </div>
+
                 <div className="p-5 sm:p-8 flex flex-col gap-4">
                   <h3 className="font-display text-2xl font-black pr-10">{openCase.title}</h3>
                   <div className="flex items-baseline gap-3">
