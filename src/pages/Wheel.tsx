@@ -307,11 +307,11 @@ const Wheel = () => {
                       dominantBaseline="middle"
                       fontFamily="ui-sans-serif, system-ui"
                       fontWeight="800"
-                      fontSize={seg.value === 0 ? 20 : 22}
+                      fontSize={22}
                       fill="#f4f4f5"
                       letterSpacing="-0.5"
                     >
-                      {seg.value === 0 ? '0' : `${seg.value}`}
+                      {`${seg.value}%`}
                     </text>
                   );
                 })()}
