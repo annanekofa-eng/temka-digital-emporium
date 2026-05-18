@@ -6,15 +6,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { toast } from 'sonner';
 
+// Alternating dark segments (chrome wheel aesthetic). Values still drive prize logic.
 const SEGMENTS = [
-  { value: 75, color: '#a78bfa' },
-  { value: 0,  color: '#1a1a1a' },
-  { value: 50, color: '#60a5fa' },
-  { value: 5,  color: '#374151' },
-  { value: 25, color: '#34d399' },
-  { value: 10, color: '#f59e0b' },
-  { value: 15, color: '#f87171' },
-  { value: 0,  color: '#1a1a1a' },
+  { value: 75, color: '#1f1f1f' },
+  { value: 0,  color: '#070707' },
+  { value: 50, color: '#1f1f1f' },
+  { value: 5,  color: '#070707' },
+  { value: 25, color: '#1f1f1f' },
+  { value: 10, color: '#070707' },
+  { value: 15, color: '#1f1f1f' },
+  { value: 0,  color: '#070707' },
 ] as const;
 
 const SEG_COUNT = SEGMENTS.length;
@@ -151,17 +152,22 @@ const Wheel = () => {
     return 'shadow-[0_0_35px_8px_rgba(255,255,255,0.45)]';
   }, [resultState, lastWin]);
 
-  const radius = 150;
   const cx = 160;
   const cy = 160;
+  const rimOuter = 158;     // outer edge of chrome ring
+  const rimInner = 128;     // inner edge of chrome ring = segments outer
+  const segRadius = rimInner - 2;
+  const studRadius = (rimOuter + rimInner) / 2; // where LED studs sit
+  const tickRadius = rimInner + 4;              // where small arrow ticks sit
+
   const segPath = (i: number) => {
     const a0 = (i * SEG_ANGLE - 90) * Math.PI / 180;
     const a1 = ((i + 1) * SEG_ANGLE - 90) * Math.PI / 180;
-    const x0 = cx + radius * Math.cos(a0);
-    const y0 = cy + radius * Math.sin(a0);
-    const x1 = cx + radius * Math.cos(a1);
-    const y1 = cy + radius * Math.sin(a1);
-    return `M${cx},${cy} L${x0},${y0} A${radius},${radius} 0 0 1 ${x1},${y1} Z`;
+    const x0 = cx + segRadius * Math.cos(a0);
+    const y0 = cy + segRadius * Math.sin(a0);
+    const x1 = cx + segRadius * Math.cos(a1);
+    const y1 = cy + segRadius * Math.sin(a1);
+    return `M${cx},${cy} L${x0},${y0} A${segRadius},${segRadius} 0 0 1 ${x1},${y1} Z`;
   };
 
   return (
@@ -188,17 +194,21 @@ const Wheel = () => {
       </div>
 
       <div className="relative w-full aspect-square max-w-sm mx-auto select-none">
-        <div className={`absolute inset-4 rounded-full transition-shadow duration-500 ${glowClass}`} />
+        {/* Soft outer halo */}
+        <div className={`absolute inset-6 rounded-full transition-shadow duration-500 ${glowClass}`} />
 
-        <div className="absolute left-1/2 -translate-x-1/2 -top-1 z-20 pointer-events-none">
-          <svg width="28" height="34" viewBox="0 0 28 34">
+        {/* Fixed pointer — stays at top, points down into the wheel */}
+        <div className="absolute left-1/2 -translate-x-1/2 z-30 pointer-events-none" style={{ top: '8%' }}>
+          <svg width="22" height="34" viewBox="0 0 22 34">
             <defs>
               <linearGradient id="ptrG" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fff" />
-                <stop offset="100%" stopColor="#9ca3af" />
+                <stop offset="0%" stopColor="#fafafa" />
+                <stop offset="55%" stopColor="#d4d4d8" />
+                <stop offset="100%" stopColor="#6b7280" />
               </linearGradient>
             </defs>
-            <path d="M14 32 L2 6 Q14 0 26 6 Z" fill="url(#ptrG)" stroke="#111" strokeWidth="1.2" />
+            <path d="M11 30 L2 4 Q11 0 20 4 Z" fill="url(#ptrG)" stroke="#0a0a0a" strokeWidth="1" />
+            <circle cx="11" cy="6" r="2" fill="#fafafa" opacity="0.95" />
           </svg>
         </div>
 
@@ -211,18 +221,62 @@ const Wheel = () => {
         >
           <motion.svg
             viewBox="0 0 320 320"
-            className="w-full h-full drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            className="w-full h-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.7)]"
             animate={{ rotate: rotation }}
             transition={{ duration: 5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <circle cx={cx} cy={cy} r={radius + 6} fill="#0a0a0a" stroke="#6b7280" strokeWidth="2" />
+            <defs>
+              {/* Chrome ring gradient — light at top, dark at bottom with mid highlight */}
+              <linearGradient id="chromeRing" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#f5f5f5" />
+                <stop offset="20%"  stopColor="#a3a3a3" />
+                <stop offset="42%"  stopColor="#e7e7e7" />
+                <stop offset="50%"  stopColor="#fafafa" />
+                <stop offset="58%"  stopColor="#d4d4d4" />
+                <stop offset="78%"  stopColor="#3f3f46" />
+                <stop offset="100%" stopColor="#71717a" />
+              </linearGradient>
+              {/* Inner chrome inset (creates depth between ring and segments) */}
+              <linearGradient id="chromeInset" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor="#27272a" />
+                <stop offset="50%"  stopColor="#a1a1aa" />
+                <stop offset="100%" stopColor="#18181b" />
+              </linearGradient>
+              {/* Stud (LED) gradient */}
+              <radialGradient id="stud" cx="0.35" cy="0.3" r="0.7">
+                <stop offset="0%"   stopColor="#ffffff" />
+                <stop offset="55%"  stopColor="#e4e4e7" />
+                <stop offset="100%" stopColor="#52525b" />
+              </radialGradient>
+              {/* Hub bezel */}
+              <radialGradient id="hubBezel" cx="0.35" cy="0.3" r="0.85">
+                <stop offset="0%"   stopColor="#fafafa" />
+                <stop offset="55%"  stopColor="#a1a1aa" />
+                <stop offset="100%" stopColor="#27272a" />
+              </radialGradient>
+              {/* Subtle radial vignette inside segments */}
+              <radialGradient id="segVignette" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="60%"  stopColor="rgba(0,0,0,0)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.55)" />
+              </radialGradient>
+            </defs>
+
+            {/* Outer chrome ring */}
+            <circle cx={cx} cy={cy} r={rimOuter} fill="url(#chromeRing)" />
+            {/* Thin dark edge */}
+            <circle cx={cx} cy={cy} r={rimOuter} fill="none" stroke="#09090b" strokeWidth="1.5" />
+            {/* Inner chrome inset (creates the polished groove) */}
+            <circle cx={cx} cy={cy} r={rimInner + 4} fill="url(#chromeInset)" />
+            <circle cx={cx} cy={cy} r={rimInner + 4} fill="none" stroke="#09090b" strokeWidth="0.8" />
+
+            {/* Segments */}
             {SEGMENTS.map((seg, i) => (
               <g key={i}>
-                <path d={segPath(i)} fill={seg.color} stroke="#0a0a0a" strokeWidth="1.5" />
+                <path d={segPath(i)} fill={seg.color} stroke="#000" strokeWidth="0.8" />
                 {(() => {
                   const a = (i * SEG_ANGLE + SEG_ANGLE / 2 - 90) * Math.PI / 180;
-                  const tx = cx + (radius - 38) * Math.cos(a);
-                  const ty = cy + (radius - 38) * Math.sin(a);
+                  const tx = cx + (segRadius - 30) * Math.cos(a);
+                  const ty = cy + (segRadius - 30) * Math.sin(a);
                   const rot = i * SEG_ANGLE + SEG_ANGLE / 2;
                   return (
                     <text
@@ -232,39 +286,78 @@ const Wheel = () => {
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fontFamily="ui-sans-serif, system-ui"
-                      fontWeight="900"
-                      fontSize={seg.value === 0 ? 22 : 24}
-                      fill="#fff"
-                      style={{ paintOrder: 'stroke' }}
-                      stroke="rgba(0,0,0,0.5)"
-                      strokeWidth="1"
+                      fontWeight="800"
+                      fontSize={seg.value === 0 ? 20 : 22}
+                      fill="#f4f4f5"
+                      letterSpacing="-0.5"
                     >
-                      {seg.value === 0 ? '0' : `${seg.value}%`}
+                      {seg.value === 0 ? '0' : `${seg.value}`}
                     </text>
                   );
                 })()}
               </g>
             ))}
+            {/* Vignette over segments */}
+            <circle cx={cx} cy={cy} r={segRadius} fill="url(#segVignette)" pointerEvents="none" />
+
+            {/* Small arrow tick marks pointing inward (on inner rim) */}
+            {Array.from({ length: SEG_COUNT }).map((_, i) => {
+              const a = (i * SEG_ANGLE - 90) * Math.PI / 180;
+              const x = cx + tickRadius * Math.cos(a);
+              const y = cy + tickRadius * Math.sin(a);
+              const rotDeg = i * SEG_ANGLE;
+              return (
+                <g key={`tick-${i}`} transform={`translate(${x} ${y}) rotate(${rotDeg})`}>
+                  <path d="M -4 -3 L 0 3 L 4 -3 Z" fill="#fafafa" opacity="0.9" />
+                </g>
+              );
+            })}
+
+            {/* LED studs around the chrome ring */}
             {Array.from({ length: 24 }).map((_, i) => {
               const a = (i * (360 / 24) - 90) * Math.PI / 180;
               return (
-                <circle
-                  key={i}
-                  cx={cx + (radius + 2) * Math.cos(a)}
-                  cy={cy + (radius + 2) * Math.sin(a)}
-                  r={2}
-                  fill="#fff"
-                  opacity={0.7}
-                />
+                <g key={`stud-${i}`}>
+                  <circle
+                    cx={cx + studRadius * Math.cos(a)}
+                    cy={cy + studRadius * Math.sin(a)}
+                    r={3.2}
+                    fill="url(#stud)"
+                    stroke="#27272a"
+                    strokeWidth="0.6"
+                  />
+                </g>
               );
             })}
-            <circle cx={cx} cy={cy} r={26} fill="#0a0a0a" stroke="#fff" strokeWidth="2" />
-            <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize="20" fontWeight="900" fill="#fff">
+
+            {/* Highlight arc on top of ring (glass reflection) */}
+            <path
+              d={`M ${cx - rimOuter + 14} ${cy - 18} A ${rimOuter - 6} ${rimOuter - 6} 0 0 1 ${cx + rimOuter - 14} ${cy - 18}`}
+              fill="none"
+              stroke="rgba(255,255,255,0.55)"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+
+            {/* Central hub */}
+            <circle cx={cx} cy={cy} r={32} fill="url(#hubBezel)" />
+            <circle cx={cx} cy={cy} r={32} fill="none" stroke="#09090b" strokeWidth="1.2" />
+            <circle cx={cx} cy={cy} r={24} fill="#0a0a0a" stroke="#3f3f46" strokeWidth="1" />
+            <text
+              x={cx}
+              y={cy + 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="22"
+              fontWeight="900"
+              fill="#fafafa"
+            >
               ★
             </text>
           </motion.svg>
         </button>
       </div>
+
 
       <div className="mt-6 flex flex-col items-center gap-3">
         {canSpin ? (
