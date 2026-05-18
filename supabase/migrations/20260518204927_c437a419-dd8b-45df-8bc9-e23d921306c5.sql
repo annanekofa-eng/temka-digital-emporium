@@ -1,0 +1,1 @@
+DELETE FROM public.inventory_items WHERE content LIKE 'TEST-%';
