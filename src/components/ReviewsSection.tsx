@@ -45,11 +45,19 @@ const ReviewForm = ({ onClose }: { onClose: () => void }) => {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('submit-review', {
-        body: { initData, rating, text: trimmed },
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-review`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ initData, rating, text: trimmed }),
       });
-      if (error || (data as any)?.error) {
-        toast({ title: (data as any)?.error || error?.message || 'Ошибка отправки', variant: 'destructive' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || (data as any)?.error) {
+        toast({ title: (data as any)?.error || 'Ошибка отправки', variant: 'destructive' });
         return;
       }
       toast({ title: 'Спасибо за отзыв!', description: 'Он появится после модерации.' });
