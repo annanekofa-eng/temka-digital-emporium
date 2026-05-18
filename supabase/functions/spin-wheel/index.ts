@@ -28,7 +28,7 @@ function pickPrize(): number {
     if (r < p.weight) return p.value;
     r -= p.weight;
   }
-  return 0;
+  return 5;
 }
 
 function verifyAndExtractUser(initData: string, botToken: string): any | null {
