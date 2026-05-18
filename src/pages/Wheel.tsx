@@ -340,21 +340,25 @@ const Wheel = () => {
               strokeLinecap="round"
             />
 
-            {/* Central hub */}
+            {/* Central hub with logo */}
+            <defs>
+              <clipPath id="hubClip">
+                <circle cx={cx} cy={cy} r={26} />
+              </clipPath>
+            </defs>
             <circle cx={cx} cy={cy} r={32} fill="url(#hubBezel)" />
             <circle cx={cx} cy={cy} r={32} fill="none" stroke="#09090b" strokeWidth="1.2" />
-            <circle cx={cx} cy={cy} r={24} fill="#0a0a0a" stroke="#3f3f46" strokeWidth="1" />
-            <text
-              x={cx}
-              y={cy + 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize="22"
-              fontWeight="900"
-              fill="#fafafa"
-            >
-              ★
-            </text>
+            <circle cx={cx} cy={cy} r={26} fill="#0a0a0a" />
+            <image
+              href={wheelLogo}
+              x={cx - 26}
+              y={cy - 26}
+              width={52}
+              height={52}
+              clipPath="url(#hubClip)"
+              preserveAspectRatio="xMidYMid slice"
+            />
+            <circle cx={cx} cy={cy} r={26} fill="none" stroke="#3f3f46" strokeWidth="1" />
           </motion.svg>
         </button>
       </div>
