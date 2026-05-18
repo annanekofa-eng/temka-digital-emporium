@@ -1,17 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, User } from 'lucide-react';
+import { Home, ShoppingCart, User, Disc3 } from 'lucide-react';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 
-const WheelIcon = ({ active }: { active: boolean }) => (
-  <span
-    className={`text-xl leading-none transition ${
-      active ? 'grayscale-0 opacity-100' : 'opacity-70'
-    }`}
-    aria-hidden
-  >
-    🎰
-  </span>
-);
 
 const BottomNav = () => {
   const location = useLocation();
@@ -20,7 +10,7 @@ const BottomNav = () => {
 
   const navItems = [
     { path: buildPath('/'), icon: Home, label: 'Главная', exact: true },
-    { path: buildPath('/wheel'), icon: Home, label: 'Удача' },
+    { path: buildPath('/wheel'), icon: Disc3, label: 'Удача' },
     { path: buildPath('/cart'), icon: ShoppingCart, label: 'Корзина' },
     { path: buildPath('/account'), icon: User, label: 'Профиль' },
   ];
@@ -42,11 +32,7 @@ const BottomNav = () => {
               }`}
             >
               <div className="relative">
-                {item.label === 'Удача' ? (
-                  <WheelIcon active={isActive} />
-                ) : (
-                  <item.icon className="w-5 h-5" />
-                )}
+                <item.icon className="w-5 h-5" />
                 {item.label === 'Корзина' && cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
                     {cartCount}
