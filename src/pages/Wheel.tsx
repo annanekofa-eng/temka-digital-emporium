@@ -239,7 +239,7 @@ const Wheel = () => {
         <button
           type="button"
           onClick={handleSpin}
-          disabled={spinning}
+          disabled={spinning || !canSpin}
           className="absolute inset-0 w-full h-full focus:outline-none disabled:cursor-not-allowed"
           aria-label="Крутить колесо"
         >
@@ -248,6 +248,7 @@ const Wheel = () => {
             className="w-full h-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.7)]"
             animate={{ rotate: rotation }}
             transition={{ duration: 5, ease: [0.16, 1, 0.3, 1] }}
+            onAnimationComplete={finalizeSpin}
           >
             <defs>
               {/* Chrome ring gradient — light at top, dark at bottom with mid highlight */}
