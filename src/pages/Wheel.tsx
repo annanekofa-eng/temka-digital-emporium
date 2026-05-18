@@ -22,11 +22,6 @@ const SEGMENTS = [
 const SEG_COUNT = SEGMENTS.length;
 const SEG_ANGLE = 360 / SEG_COUNT;
 
-function rotationForIndex(idx: number, fullTurns = 6): number {
-  const segCentre = idx * SEG_ANGLE + SEG_ANGLE / 2;
-  const base = (360 - segCentre) % 360;
-  return fullTurns * 360 + base;
-}
 
 function pickIndexForPrize(prize: number, exclude?: number): number {
   const candidates = SEGMENTS.map((s, i) => ({ s, i })).filter(
