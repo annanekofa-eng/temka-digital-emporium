@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useTelegram } from '@/contexts/TelegramContext';
 import { toast } from 'sonner';
+import wheelLogo from '@/assets/wheel-logo.jpg';
 
 // Alternating dark segments (chrome wheel aesthetic). Values still drive prize logic.
 const SEGMENTS = [
