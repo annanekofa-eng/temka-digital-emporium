@@ -10,13 +10,12 @@ const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const PRIZES: Array<{ value: number; weight: number }> = [
-  { value: 75, weight: 3 },
-  { value: 50, weight: 5 },
+  { value: 75, weight: 2 },
+  { value: 50, weight: 4 },
   { value: 25, weight: 8 },
-  { value: 15, weight: 12 },
-  { value: 10, weight: 20 },
-  { value: 5, weight: 22 },
-  { value: 0, weight: 30 },
+  { value: 15, weight: 14 },
+  { value: 10, weight: 28 },
+  { value: 5,  weight: 44 },
 ];
 
 function pickPrize(): number {
@@ -29,7 +28,7 @@ function pickPrize(): number {
     if (r < p.weight) return p.value;
     r -= p.weight;
   }
-  return 0;
+  return 5;
 }
 
 function verifyAndExtractUser(initData: string, botToken: string): any | null {
