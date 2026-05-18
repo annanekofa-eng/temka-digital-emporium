@@ -57,6 +57,7 @@ const Wheel = () => {
   const [lastWin, setLastWin] = useState<{ prize: number; code: string | null } | null>(null);
   const [spinning, setSpinning] = useState(false);
   const segIdxRef = useRef<number | undefined>(undefined);
+  const pendingResultRef = useRef<{ prize: number; code: string | null } | null>(null);
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
@@ -78,11 +79,37 @@ const Wheel = () => {
 
   useEffect(() => {
     loadStatus();
+    const onVis = () => { if (document.visibilityState === 'visible') loadStatus(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', loadStatus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', loadStatus);
+    };
   }, [loadStatus]);
 
   const nextAtMs = status?.nextSpinAt ? new Date(status.nextSpinAt).getTime() : 0;
   const remaining = Math.max(0, nextAtMs - now);
   const canSpin = !!status?.canSpin || remaining <= 0;
+
+  const finalizeSpin = useCallback(() => {
+    const pending = pendingResultRef.current;
+    pendingResultRef.current = null;
+    if (!pending) return;
+    if (pending.prize > 0) {
+      setResultState('win');
+      setLastWin({ prize: pending.prize, code: pending.code });
+      haptic.notification('success');
+      toast.success(`Поздравляем! Скидка ${pending.prize}%`);
+    } else {
+      setResultState('lose');
+      setLastWin({ prize: 0, code: null });
+      haptic.notification('error');
+      toast.error('В этот раз не повезло. Возвращайтесь завтра!');
+    }
+    setSpinning(false);
+    loadStatus();
+  }, [haptic, loadStatus]);
 
   const handleSpin = useCallback(async () => {
     if (spinning) return;
@@ -104,43 +131,39 @@ const Wheel = () => {
         body: { initData, action: 'spin' },
       });
       if (error) throw error;
-      if ((data as any)?.error === 'cooldown') {
-        toast.error('Сегодня вы уже крутили колесо');
-        await loadStatus();
+      const payload = data as any;
+      if (payload?.cooldown) {
+        toast.error('Колесо уже было использовано. Возвращайтесь позже.');
+        setStatus((s) => ({
+          canSpin: false,
+          nextSpinAt: payload.nextSpinAt ?? s?.nextSpinAt ?? null,
+          lastPrize: s?.lastPrize ?? null,
+          lastCode: s?.lastCode ?? null,
+        }));
         setSpinning(false);
         setResultState('idle');
         return;
       }
-      const prize = Number((data as any).prize ?? 0);
-      const promoCode = (data as any).promoCode ?? null;
+      const prize = Number(payload?.prize ?? 0);
+      const promoCode = payload?.promoCode ?? null;
       const idx = pickIndexForPrize(prize, segIdxRef.current);
       segIdxRef.current = idx;
-      const target = rotationForIndex(idx, 6 + Math.floor(Math.random() * 2));
-      const newRot = rotation + (target - (rotation % 360) + 360) % 360 + 360 * 6;
-      setRotation(newRot);
-
-      window.setTimeout(() => {
-        if (prize > 0) {
-          setResultState('win');
-          setLastWin({ prize, code: promoCode });
-          haptic.notification('success');
-          toast.success(`Поздравляем! Скидка ${prize}%`);
-        } else {
-          setResultState('lose');
-          setLastWin({ prize: 0, code: null });
-          haptic.notification('error');
-          toast.error('В этот раз не повезло. Возвращайтесь завтра!');
-        }
-        setSpinning(false);
-        loadStatus();
-      }, 5200);
+      // Compute minimal forward rotation that lands the segment centre under the pointer,
+      // plus a guaranteed 6 full turns for visual effect.
+      const currentMod = ((rotation % 360) + 360) % 360;
+      const targetMod = ((360 - (idx * SEG_ANGLE + SEG_ANGLE / 2)) % 360 + 360) % 360;
+      const delta = (targetMod - currentMod + 360) % 360;
+      pendingResultRef.current = { prize, code: promoCode };
+      setRotation(rotation + 6 * 360 + delta);
     } catch (e: any) {
       console.error('[wheel] spin', e);
       toast.error(e?.message || 'Ошибка вращения');
+      pendingResultRef.current = null;
       setSpinning(false);
       setResultState('idle');
     }
-  }, [spinning, user, initData, canSpin, remaining, rotation, haptic, loadStatus]);
+  }, [spinning, user, initData, canSpin, remaining, rotation, haptic]);
+
 
   const glowClass = useMemo(() => {
     if (resultState === 'win') {
