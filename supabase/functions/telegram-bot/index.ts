@@ -7,7 +7,7 @@ import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
 import {
   showProductList, showProduct, toggleProduct, askDeleteProduct, confirmDeleteProduct,
   startEditProduct, applyEditProduct, startCreateProduct, handleCreateProductStep,
-  applyEditProductPhoto,
+  applyEditProductPhoto, setProductReference,
 } from "./admin/products.ts";
 import {
   showCategoryList, showCategory, toggleCategory, askDeleteCategory, confirmDeleteCategory,
