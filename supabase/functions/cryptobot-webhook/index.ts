@@ -85,10 +85,11 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
   // Reserve inventory and deliver (skip auto items)
   const { data: items } = await supabase.from("order_items").select("*").eq("order_id", orderId);
   let allDelivered = true;
-  const deliveredContent: string[] = [];
+  const escapeHtml = (s: string) =>
+    String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const deliveredBlocks: string[] = [];
   const autoItems: any[] = [];
   for (const item of items || []) {
-    // Auto items (Stars/Premium) are fulfilled manually by admin
     const prod = await supabase.from("products").select("product_type").eq("id", item.product_id).maybeSingle();
     const ptype = String(prod.data?.product_type || "simple");
     if (ptype === "premium_term" || ptype === "stars") {
@@ -98,10 +99,11 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     const { data: reserved } = await supabase.rpc("reserve_inventory", {
       p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
     });
-    if (!reserved || reserved.length < item.quantity) {
-      allDelivered = false;
-    } else {
-      reserved.forEach((r: any) => deliveredContent.push(`${item.product_title}: ${r.content}`));
+    const got = (reserved as Array<{ content: string }> | null) ?? [];
+    if (got.length < item.quantity) allDelivered = false;
+    if (got.length) {
+      const lines = got.map((g: any) => `<code>${escapeHtml(g.content)}</code>`).join("\n");
+      deliveredBlocks.push(`📦 <b>${escapeHtml(item.product_title)}</b> (×${got.length}):\n${lines}`);
       const { count: remaining } = await supabase.from("inventory_items").select("id", { count: "exact", head: true })
         .eq("product_id", item.product_id).eq("status", "available");
       await supabase.from("products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
@@ -110,7 +112,7 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
 
   const isAutoOrder = order.is_auto || autoItems.length > 0;
   await supabase.from("orders").update({
-    status: isAutoOrder ? "processing" : (allDelivered ? "completed" : "processing"),
+    status: isAutoOrder ? "processing" : (allDelivered ? "delivered" : "processing"),
     updated_at: new Date().toISOString(),
   }).eq("id", orderId);
 
@@ -120,7 +122,6 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
       .map((i: any) => `• ${i.product_title} → @${i.recipient_username || "—"}`).join("\n");
     await notify(botToken, tgId,
       `📦 <b>Заказ принят</b>\n\nНомер: <code>${order.order_number}</code>\n${itemsText}\nСумма: $${Number(order.total_amount).toFixed(2)}\n\n⏳ Ожидайте выдачи — мы уведомим, как только товар будет передан.`);
-    // Notify admins
     const adminIds = (Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "")
       .split(",").map((s) => s.trim()).filter(Boolean);
     if (botToken) {
@@ -137,10 +138,12 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
         } catch (e) { console.error("notify admin:", e); }
       }
     }
-  } else if (allDelivered && deliveredContent.length) {
-    await notify(botToken, tgId, `✅ <b>Заказ ${order.order_number} оплачен и выполнен!</b>\n\n<pre>${deliveredContent.join("\n")}</pre>`);
   } else {
-    await notify(botToken, tgId, `✅ Заказ ${order.order_number} оплачен. Мы выдадим товар вручную в ближайшее время.`);
+    const header = `✅ <b>Оплата подтверждена!</b>\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)}`;
+    const text = deliveredBlocks.length
+      ? `${header}\n\n🎁 <b>Ваши товары:</b>\n\n${deliveredBlocks.join("\n\n")}\n\n⚠️ <b>Сохраните данные!</b>\nСпасибо за покупку!`
+      : `${header}\n\n⏳ Товара временно нет на складе — администратор выдаст его вручную в ближайшее время.`;
+    await notify(botToken, tgId, text);
   }
   return true;
 }

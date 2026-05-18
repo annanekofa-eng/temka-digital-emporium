@@ -165,6 +165,7 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
       { text: "⏱ Term options", callback_data: `a:p:e:${id}:term_options` },
       { text: "🖼 Галерея", callback_data: `a:p:e:${id}:gallery` },
     ],
+    [{ text: "🏗 Склад", callback_data: `a:inv:v:${id}` }],
     [{ text: p.is_active ? "🔴 Выключить" : "🟢 Включить", callback_data: `a:p:t:${id}` }],
     [{ text: "🗑 Удалить", callback_data: `a:p:d:${id}` }],
     [{ text: "← К списку", callback_data: "a:p" }, ...backRow()],
