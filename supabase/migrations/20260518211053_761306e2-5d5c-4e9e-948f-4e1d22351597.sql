@@ -1,0 +1,1 @@
+UPDATE public.reviews SET verified = true WHERE moderation_status = 'approved' AND verified = false;
