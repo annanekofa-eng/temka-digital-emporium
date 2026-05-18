@@ -6,7 +6,10 @@
 //
 // Requires: VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY,
 // TELEGRAM_BOT_TOKEN in the root .env (already provisioned).
-import "https://deno.land/std@0.224.0/dotenv/load.ts";
+// Note: not using std/dotenv/load.ts because .env.example contains VITE_APP_URL
+// which the strict loader rejects. Env vars are injected by the test runner.
+import { load } from "https://deno.land/std@0.224.0/dotenv/mod.ts";
+try { await load({ export: true, examplePath: null, allowEmptyValues: true }); } catch { /* ok */ }
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "node:crypto";
