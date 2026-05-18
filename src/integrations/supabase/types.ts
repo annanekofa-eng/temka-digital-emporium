@@ -1014,6 +1014,7 @@ export type Database = {
           id: string
         }[]
       }
+      sync_product_stock: { Args: { p_product_id: string }; Returns: undefined }
       try_claim_wheel_spin: {
         Args: { p_prize: number; p_telegram_id: number }
         Returns: Json

@@ -108,7 +108,7 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
     "",
     `Цена: <b>${Number(p.price).toFixed(2)}$</b>${p.old_price ? ` (старая ${Number(p.old_price).toFixed(2)}$)` : ""}`,
     `Проект: <code>${p.project_id ?? "-"}</code>  ·  Категория: <code>${p.category_id ?? "-"}</code>`,
-    `Тип: <code>${p.product_type}</code>  ·  Остаток: ${p.stock}`,
+    `Тип: <code>${p.product_type}</code>  ·  Склад: ${p.stock}`,
     `Кол-во: ${p.min_qty}…${p.max_qty}`,
     `Term options: ${terms}  ·  Галерея: ${gal}`,
     p.external_link ? `🔗 ${escapeHtml(p.external_link)}` : "",
@@ -124,7 +124,6 @@ export async function showProduct(chatId: number, msgId: number | undefined, id:
     ],
     [
       { text: "💰 Старая цена", callback_data: `a:p:e:${id}:old_price` },
-      { text: "📦 Остаток", callback_data: `a:p:e:${id}:stock` },
     ],
     [
       { text: "📁 Проект", callback_data: `a:p:e:${id}:project_id` },

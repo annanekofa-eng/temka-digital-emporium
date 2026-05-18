@@ -153,6 +153,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           removed.push(item.product.title);
           continue;
         }
+        // Out of stock — drop the line (auto-products skip stock checks).
+        if (!isAutoProduct(item.product) && Number(fresh.stock || 0) <= 0) {
+          removed.push(item.product.title);
+          continue;
+        }
         // Auto-products (stars/premium) store the computed line total in product.price
         // along with a customized title (e.g. "... · 5000⭐"). Replacing the product
         // with the fresh DB row would clobber that total, so preserve the original.
