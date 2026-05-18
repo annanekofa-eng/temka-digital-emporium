@@ -397,11 +397,13 @@ export type Database = {
           auto_delivered_by: number | null
           auto_error_note: string | null
           auto_status: string | null
+          balance_charged_at: string | null
           balance_used: number
           created_at: string
           currency: string
           discount_amount: number
           external_ref: string | null
+          fulfilled_at: string | null
           id: string
           invoice_id: string | null
           is_auto: boolean
@@ -421,11 +423,13 @@ export type Database = {
           auto_delivered_by?: number | null
           auto_error_note?: string | null
           auto_status?: string | null
+          balance_charged_at?: string | null
           balance_used?: number
           created_at?: string
           currency?: string
           discount_amount?: number
           external_ref?: string | null
+          fulfilled_at?: string | null
           id?: string
           invoice_id?: string | null
           is_auto?: boolean
@@ -445,11 +449,13 @@ export type Database = {
           auto_delivered_by?: number | null
           auto_error_note?: string | null
           auto_status?: string | null
+          balance_charged_at?: string | null
           balance_used?: number
           created_at?: string
           currency?: string
           discount_amount?: number
           external_ref?: string | null
+          fulfilled_at?: string | null
           id?: string
           invoice_id?: string | null
           is_auto?: boolean
@@ -473,6 +479,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pending_notifications: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          order_id: string
+          payload: Json
+          sent_at: string | null
+          telegram_id: number
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id: string
+          payload?: Json
+          sent_at?: string | null
+          telegram_id: number
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id?: string
+          payload?: Json
+          sent_at?: string | null
+          telegram_id?: number
+        }
+        Relationships: []
       }
       processed_invoices: {
         Row: {
@@ -1018,6 +1057,10 @@ export type Database = {
       try_claim_wheel_spin: {
         Args: { p_prize: number; p_telegram_id: number }
         Returns: Json
+      }
+      try_fulfill_pending_orders: {
+        Args: { p_product_id: string }
+        Returns: undefined
       }
       validate_promo_code: { Args: { p_code: string }; Returns: Json }
     }

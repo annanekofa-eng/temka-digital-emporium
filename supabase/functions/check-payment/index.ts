@@ -140,9 +140,11 @@ serve(async (req) => {
       if (order.promo_code) await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
 
       const balanceUsed = Number(order.balance_used || 0);
-      if (balanceUsed > 0) {
+      // Guarded by balance_charged_at to prevent double-debit if webhook also processed it.
+      if (balanceUsed > 0 && !order.balance_charged_at) {
         const { data: nb, error } = await supabase.rpc("deduct_balance", { p_telegram_id: tgUser.id, p_amount: balanceUsed });
         if (!error) {
+          await supabase.from("orders").update({ balance_charged_at: new Date().toISOString() }).eq("id", orderId);
           await supabase.from("balance_history").insert({
             telegram_id: tgUser.id, amount: -balanceUsed, balance_after: nb, type: "order",
             comment: `Оплата заказа ${order.order_number}`, admin_telegram_id: tgUser.id,
@@ -150,30 +152,40 @@ serve(async (req) => {
         }
       }
 
+      const escapeHtml = (s: string) =>
+        String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
       const { data: items } = await supabase.from("order_items").select("*").eq("order_id", orderId);
       let allDelivered = true;
-      const deliveredContent: string[] = [];
+      const deliveredBlocks: string[] = [];
       for (const item of items || []) {
+        // Skip what was already reserved by a parallel webhook run.
+        const { count: already } = await supabase.from("inventory_items")
+          .select("id", { count: "exact", head: true })
+          .eq("order_id", orderId).eq("product_id", item.product_id);
+        const need = item.quantity - (already || 0);
+        if (need <= 0) continue;
         const { data: reserved } = await supabase.rpc("reserve_inventory", {
-          p_product_id: item.product_id, p_quantity: item.quantity, p_order_id: orderId,
+          p_product_id: item.product_id, p_quantity: need, p_order_id: orderId,
         });
-        if (!reserved || reserved.length < item.quantity) { allDelivered = false; }
-        else {
-          reserved.forEach((rr: any) => deliveredContent.push(`${item.product_title}: ${rr.content}`));
-          const { count: remaining } = await supabase.from("inventory_items").select("id", { count: "exact", head: true })
-            .eq("product_id", item.product_id).eq("status", "available");
-          await supabase.from("products").update({ stock: remaining || 0, updated_at: new Date().toISOString() }).eq("id", item.product_id);
+        const got = (reserved as Array<{ content: string }> | null) ?? [];
+        if (got.length < need) allDelivered = false;
+        if (got.length) {
+          const lines = got.map((g: any) => `<code>${escapeHtml(g.content)}</code>`).join("\n");
+          deliveredBlocks.push(`📦 <b>${escapeHtml(item.product_title)}</b> (×${got.length}):\n${lines}`);
         }
       }
       await supabase.from("orders").update({
-        status: allDelivered ? "completed" : "processing", updated_at: new Date().toISOString(),
+        status: allDelivered ? "delivered" : "processing",
+        fulfilled_at: allDelivered ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
       }).eq("id", orderId);
 
-      if (allDelivered && deliveredContent.length) {
-        await notify(botToken, tgUser.id, `✅ <b>Заказ ${order.order_number} оплачен и выполнен!</b>\n\n<pre>${deliveredContent.join("\n")}</pre>`);
-      } else {
-        await notify(botToken, tgUser.id, `✅ Заказ ${order.order_number} оплачен. Мы выдадим товар вручную в ближайшее время.`);
-      }
+      const header = `✅ <b>Оплата подтверждена!</b>\n📦 Заказ: <code>${order.order_number}</code>\n💰 Сумма: $${Number(order.total_amount).toFixed(2)}`;
+      const text = deliveredBlocks.length
+        ? `${header}\n\n🎁 <b>Ваши товары:</b>\n\n${deliveredBlocks.join("\n\n")}\n\n⚠️ <b>Сохраните данные!</b>\nСпасибо за покупку!`
+        : `${header}\n\n⏳ Товара временно нет на складе — мы автоматически выдадим его, как только он появится.`;
+      await notify(botToken, tgUser.id, text);
     } catch (e) {
       console.error("[check-payment] order processing error:", e);
       try { await supabase.from("processed_invoices").delete().eq("invoice_id", String(order.invoice_id)); } catch {}
