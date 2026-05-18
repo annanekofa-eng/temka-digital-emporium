@@ -48,15 +48,14 @@ serve(async (req) => {
     if (!r || r < 1 || r > 5) return jsonRes({ error: "Некорректный рейтинг" }, 400);
     if (t.length < 3 || t.length > 1000) return jsonRes({ error: "Текст отзыва должен быть от 3 до 1000 символов" }, 400);
 
-    // Allow one review per (user, product). Global product (00..) treated as separate slot.
-    const effectiveProductId = productId || "00000000-0000-0000-0000-000000000000";
-    const { data: existing } = await supabase
-      .from("reviews")
-      .select("id")
-      .eq("telegram_id", tgUser.id)
-      .eq("product_id", effectiveProductId)
-      .maybeSingle();
-    if (existing) return jsonRes({ error: "Вы уже оставили отзыв на этот товар" }, 400);
+    // One review per (user, product). NULL product = общий отзыв магазина.
+    const effectiveProductId: string | null = productId || null;
+    let existingQ = supabase.from("reviews").select("id").eq("telegram_id", tgUser.id);
+    existingQ = effectiveProductId
+      ? existingQ.eq("product_id", effectiveProductId)
+      : existingQ.is("product_id", null);
+    const { data: existing } = await existingQ.maybeSingle();
+    if (existing) return jsonRes({ error: "Вы уже оставили отзыв" }, 400);
 
     const author = tgUser.username ? `@${tgUser.username}` : `${tgUser.first_name || "User"}${tgUser.last_name ? ` ${tgUser.last_name}` : ""}`;
     const { error } = await supabase.from("reviews").insert({
