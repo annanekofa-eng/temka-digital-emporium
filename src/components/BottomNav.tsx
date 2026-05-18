@@ -1,6 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, User, Sparkles } from 'lucide-react';
+import { Home, ShoppingCart, User } from 'lucide-react';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
+import wheelLogo from '@/assets/wheel-logo.jpg';
+
+const WheelIcon = ({ active }: { active: boolean }) => (
+  <img
+    src={wheelLogo}
+    alt=""
+    className={`w-6 h-6 rounded-full object-cover ring-1 transition ${
+      active ? 'ring-primary' : 'ring-border/60 opacity-80'
+    }`}
+  />
+);
 
 const BottomNav = () => {
   const location = useLocation();
@@ -9,7 +20,7 @@ const BottomNav = () => {
 
   const navItems = [
     { path: buildPath('/'), icon: Home, label: 'Главная', exact: true },
-    { path: buildPath('/wheel'), icon: Sparkles, label: 'Удача' },
+    { path: buildPath('/wheel'), icon: WheelIcon, label: 'Удача' },
     { path: buildPath('/cart'), icon: ShoppingCart, label: 'Корзина' },
     { path: buildPath('/account'), icon: User, label: 'Профиль' },
   ];
