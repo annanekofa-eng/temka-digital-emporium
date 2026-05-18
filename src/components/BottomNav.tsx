@@ -32,11 +32,7 @@ const BottomNav = () => {
               }`}
             >
               <div className="relative">
-                {item.label === 'Удача' ? (
-                  <WheelIcon active={isActive} />
-                ) : (
-                  <item.icon className="w-5 h-5" />
-                )}
+                <item.icon className="w-5 h-5" />
                 {item.label === 'Корзина' && cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 w-4 h-4 bg-primary text-primary-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
                     {cartCount}
