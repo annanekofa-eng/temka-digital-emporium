@@ -1,0 +1,1 @@
+UPDATE public.site_settings SET value='https://telegra.ph/Politika-konfendicialnosti-Hustlify-05-18' WHERE key='policy_url';
