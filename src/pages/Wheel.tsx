@@ -10,13 +10,13 @@ import wheelLogo from '@/assets/wheel-logo.jpg';
 // Alternating dark segments (chrome wheel aesthetic). Values still drive prize logic.
 const SEGMENTS = [
   { value: 75, color: '#1f1f1f' },
-  { value: 5,  color: '#070707' },
-  { value: 50, color: '#1f1f1f' },
   { value: 10, color: '#070707' },
+  { value: 50, color: '#1f1f1f' },
+  { value: 15, color: '#070707' },
   { value: 25, color: '#1f1f1f' },
   { value: 5,  color: '#070707' },
-  { value: 15, color: '#1f1f1f' },
-  { value: 10, color: '#070707' },
+  { value: 35, color: '#1f1f1f' },
+  { value: 20, color: '#070707' },
 ] as const;
 
 const SEG_COUNT = SEGMENTS.length;
