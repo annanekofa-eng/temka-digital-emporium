@@ -12,6 +12,7 @@ function escapeHtml(s: string | null | undefined) {
 const SETTINGS: { key: string; label: string }[] = [
   { key: "shop_name", label: "🏷 Название магазина" },
   { key: "welcome_text", label: "👋 Текст приветствия" },
+  { key: "welcome_photo", label: "🖼 Фото приветствия" },
   { key: "marquee_text", label: "📰 Бегущая строка" },
   { key: "marquee_enabled", label: "🟢 Бегущая строка вкл (true/false)" },
   { key: "faq_url", label: "❓ FAQ URL" },
@@ -42,8 +43,11 @@ export async function startEditSetting(chatId: number, msgId: number | undefined
   if (!s) return showSettingsMenu(chatId, msgId);
   const current = await getSetting(key, "");
   await setSession(adminId, `se:edit:${key}`, {});
+  const hint = key === "welcome_photo"
+    ? "\n\nПришлите <b>фото</b> прямо в чат (можно с подписью — она станет текстом приветствия), или URL картинки, или <code>-</code> чтобы убрать."
+    : "\n\nВведите новое значение или <code>-</code> чтобы очистить:";
   await deleteAndSend(chatId, msgId, {
-    text: `✏️ <b>${escapeHtml(s.label)}</b>\n\nТекущее значение:\n<code>${escapeHtml(current || "—")}</code>\n\nВведите новое значение или <code>-</code> чтобы очистить:`,
+    text: `✏️ <b>${escapeHtml(s.label)}</b>\n\nТекущее значение:\n<code>${escapeHtml(current || "—")}</code>${hint}`,
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: [[{ text: "Отмена", callback_data: "a:se" }]] },
   });
