@@ -47,7 +47,7 @@ const MainLayoutInner = () => {
 
   return (
     <StorefrontProvider basePath="" cartCount={cartCount} shopName={shopName} supportLink={settings?.support_username ? `https://t.me/${settings.support_username.replace('@', '')}` : 'https://t.me/TeleStoreHelp'}>
-      <div className="theme-light min-h-screen flex flex-col bg-background text-foreground">
+      <div className="theme-light min-h-dvh flex flex-col bg-background text-foreground">
         <Header
           name={shopName}
           nameInitial={shopName[0] || 'T'}

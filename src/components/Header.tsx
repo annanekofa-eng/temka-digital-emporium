@@ -77,24 +77,25 @@ const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setS
                 <input
                   type="text"
                   placeholder="Поиск товаров..."
+                  aria-label="Поиск товаров"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full lg:w-64 h-9 pl-9 pr-9 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   autoFocus
                 />
-                <button type="button" onClick={() => setSearchOpen(false)} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)} className="absolute right-2 top-1/2 -translate-y-1/2">
                   <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             </form>
           ) : (
-            <Button variant="ghost" size="icon" className="shrink-0 w-9 h-9" onClick={() => setSearchOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Открыть поиск" className="shrink-0 w-9 h-9" onClick={() => setSearchOpen(true)}>
               <Search className="w-5 h-5" />
             </Button>
           )}
           {/* Desktop cart icon */}
-          <Link to={buildPath('/cart')} className="hidden lg:inline-flex relative">
-            <Button variant="ghost" size="icon" className="w-9 h-9">
+          <Link to={buildPath('/cart')} aria-label={`Корзина${cartCount > 0 ? `, ${cartCount} товаров` : ''}`} className="hidden lg:inline-flex relative">
+            <Button variant="ghost" size="icon" aria-hidden="true" tabIndex={-1} className="w-9 h-9">
               <ShoppingCart className="w-5 h-5" />
             </Button>
             {cartCount > 0 && (
