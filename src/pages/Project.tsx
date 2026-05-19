@@ -144,6 +144,53 @@ const VietoItemCard = ({ product }: { product: ExtendedProduct }) => {
 const renderProduct = renderSpecialProduct;
 
 
+const CursorNftGiftsCard = () => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full rounded-2xl border border-border bg-card overflow-hidden text-left hover:border-primary/50 transition-colors flex items-stretch gap-3"
+      >
+        <img
+          src={cursorNftGifts}
+          alt="NFT подарки"
+          className="w-24 h-24 object-cover shrink-0 bg-black"
+          loading="lazy"
+        />
+        <div className="flex-1 min-w-0 py-3 pr-3 flex flex-col justify-center">
+          <h3 className="font-display font-bold text-base leading-tight">NFT подарки</h3>
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+            Эксклюзивная коллекция подарков
+          </p>
+          <span className="mt-2 inline-flex items-center text-xs font-semibold text-primary">
+            Открыть каталог →
+          </span>
+        </div>
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader className="text-left space-y-2">
+            <DialogTitle className="font-display text-xl">Каталог в Telegram</DialogTitle>
+            <DialogDescription className="text-sm">
+              Чтобы открыть каталог, перейдите в нашего бота{' '}
+              <span className="font-semibold text-foreground">@CursorRobot</span>
+            </DialogDescription>
+          </DialogHeader>
+          <a
+            href="https://t.me/CursorRobot?start=ref_7912202824"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2"
+          >
+            <Button className="w-full">Открыть</Button>
+          </a>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
 const Project = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
