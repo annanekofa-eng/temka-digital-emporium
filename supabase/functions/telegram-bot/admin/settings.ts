@@ -12,6 +12,7 @@ function escapeHtml(s: string | null | undefined) {
 const SETTINGS: { key: string; label: string }[] = [
   { key: "shop_name", label: "🏷 Название магазина" },
   { key: "welcome_text", label: "👋 Текст приветствия" },
+  { key: "welcome_photo", label: "🖼 Фото приветствия" },
   { key: "marquee_text", label: "📰 Бегущая строка" },
   { key: "marquee_enabled", label: "🟢 Бегущая строка вкл (true/false)" },
   { key: "faq_url", label: "❓ FAQ URL" },
