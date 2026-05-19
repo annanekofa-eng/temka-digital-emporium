@@ -222,6 +222,9 @@ const Project = () => {
       </section>
 
       <div className="container-main mx-auto max-w-2xl px-4 space-y-6">
+        {/* Cursor: bespoke NFT gifts card */}
+        {project.id === 'cursor' && <CursorNftGiftsCard />}
+
         {/* Special products (premium / stars) */}
         {special.length > 0 && (
           <section>
