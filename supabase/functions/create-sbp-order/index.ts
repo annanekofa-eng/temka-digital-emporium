@@ -9,29 +9,9 @@ const corsHeaders = {
 const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// Fallback if CryptoBot rate API is unavailable.
-const USD_RUB_RATE_FALLBACK = 80;
+// Hardcoded conversion rate (1 USDT/USD = 80 RUB).
+const USD_RUB_RATE = 80;
 
-async function fetchUsdRubRate(): Promise<number> {
-  const token = Deno.env.get("CRYPTOBOT_API_TOKEN");
-  if (!token) return USD_RUB_RATE_FALLBACK;
-  for (const base of ["https://pay.crypt.bot/api", "https://testnet-pay.crypt.bot/api"]) {
-    try {
-      const res = await fetch(`${base}/getExchangeRates`, {
-        headers: { "Crypto-Pay-API-Token": token },
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const row = data?.result?.find(
-        (r: any) => r.source === "USDT" && r.target === "RUB" && r.is_valid,
-      );
-      const v = Number(row?.rate);
-      if (Number.isFinite(v) && v > 30 && v < 500) return v;
-    } catch { /* try next */ }
-  }
-  return USD_RUB_RATE_FALLBACK;
-}
 
 function verifyAndExtractUser(initData: string, botToken: string): { id: number } | null {
   const params = new URLSearchParams(initData);
