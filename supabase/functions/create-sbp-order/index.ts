@@ -144,7 +144,7 @@ serve(async (req) => {
 
     const { data: payment, error: pErr } = await supabase.from("sbp_payments").insert({
       order_id: order.id, telegram_id: telegramUserId,
-      amount_usd: totalAfterDiscount, amount_rub: amountRub, rate: USD_RUB_RATE,
+      amount_usd: totalAfterDiscount, amount_rub: amountRub, rate: liveRate,
       status: "awaiting_receipt",
     }).select().single();
     if (pErr) {
