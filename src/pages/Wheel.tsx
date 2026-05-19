@@ -442,20 +442,6 @@ const Wheel = () => {
         </div>
       )}
 
-      <details className="mt-6 rounded-2xl border border-border/60 bg-card p-4">
-        <summary className="cursor-pointer text-sm font-semibold">Шансы выпадения</summary>
-        <div className="mt-3 grid grid-cols-2 gap-y-1.5 text-xs">
-          {[
-            { v: 75, p: 3 }, { v: 50, p: 5 }, { v: 25, p: 8 },
-            { v: 15, p: 12 }, { v: 10, p: 20 }, { v: 5, p: 22 }, { v: 0, p: 30 },
-          ].map((r) => (
-            <div key={r.v} className="flex justify-between pr-3">
-              <span className="text-muted-foreground">{r.v === 0 ? 'Без приза' : `−${r.v}%`}</span>
-              <span className="font-mono">{r.p}%</span>
-            </div>
-          ))}
-        </div>
-      </details>
     </div>
   );
 };
