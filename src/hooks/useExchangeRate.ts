@@ -1,32 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { USD_RUB_RATE } from '@/lib/sbp';
 
-interface ExchangeRateResponse {
-  rate: number;
-  source: string;
-  target: string;
-  updated_at: string;
-}
-
-const fetchExchangeRate = async (): Promise<number> => {
-  const { data, error } = await supabase.functions.invoke('get-exchange-rate');
-  if (error) throw error;
-  return (data as ExchangeRateResponse).rate;
-};
-
+/** Hardcoded USDT/USD → RUB rate (80 ₽). */
 export const useExchangeRate = () => {
-  return useQuery({
-    queryKey: ['exchange-rate', 'usdt-rub'],
-    queryFn: fetchExchangeRate,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000,
-    retry: 2,
-    refetchOnWindowFocus: false,
-  });
+  return { data: USD_RUB_RATE, isLoading: false, error: null as unknown };
 };
 
 /** Format USD price to RUB string */
-export const formatRub = (usdPrice: number, rate: number): string => {
+export const formatRub = (usdPrice: number, rate: number = USD_RUB_RATE): string => {
   const rub = usdPrice * rate;
   return `${Math.round(rub).toLocaleString('ru-RU')} ₽`;
 };
