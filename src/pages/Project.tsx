@@ -145,49 +145,34 @@ const renderProduct = renderSpecialProduct;
 
 
 const CursorNftGiftsCard = () => {
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full rounded-2xl border border-border bg-card overflow-hidden text-left hover:border-primary/50 transition-colors flex items-stretch gap-3"
-      >
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-3 mb-3">
         <img
           src={cursorNftGifts}
           alt="NFT подарки"
-          className="w-24 h-24 object-cover shrink-0 bg-black"
+          className="w-12 h-12 rounded-xl object-cover bg-black shrink-0"
           loading="lazy"
         />
-        <div className="flex-1 min-w-0 py-3 pr-3 flex flex-col justify-center">
-          <h3 className="font-display font-bold text-base leading-tight">NFT подарки</h3>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            Эксклюзивная коллекция подарков
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display font-bold text-base">NFT подарки</h3>
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            Эксклюзивная коллекция в @CursorRobot
           </p>
-          <span className="mt-2 inline-flex items-center text-xs font-semibold text-primary">
-            Открыть каталог →
-          </span>
         </div>
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader className="text-left space-y-2">
-            <DialogTitle className="font-display text-xl">Каталог в Telegram</DialogTitle>
-            <DialogDescription className="text-sm">
-              Чтобы открыть каталог, перейдите в нашего бота{' '}
-              <span className="font-semibold text-foreground">@CursorRobot</span>
-            </DialogDescription>
-          </DialogHeader>
-          <a
-            href="https://t.me/CursorRobot?start=ref_7912202824"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2"
-          >
-            <Button className="w-full">Открыть</Button>
-          </a>
-        </DialogContent>
-      </Dialog>
-    </>
+      </div>
+      <a
+        href="https://t.me/CursorRobot?start=ref_7912202824"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
+        <Button className="w-full h-12 text-base">
+          <Zap className="w-4 h-4 mr-2" />
+          Открыть каталог
+        </Button>
+      </a>
+    </div>
   );
 };
 
