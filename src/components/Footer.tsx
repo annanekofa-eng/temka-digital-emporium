@@ -3,7 +3,7 @@ import { useSiteSettings } from '@/hooks/useShop';
 import { FileText, HelpCircle, MessageCircle } from 'lucide-react';
 
 const DEFAULT_FAQ = 'https://telegra.ph/FAQ-temka-shop-01-01';
-const DEFAULT_POLICY = 'https://telegra.ph/Politika-konfidencialnosti-01-01';
+const DEFAULT_POLICY = 'https://telegra.ph/Politika-konfendicialnosti-Hustlify-05-18';
 
 const Footer = () => {
   const { shopName } = useStorefront();
