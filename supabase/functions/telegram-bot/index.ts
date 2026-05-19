@@ -67,6 +67,7 @@ const FALLBACK_WELCOME =
 
 async function handleStart(chatId: number) {
   const welcome = await getSetting("welcome_text", FALLBACK_WELCOME);
+  const photo = (await getSetting("welcome_photo", "")).trim();
   const url = WEBAPP_URL?.trim();
   let keyboard: any = undefined;
   if (url?.startsWith("https://")) {
@@ -74,7 +75,14 @@ async function handleStart(chatId: number) {
   } else if (url?.startsWith("http://")) {
     keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", url }]] };
   }
-  await tg("sendMessage", { chat_id: chatId, text: welcome, reply_markup: keyboard });
+  if (photo) {
+    const r = await tg("sendPhoto", {
+      chat_id: chatId, photo, caption: welcome, parse_mode: "HTML", reply_markup: keyboard,
+    });
+    if (r?.ok) return;
+    // fallback to text if photo failed
+  }
+  await tg("sendMessage", { chat_id: chatId, text: welcome, parse_mode: "HTML", reply_markup: keyboard });
 }
 
 async function handleRep(adminChatId: number, adminId: number, args: string) {
