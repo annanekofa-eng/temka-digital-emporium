@@ -1030,6 +1030,7 @@ export type Database = {
       }
       get_wheel_status: { Args: { p_telegram_id: number }; Returns: Json }
       increment_promo_usage: { Args: { p_code: string }; Returns: undefined }
+      release_promo: { Args: { p_code: string }; Returns: undefined }
       reserve_inventory: {
         Args: { p_order_id: string; p_product_id: string; p_quantity: number }
         Returns: {
@@ -1038,6 +1039,10 @@ export type Database = {
         }[]
       }
       sync_product_stock: { Args: { p_product_id: string }; Returns: undefined }
+      try_claim_promo: {
+        Args: { p_code: string; p_telegram_id: number }
+        Returns: Json
+      }
       try_claim_wheel_spin: {
         Args: { p_prize: number; p_telegram_id: number }
         Returns: Json
