@@ -350,14 +350,7 @@ const Wheel = () => {
               );
             })}
 
-            {/* Highlight arc on top of ring (glass reflection) */}
-            <path
-              d={`M ${cx - rimOuter + 14} ${cy - 18} A ${rimOuter - 6} ${rimOuter - 6} 0 0 1 ${cx + rimOuter - 14} ${cy - 18}`}
-              fill="none"
-              stroke="rgba(255,255,255,0.55)"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
+            {/* Glass reflection arc removed per request */}
 
             {/* Central hub with logo */}
             <defs>
