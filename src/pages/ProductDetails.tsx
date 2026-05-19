@@ -163,6 +163,7 @@ const ProductDetails = () => {
       {/* Gallery — Примеры работ */}
       {(() => {
         const dbGallery = (product as any).gallery as Array<string | { url: string; link?: string; title?: string }> | undefined;
+        const externalLink = (product as any).external_link as string | undefined;
         const fluxFallback = [
           { url: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=600&q=70', link: 'https://dribbble.com',  title: 'Brand identity' },
           { url: 'https://images.unsplash.com/photo-1561070791-2526d30994b8?w=600&q=70',  link: 'https://behance.net',  title: 'Poster series' },
@@ -170,9 +171,28 @@ const ProductDetails = () => {
           { url: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=600&q=70', link: 'https://behance.net', title: 'Editorial' },
         ];
         const isFlux = (product as any).project_id === 'flux';
-        const items = (dbGallery && dbGallery.length > 0)
+        const hasGallery = dbGallery && dbGallery.length > 0;
+        const items = hasGallery
           ? dbGallery
-          : (isFlux ? fluxFallback : []);
+          : (isFlux && !externalLink ? fluxFallback : []);
+
+        // Button-only mode: link without gallery
+        if (!items.length && externalLink) {
+          return (
+            <section className="mt-10 sm:mt-12 max-w-4xl">
+              <h2 className="font-display text-lg font-bold mb-4">Примеры работ</h2>
+              <a
+                href={externalLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition"
+              >
+                Посмотреть примеры
+              </a>
+            </section>
+          );
+        }
+
         if (!items.length) return null;
         return (
           <section className="mt-10 sm:mt-12 max-w-4xl">
@@ -208,6 +228,7 @@ const ProductDetails = () => {
           </section>
         );
       })()}
+
 
       {/* Similar */}
       {similar.length > 0 && (
