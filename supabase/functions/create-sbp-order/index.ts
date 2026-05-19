@@ -9,7 +9,29 @@ const corsHeaders = {
 const jsonRes = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const USD_RUB_RATE = 80;
+// Fallback if CryptoBot rate API is unavailable.
+const USD_RUB_RATE_FALLBACK = 80;
+
+async function fetchUsdRubRate(): Promise<number> {
+  const token = Deno.env.get("CRYPTOBOT_API_TOKEN");
+  if (!token) return USD_RUB_RATE_FALLBACK;
+  for (const base of ["https://pay.crypt.bot/api", "https://testnet-pay.crypt.bot/api"]) {
+    try {
+      const res = await fetch(`${base}/getExchangeRates`, {
+        headers: { "Crypto-Pay-API-Token": token },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const row = data?.result?.find(
+        (r: any) => r.source === "USDT" && r.target === "RUB" && r.is_valid,
+      );
+      const v = Number(row?.rate);
+      if (Number.isFinite(v) && v > 30 && v < 500) return v;
+    } catch { /* try next */ }
+  }
+  return USD_RUB_RATE_FALLBACK;
+}
 
 function verifyAndExtractUser(initData: string, botToken: string): { id: number } | null {
   const params = new URLSearchParams(initData);
@@ -99,7 +121,8 @@ serve(async (req) => {
     }
 
     const totalAfterDiscount = Math.max(0, serverTotal - discountAmount);
-    const amountRub = Math.round(totalAfterDiscount * USD_RUB_RATE);
+    const liveRate = await fetchUsdRubRate();
+    const amountRub = Math.round(totalAfterDiscount * liveRate);
 
     // Create order (awaiting SBP payment)
     const { data: order, error } = await supabase.from("orders").insert({
@@ -121,7 +144,7 @@ serve(async (req) => {
 
     const { data: payment, error: pErr } = await supabase.from("sbp_payments").insert({
       order_id: order.id, telegram_id: telegramUserId,
-      amount_usd: totalAfterDiscount, amount_rub: amountRub, rate: USD_RUB_RATE,
+      amount_usd: totalAfterDiscount, amount_rub: amountRub, rate: liveRate,
       status: "awaiting_receipt",
     }).select().single();
     if (pErr) {
@@ -138,7 +161,7 @@ serve(async (req) => {
       paymentId: payment.id,
       amountUsd: totalAfterDiscount,
       amountRub,
-      rate: USD_RUB_RATE,
+      rate: liveRate,
       requisites: {
         bank: requisites?.bank || "",
         card: requisites?.card || "",
