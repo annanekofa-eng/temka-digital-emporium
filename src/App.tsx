@@ -13,6 +13,7 @@ import BottomNav from "@/components/BottomNav";
 import { Outlet } from "react-router-dom";
 import React, { Suspense } from "react";
 import ScrollToTop from "@/components/ScrollToTop";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const Index = React.lazy(() => import("./pages/Index"));
 const Project = React.lazy(() => import("./pages/Project"));
