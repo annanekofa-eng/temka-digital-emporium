@@ -204,9 +204,15 @@ export async function applyRejectSbp(chatId: number, adminId: number, id: string
     status: "rejected", reject_reason: reason.slice(0, 500),
     reviewed_at: new Date().toISOString(), reviewed_by: adminId,
   }).eq("id", id);
+  const { data: rejectedOrder } = await supabase.from("orders")
+    .select("promo_code").eq("id", p.order_id).maybeSingle();
   await supabase.from("orders").update({
     status: "failed", payment_status: "failed", updated_at: new Date().toISOString(),
   }).eq("id", p.order_id);
+  // Release promo claim — order was not fulfilled
+  if (rejectedOrder?.promo_code) {
+    await supabase.rpc("release_promo", { p_code: rejectedOrder.promo_code });
+  }
 
   try {
     await tg("sendMessage", {
