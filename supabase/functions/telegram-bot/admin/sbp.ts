@@ -143,9 +143,8 @@ export async function approveSbpPayment(chatId: number, msgId: number | undefine
     status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: adminId,
   }).eq("id", id);
 
-  if (order.promo_code) {
-    await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
-  }
+  // Promo usage incremented atomically at order creation (try_claim_promo).
+
 
   // Reserve inventory + deliver
   const { data: items } = await supabase.from("order_items").select("*").eq("order_id", p.order_id);
