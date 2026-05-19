@@ -121,7 +121,8 @@ serve(async (req) => {
     }
 
     const totalAfterDiscount = Math.max(0, serverTotal - discountAmount);
-    const amountRub = Math.round(totalAfterDiscount * USD_RUB_RATE);
+    const liveRate = await fetchUsdRubRate();
+    const amountRub = Math.round(totalAfterDiscount * liveRate);
 
     // Create order (awaiting SBP payment)
     const { data: order, error } = await supabase.from("orders").insert({
