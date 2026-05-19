@@ -150,6 +150,7 @@ serve(async (req) => {
     });
     if (deductErr) {
       console.error("Deduct error:", deductErr);
+      if (validatedPromoCode) await supabase.rpc("release_promo", { p_code: validatedPromoCode });
       return jsonRes({ error: "Failed to charge balance" }, 400);
     }
 
@@ -167,6 +168,7 @@ serve(async (req) => {
     if (error) {
       console.error("Order error:", error);
       await supabase.rpc("credit_balance", { p_telegram_id: telegramUserId, p_amount: totalAfterDiscount });
+      if (validatedPromoCode) await supabase.rpc("release_promo", { p_code: validatedPromoCode });
       return jsonRes({ error: "Failed to create order" }, 500);
     }
 
@@ -175,10 +177,7 @@ serve(async (req) => {
       product_price: i.productPrice, quantity: i.quantity,
       recipient_username: i.recipientUsername,
     })));
-
-    if (validatedPromoCode) {
-      await supabase.rpc("increment_promo_usage", { p_code: validatedPromoCode });
-    }
+    // (promo usage already incremented atomically inside try_claim_promo)
 
     await supabase.from("balance_history").insert({
       telegram_id: telegramUserId,
