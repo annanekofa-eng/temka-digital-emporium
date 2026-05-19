@@ -69,10 +69,9 @@ async function handleOrder(supabase: any, invoice: any, orderData: any): Promise
     }).eq("id", orderId);
   }
 
-  // Promo usage — only once
-  if (order.promo_code && !order.balance_charged_at && order.payment_status !== "paid") {
-    await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
-  }
+  // Promo usage is now incremented atomically at order creation (try_claim_promo).
+  // No re-increment here.
+
 
   // Deduct balance used — only once (guarded by balance_charged_at)
   if (balanceUsed > 0 && !order.balance_charged_at) {
