@@ -138,18 +138,19 @@ export const StarsCard = ({ product }: { product: ExtendedProduct }) => {
         </div>
       </div>
       <div className="flex items-center gap-2 mb-3">
-        <Button variant="outline" size="icon" onClick={() => setQty(Math.max(0, clamped - 1))}>
+        <Button variant="outline" size="icon" aria-label="Уменьшить количество" onClick={() => setQty(Math.max(0, clamped - 1))}>
           <Minus className="w-4 h-4" />
         </Button>
         <input
           type="number"
+          aria-label="Количество"
           min={0}
           max={maxQty}
           value={clamped}
           onChange={(e) => setQty(Number(e.target.value))}
           className="flex-1 h-10 text-center bg-secondary border border-border rounded-lg font-display font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
         />
-        <Button variant="outline" size="icon" onClick={() => setQty(Math.min(maxQty, clamped + 1))}>
+        <Button variant="outline" size="icon" aria-label="Увеличить количество" onClick={() => setQty(Math.min(maxQty, clamped + 1))}>
           <Plus className="w-4 h-4" />
         </Button>
       </div>
