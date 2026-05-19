@@ -161,7 +161,7 @@ serve(async (req) => {
       paymentId: payment.id,
       amountUsd: totalAfterDiscount,
       amountRub,
-      rate: USD_RUB_RATE,
+      rate: liveRate,
       requisites: {
         bank: requisites?.bank || "",
         card: requisites?.card || "",
