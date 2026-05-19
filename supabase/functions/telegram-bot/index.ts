@@ -468,6 +468,24 @@ Deno.serve(async (req) => {
             await handleNewBroadcastPhoto(chatId, fromId, fileId);
             return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
           }
+          if (scope === "se" && verb === "edit" && a === "welcome_photo") {
+            const { uploadTelegramPhoto } = await import("./_shared/upload.ts");
+            const up = await uploadTelegramPhoto(fileId, "product-images", "welcome");
+            if (!up.ok) {
+              await tg("sendMessage", { chat_id: chatId, text: `⚠️ Не удалось загрузить фото: ${up.error}` });
+            } else {
+              const { applyEditSetting } = await import("./admin/settings.ts");
+              // Save photo URL; if caption present, also update welcome_text
+              const caption = (message?.caption ?? "").trim();
+              await applyEditSetting(chatId, fromId, "welcome_photo", up.url);
+              if (caption) {
+                await supabase.from("site_settings").upsert({
+                  key: "welcome_text", value: caption, updated_at: new Date().toISOString(),
+                });
+              }
+            }
+            return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+          }
         }
       }
 
