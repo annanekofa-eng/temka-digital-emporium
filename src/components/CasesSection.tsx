@@ -131,9 +131,16 @@ const CasesSection = () => {
                     <span className="text-xl font-bold">{openCase.price} ₽</span>
                     <span className="text-sm text-muted-foreground line-through">{openCase.oldPrice} ₽</span>
                   </div>
-                  <button className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
+                  <a
+                    href={`${supportUrl}?text=${encodeURIComponent(
+                      `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
                     Приобрести сейчас
-                  </button>
+                  </a>
                   <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
                   <div className="mt-auto pt-3 border-t border-border/60">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
