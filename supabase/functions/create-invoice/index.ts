@@ -183,6 +183,7 @@ serve(async (req) => {
     const data = await response.json();
     if (!data.ok) {
       await supabase.from("orders").update({ status: "error" }).eq("id", order.id);
+      if (validatedPromoCode) await supabase.rpc("release_promo", { p_code: validatedPromoCode });
       console.error("CryptoBot error:", data);
       return jsonRes({ error: data.error?.name || "Failed to create invoice" }, 400);
     }
