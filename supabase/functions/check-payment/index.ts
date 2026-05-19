@@ -137,7 +137,7 @@ serve(async (req) => {
       await supabase.from("orders").update({
         status: "processing", payment_status: "paid", updated_at: new Date().toISOString(),
       }).eq("id", orderId);
-      if (order.promo_code) await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
+      // Promo usage incremented atomically at order creation (try_claim_promo).
 
       const balanceUsed = Number(order.balance_used || 0);
       // Guarded by balance_charged_at to prevent double-debit if webhook also processed it.

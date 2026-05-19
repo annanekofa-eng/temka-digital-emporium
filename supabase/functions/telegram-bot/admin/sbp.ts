@@ -143,9 +143,8 @@ export async function approveSbpPayment(chatId: number, msgId: number | undefine
     status: "approved", reviewed_at: new Date().toISOString(), reviewed_by: adminId,
   }).eq("id", id);
 
-  if (order.promo_code) {
-    await supabase.rpc("increment_promo_usage", { p_code: order.promo_code });
-  }
+  // Promo usage incremented atomically at order creation (try_claim_promo).
+
 
   // Reserve inventory + deliver
   const { data: items } = await supabase.from("order_items").select("*").eq("order_id", p.order_id);
@@ -205,9 +204,15 @@ export async function applyRejectSbp(chatId: number, adminId: number, id: string
     status: "rejected", reject_reason: reason.slice(0, 500),
     reviewed_at: new Date().toISOString(), reviewed_by: adminId,
   }).eq("id", id);
+  const { data: rejectedOrder } = await supabase.from("orders")
+    .select("promo_code").eq("id", p.order_id).maybeSingle();
   await supabase.from("orders").update({
     status: "failed", payment_status: "failed", updated_at: new Date().toISOString(),
   }).eq("id", p.order_id);
+  // Release promo claim — order was not fulfilled
+  if (rejectedOrder?.promo_code) {
+    await supabase.rpc("release_promo", { p_code: rejectedOrder.promo_code });
+  }
 
   try {
     await tg("sendMessage", {

@@ -122,36 +122,22 @@ serve(async (req) => {
       return jsonRes({ error: "Авто-товары оформляются отдельным заказом" }, 400);
     }
 
-    // Promo
+    // Promo — atomic claim under row lock (prevents race conditions)
     let discountAmount = 0;
     let validatedPromoCode: string | null = null;
     if (promoCode) {
       const trimmedCode = String(promoCode).trim().toUpperCase();
-      const { data: promo } = await supabase.from("promocodes").select("*").eq("code", trimmedCode).eq("is_active", true).maybeSingle();
-      if (promo && promo.owner_telegram_id != null && Number(promo.owner_telegram_id) !== Number(telegramUserId)) {
-        return jsonRes({ error: "Этот промокод принадлежит другому пользователю" }, 400);
+      const { data: claim, error: claimErr } = await supabase.rpc("try_claim_promo", {
+        p_code: trimmedCode,
+        p_telegram_id: telegramUserId,
+      });
+      if (claimErr || !claim?.ok) {
+        return jsonRes({ error: "Промокод недоступен" }, 400);
       }
-      if (promo) {
-        const now = new Date().toISOString();
-        const valid = (!promo.valid_from || now >= promo.valid_from) &&
-          (!promo.valid_until || now <= promo.valid_until) &&
-          (promo.max_uses === null || promo.used_count < promo.max_uses);
-        if (valid) {
-          let perUserOk = true;
-          if (promo.max_uses_per_user) {
-            const { count } = await supabase.from("orders").select("id", { count: "exact", head: true })
-              .eq("telegram_id", telegramUserId).eq("promo_code", trimmedCode).in("payment_status", ["paid", "awaiting"]);
-            if (count !== null && count >= promo.max_uses_per_user) perUserOk = false;
-          }
-          if (perUserOk) {
-            validatedPromoCode = trimmedCode;
-            discountAmount = promo.discount_type === "percent"
-              ? serverTotal * (Number(promo.discount_value) / 100)
-              : Math.min(Number(promo.discount_value), serverTotal);
-          }
-        }
-      }
-      if (!validatedPromoCode) return jsonRes({ error: "Промокод недоступен" }, 400);
+      validatedPromoCode = trimmedCode;
+      discountAmount = claim.discount_type === "percent"
+        ? serverTotal * (Number(claim.discount_value) / 100)
+        : Math.min(Number(claim.discount_value), serverTotal);
     }
 
     const totalAfterDiscount = Math.max(0, serverTotal - discountAmount);
@@ -164,6 +150,7 @@ serve(async (req) => {
     });
     if (deductErr) {
       console.error("Deduct error:", deductErr);
+      if (validatedPromoCode) await supabase.rpc("release_promo", { p_code: validatedPromoCode });
       return jsonRes({ error: "Failed to charge balance" }, 400);
     }
 
@@ -181,6 +168,7 @@ serve(async (req) => {
     if (error) {
       console.error("Order error:", error);
       await supabase.rpc("credit_balance", { p_telegram_id: telegramUserId, p_amount: totalAfterDiscount });
+      if (validatedPromoCode) await supabase.rpc("release_promo", { p_code: validatedPromoCode });
       return jsonRes({ error: "Failed to create order" }, 500);
     }
 
@@ -189,10 +177,7 @@ serve(async (req) => {
       product_price: i.productPrice, quantity: i.quantity,
       recipient_username: i.recipientUsername,
     })));
-
-    if (validatedPromoCode) {
-      await supabase.rpc("increment_promo_usage", { p_code: validatedPromoCode });
-    }
+    // (promo usage already incremented atomically inside try_claim_promo)
 
     await supabase.from("balance_history").insert({
       telegram_id: telegramUserId,
