@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { renderSpecialProduct } from '@/components/SpecialProductCards';
 import logoFlux from '@/assets/logo-flux.jpg';
 import logoCursor from '@/assets/logo-cursor.jpg';
+import cursorNftGifts from '@/assets/cursor-nft-gifts.jpg';
 import logoVieto from '@/assets/logo-vieto.jpg';
 
 import { useProject, useProjectProducts, useProjectCategories, type ExtendedProduct } from '@/hooks/useShop';
