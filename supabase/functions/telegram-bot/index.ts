@@ -540,6 +540,7 @@ Deno.serve(async (req) => {
       }
 
       if (text.startsWith("/start") || text === "/help") {
+        if (!(await ensureSubscribed(chatId, fromId))) return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
         await handleStart(chatId);
       } else if (text.startsWith("/rep")) {
         if (!isAdmin(fromId)) {
