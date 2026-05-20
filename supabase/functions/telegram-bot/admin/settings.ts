@@ -47,6 +47,10 @@ export async function startEditSetting(chatId: number, msgId: number | undefined
   await setSession(adminId, `se:edit:${key}`, {});
   const hint = key === "welcome_photo"
     ? "\n\nПришлите <b>фото</b> прямо в чат (можно с подписью — она станет текстом приветствия), или URL картинки, или <code>-</code> чтобы убрать."
+    : key === "op_channel_id"
+    ? "\n\nВведите <b>@username</b> канала или числовой ID (например <code>-1001234567890</code>).\n⚠️ Бот должен быть <b>администратором</b> канала, иначе проверка подписки не работает.\nЧтобы отключить ОП — отправьте <code>-</code>."
+    : key === "op_channel_url"
+    ? "\n\nВведите публичную ссылку на канал, например <code>https://t.me/your_channel</code>, или <code>-</code> чтобы очистить."
     : "\n\nВведите новое значение или <code>-</code> чтобы очистить:";
   await deleteAndSend(chatId, msgId, {
     text: `✏️ <b>${escapeHtml(s.label)}</b>\n\nТекущее значение:\n<code>${escapeHtml(current || "—")}</code>${hint}`,
