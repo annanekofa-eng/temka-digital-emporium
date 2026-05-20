@@ -461,16 +461,40 @@ Deno.serve(async (req) => {
 
   try {
     const cb = update?.callback_query;
-    if (cb?.data && typeof cb.data === "string" && cb.data.startsWith("a:")) {
+    if (cb?.data && typeof cb.data === "string") {
       const chatId = cb.message?.chat?.id as number | undefined;
       const fromId = cb.from?.id as number | undefined;
       const msgId = cb.message?.message_id as number | undefined;
-      if (chatId && fromId) {
-        await handleAdminCallback(chatId, fromId, msgId, cb.id, cb.data);
+
+      // ОП: recheck subscription button
+      if (cb.data === "sub:check" && chatId && fromId) {
+        const channel = (await getSetting("op_channel_id", "")).trim();
+        let ok = !channel || isAdmin(fromId);
+        if (!ok) {
+          try {
+            const r = await tg("getChatMember", { chat_id: channel, user_id: fromId });
+            const status = r?.result?.status as string | undefined;
+            ok = !!(r?.ok && status && !["left", "kicked"].includes(status));
+          } catch (_) { ok = false; }
+        }
+        if (ok) {
+          await answerCallback(cb.id, "✅ Подписка подтверждена");
+          if (msgId) await tg("deleteMessage", { chat_id: chatId, message_id: msgId });
+          await handleStart(chatId);
+        } else {
+          await answerCallback(cb.id, "❌ Подписка не найдена. Подпишитесь и попробуйте снова.", true);
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { "Content-Type": "application/json" },
+        });
       }
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { "Content-Type": "application/json" },
-      });
+
+      if (cb.data.startsWith("a:") && chatId && fromId) {
+        await handleAdminCallback(chatId, fromId, msgId, cb.id, cb.data);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
     const message = update?.message ?? update?.edited_message;
