@@ -17,6 +17,8 @@ const SETTINGS: { key: string; label: string }[] = [
   { key: "marquee_enabled", label: "🟢 Бегущая строка вкл (true/false)" },
   { key: "faq_url", label: "❓ FAQ URL" },
   { key: "support_username", label: "💬 Username поддержки" },
+  { key: "op_channel_id", label: "📢 ОП: ID/@username канала" },
+  { key: "op_channel_url", label: "🔗 ОП: ссылка на канал (https://t.me/...)" },
 ];
 
 export async function showSettingsMenu(chatId: number, msgId?: number) {
