@@ -65,6 +65,32 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const FALLBACK_WELCOME =
   "👋 Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог 👇";
 
+// --- Mandatory channel subscription (ОП) ---
+// Returns true if user is allowed (no OP set, admin, or subscribed). Otherwise
+// sends a "please subscribe" prompt and returns false.
+async function ensureSubscribed(chatId: number, userId: number): Promise<boolean> {
+  if (isAdmin(userId)) return true;
+  const channel = (await getSetting("op_channel_id", "")).trim();
+  if (!channel) return true;
+  const url = (await getSetting("op_channel_url", "")).trim();
+
+  try {
+    const r = await tg("getChatMember", { chat_id: channel, user_id: userId });
+    const status = r?.result?.status as string | undefined;
+    if (r?.ok && status && !["left", "kicked"].includes(status)) return true;
+  } catch (_) { /* fallthrough */ }
+
+  const kb: any[][] = [];
+  if (url?.startsWith("http")) kb.push([{ text: "📢 Подписаться", url }]);
+  kb.push([{ text: "✅ Я подписался", callback_data: "sub:check" }]);
+  await tg("sendMessage", {
+    chat_id: chatId,
+    text: "🔒 Чтобы пользоваться ботом, подпишитесь на наш канал.\n\nПосле подписки нажмите «Я подписался».",
+    reply_markup: { inline_keyboard: kb },
+  });
+  return false;
+}
+
 async function handleStart(chatId: number) {
   const welcome = await getSetting("welcome_text", FALLBACK_WELCOME);
   const photo = (await getSetting("welcome_photo", "")).trim();
