@@ -352,27 +352,22 @@ const Wheel = () => {
 
             {/* Glass reflection arc removed per request */}
 
-            {/* Central hub with logo */}
-            <defs>
-              <clipPath id="hubClip">
-                <circle cx={cx} cy={cy} r={26} />
-              </clipPath>
-            </defs>
+            {/* Central hub bezel (stays inside SVG but logo is rendered as a fixed overlay so it doesn't spin) */}
             <circle cx={cx} cy={cy} r={32} fill="url(#hubBezel)" />
             <circle cx={cx} cy={cy} r={32} fill="none" stroke="#09090b" strokeWidth="1.2" />
             <circle cx={cx} cy={cy} r={26} fill="#0a0a0a" />
-            <image
-              href={wheelLogo}
-              x={cx - 26}
-              y={cy - 26}
-              width={52}
-              height={52}
-              clipPath="url(#hubClip)"
-              preserveAspectRatio="xMidYMid slice"
-            />
             <circle cx={cx} cy={cy} r={26} fill="none" stroke="#3f3f46" strokeWidth="1" />
+
           </motion.svg>
         </button>
+
+        {/* Static logo overlay — sits above the spinning wheel and never rotates */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden pointer-events-none z-20"
+          style={{ width: '16.25%', height: '16.25%' }}
+        >
+          <img src={wheelLogo} alt="" className="w-full h-full object-cover" />
+        </div>
       </div>
 
 
