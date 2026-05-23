@@ -168,24 +168,25 @@ const ProductCard = ({ product, view = 'grid' }: { product: DbProduct; view?: 'g
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
-          <div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-display font-bold text-lg sm:text-xl">${Number(product.price).toFixed(2)}</span>
-              <PriceRub usd={Number(product.price)} />
+        <div className="flex items-end justify-between gap-2 mt-3 pt-3 border-t border-border/30">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="font-display font-bold text-lg sm:text-xl leading-none">${Number(product.price).toFixed(2)}</span>
               {product.old_price && (
                 <span className="text-[10px] sm:text-xs text-muted-foreground line-through">${Number(product.old_price).toFixed(2)}</span>
               )}
             </div>
+            <PriceRub usd={Number(product.price)} className="block mt-1 text-[11px]" />
           </div>
           <Button
-            size="sm"
-            className="h-8 sm:h-9 text-sm"
+            size="icon"
+            className="h-9 w-9 shrink-0 sm:h-9 sm:w-auto sm:px-3"
             disabled={outOfStock}
             onClick={() => { addToCart(product); haptic.impact('light'); }}
+            aria-label={outOfStock ? 'Нет в наличии' : 'В корзину'}
           >
-            <ShoppingCart className="w-3.5 h-3.5 mr-1" />
-            {outOfStock ? 'Нет' : 'В корзину'}
+            <ShoppingCart className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline text-sm">{outOfStock ? 'Нет' : 'В корзину'}</span>
           </Button>
         </div>
       </div>
