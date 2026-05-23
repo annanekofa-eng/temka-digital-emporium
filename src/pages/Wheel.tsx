@@ -352,25 +352,12 @@ const Wheel = () => {
 
             {/* Glass reflection arc removed per request */}
 
-            {/* Central hub with logo */}
-            <defs>
-              <clipPath id="hubClip">
-                <circle cx={cx} cy={cy} r={26} />
-              </clipPath>
-            </defs>
+            {/* Central hub bezel (stays inside SVG but logo is rendered as a fixed overlay so it doesn't spin) */}
             <circle cx={cx} cy={cy} r={32} fill="url(#hubBezel)" />
             <circle cx={cx} cy={cy} r={32} fill="none" stroke="#09090b" strokeWidth="1.2" />
             <circle cx={cx} cy={cy} r={26} fill="#0a0a0a" />
-            <image
-              href={wheelLogo}
-              x={cx - 26}
-              y={cy - 26}
-              width={52}
-              height={52}
-              clipPath="url(#hubClip)"
-              preserveAspectRatio="xMidYMid slice"
-            />
             <circle cx={cx} cy={cy} r={26} fill="none" stroke="#3f3f46" strokeWidth="1" />
+
           </motion.svg>
         </button>
       </div>
