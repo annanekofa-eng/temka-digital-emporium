@@ -360,6 +360,14 @@ const Wheel = () => {
 
           </motion.svg>
         </button>
+
+        {/* Static logo overlay — sits above the spinning wheel and never rotates */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden pointer-events-none z-20"
+          style={{ width: '16.25%', height: '16.25%' }}
+        >
+          <img src={wheelLogo} alt="" className="w-full h-full object-cover" />
+        </div>
       </div>
 
 
