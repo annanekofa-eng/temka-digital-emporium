@@ -299,7 +299,7 @@ const CasesSection = () => {
                     </div>
 
                     <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {openCase.full}
+                      {renderWithTeleStoreLink(openCase.full)}
                     </p>
 
                     <div className="mt-auto pt-4 border-t border-border/60">
