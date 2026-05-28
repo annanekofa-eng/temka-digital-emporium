@@ -6,6 +6,7 @@ import { useSiteSettings } from '@/hooks/useShop';
 import casePencil from '@/assets/case-pencil.jpg';
 import casePalette from '@/assets/case-palette.jpg';
 import caseOrganizer from '@/assets/case-organizer.jpg';
+import caseBusiness from '@/assets/case-business.jpg';
 
 interface Case {
   id: string;
