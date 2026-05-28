@@ -297,7 +297,7 @@ const CasesSection = () => {
                     <a
                       href={
                         openCase.featured
-                          ? 'https://t.me/HustlifyRobot?start=cases_businesskey&utm_source=hustlify_landing&utm_medium=case_modal&utm_campaign=business_under_key&utm_content=3490rub'
+                          ? 'https://t.me/HustlifyRobot?startapp=cases_businesskey&utm_source=hustlify_landing&utm_medium=case_modal&utm_campaign=business_under_key&utm_content=3490rub'
                           : `${supportUrl}?text=${encodeURIComponent(
                               `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
                             )}`
@@ -319,7 +319,7 @@ const CasesSection = () => {
                     <a
                       href={
                         openCase.featured
-                          ? 'https://t.me/HustlifyRobot?start=cases_businesskey&utm_source=hustlify_landing&utm_medium=case_modal&utm_campaign=business_under_key&utm_content=3490rub'
+                          ? 'https://t.me/HustlifyRobot?startapp=cases_businesskey&utm_source=hustlify_landing&utm_medium=case_modal&utm_campaign=business_under_key&utm_content=3490rub'
                           : `${supportUrl}?text=${encodeURIComponent(
                               `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
                             )}`
