@@ -112,7 +112,16 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Zap className="w-3.5 h-3.5 text-white fill-white" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/90">
-                    TeleStore × Hustlify
+                    <a
+                      href="https://t.me/tele_store_robot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      TeleStore
+                    </a>
+                    {' × Hustlify'}
                   </span>
                 </div>
                 <h3 className="font-display text-2xl font-black tracking-tight text-white leading-tight">
