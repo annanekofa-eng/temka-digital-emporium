@@ -190,7 +190,7 @@ const CasesSection = () => {
         <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
       </div>
       {/* Mobile/Tablet: horizontal snap scroll */}
-      <div className="lg:hidden flex gap-4 overflow-x-auto px-4 pt-2 pb-6 scrollbar-hide snap-x snap-mandatory">
+      <div className="lg:hidden flex gap-4 overflow-x-auto px-4 pt-4 pb-8 scrollbar-hide snap-x snap-mandatory">
         {CASES.map((c, i) => (
           <div
             key={c.id}
@@ -200,8 +200,8 @@ const CasesSection = () => {
           </div>
         ))}
       </div>
-      {/* Desktop: 4-col grid (was 3) */}
-      <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-5 pt-2">
+      {/* Desktop: 4-col grid */}
+      <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-6 pt-4 pb-4">
         {CASES.map((c, i) => (
           <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
         ))}
