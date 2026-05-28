@@ -295,9 +295,13 @@ const CasesSection = () => {
                   {/* Mobile sticky CTA */}
                   <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
                     <a
-                      href={`${supportUrl}?text=${encodeURIComponent(
-                        `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
-                      )}`}
+                      href={
+                        openCase.featured
+                          ? 'https://t.me/HustlifyRobot?start=cases_businesskey&utm_source=hustlify_landing&utm_medium=case_modal&utm_campaign=business_under_key&utm_content=3490rub'
+                          : `${supportUrl}?text=${encodeURIComponent(
+                              `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
+                            )}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className={
