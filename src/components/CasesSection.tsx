@@ -237,15 +237,17 @@ const CasesSection = () => {
       </div>
 
       <Dialog open={!!openCase} onOpenChange={(o) => !o && setOpenCase(null)}>
-        <DialogContent className="p-0 border-0 ring-0 shadow-none bg-card overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button]:hidden flex flex-col rounded-2xl">
+        <DialogContent className="p-0 border-0 outline-none ring-0 shadow-none bg-card overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button.absolute]:hidden flex flex-col rounded-2xl [-webkit-tap-highlight-color:transparent] focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
           {openCase && (
             <>
-              <DialogClose
-                aria-label="Закрыть"
-                className="absolute right-3 top-3 z-30 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-black/70 backdrop-blur border border-white/20 text-white hover:bg-black/90 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-              >
-                <X className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2.5} />
-              </DialogClose>
+              <div className="absolute right-3 top-3 z-30">
+                <DialogClose
+                  aria-label="Закрыть"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/80 backdrop-blur border border-white/30 text-white hover:bg-black transition-colors focus:outline-none focus:ring-2 focus:ring-white shadow-lg"
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </DialogClose>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 md:overflow-y-auto">
                 {/* Image — compact hero on mobile, square on desktop */}
