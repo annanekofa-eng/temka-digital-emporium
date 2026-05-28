@@ -249,7 +249,7 @@ const CasesSection = () => {
                     rel="noopener noreferrer"
                     className={
                       openCase.featured
-                        ? 'self-start px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity shadow-lg shadow-orange-500/30'
+                        ? 'self-start px-5 py-2.5 rounded-lg bg-white text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity'
                         : 'self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity'
                     }
                   >
