@@ -226,10 +226,10 @@ const CasesSection = () => {
 
                 <div className="p-5 sm:p-8 flex flex-col gap-4">
                   {openCase.featured && openCase.spotsLeft !== undefined && (
-                    <div className="self-start flex items-center gap-1.5 bg-red-500 text-white text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
+                    <div className="self-start flex items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
                       <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-60 animate-ping" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-black" />
                       </span>
                       Осталось {openCase.spotsLeft} мест
                     </div>
