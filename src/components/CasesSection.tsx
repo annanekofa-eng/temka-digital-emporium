@@ -211,22 +211,24 @@ const CasesSection = () => {
         <DialogContent className="p-0 border-border bg-card overflow-hidden w-[calc(100vw-1rem)] sm:w-full max-w-3xl max-h-[92svh] sm:max-h-[88vh] [&>button]:hidden flex flex-col rounded-2xl">
           {openCase && (
             <>
-              {/* Custom larger close button */}
               <DialogClose
                 aria-label="Закрыть"
-                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border text-foreground hover:bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                className="absolute right-3 top-3 z-30 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border text-foreground hover:bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </DialogClose>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
-                <div className="aspect-[4/3] md:aspect-square bg-black flex items-center justify-center shrink-0 overflow-hidden">
-                  <img src={openCase.image} alt={openCase.title} className="w-full h-full object-cover" />
-                </div>
-
-                <div className="p-5 sm:p-8 flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0 md:overflow-y-auto">
+                {/* Image — compact hero on mobile, square on desktop */}
+                <div className="relative aspect-[16/10] md:aspect-square bg-black shrink-0 overflow-hidden">
+                  <img
+                    src={openCase.image}
+                    alt={openCase.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="md:hidden absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/70 to-transparent" />
                   {openCase.featured && openCase.spotsLeft !== undefined && (
-                    <div className="self-start flex items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
+                    <div className="md:hidden absolute top-3 left-3 flex items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
                       <span className="relative flex h-1.5 w-1.5">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-60 animate-ping" />
                         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-black" />
@@ -234,44 +236,96 @@ const CasesSection = () => {
                       Осталось {openCase.spotsLeft} мест
                     </div>
                   )}
-                  <h3 className="font-display text-2xl font-black pr-10">{openCase.title}</h3>
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-xl font-bold">{openCase.price.toLocaleString('ru')} ₽</span>
-                    <span className="text-sm text-muted-foreground line-through">
-                      {openCase.oldPrice.toLocaleString('ru')} ₽
-                    </span>
-                  </div>
-                  <a
-                    href={`${supportUrl}?text=${encodeURIComponent(
-                      `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={
-                      openCase.featured
-                        ? 'self-start px-5 py-2.5 rounded-lg bg-white text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity'
-                        : 'self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity'
-                    }
-                  >
-                    {openCase.featured ? 'Забрать место' : 'Приобрести сейчас'}
-                  </a>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{openCase.full}</p>
-                  <div className="mt-auto pt-3 border-t border-border/60">
-                    <p className="text-xs text-muted-foreground flex items-start gap-2">
-                      <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                      <span>
-                        Что-то непонятно по кейсу?{' '}
-                        <a
-                          href={supportUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary font-medium hover:underline"
-                        >
-                          Напишите в поддержку
-                        </a>{' '}
-                        — поможем разобраться.
+                </div>
+
+                {/* Content — solid bg-card, scrollable */}
+                <div className="relative flex flex-col bg-card min-h-0">
+                  <div className="flex-1 overflow-y-auto p-5 sm:p-8 flex flex-col gap-3 sm:gap-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-8">
+                    {openCase.featured && openCase.spotsLeft !== undefined && (
+                      <div className="hidden md:flex self-start items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-60 animate-ping" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-black" />
+                        </span>
+                        Осталось {openCase.spotsLeft} мест
+                      </div>
+                    )}
+
+                    <h3 className="font-display text-xl sm:text-2xl font-black leading-tight pr-10">
+                      {openCase.title}
+                    </h3>
+
+                    <div className="flex items-baseline gap-2.5 flex-wrap">
+                      <span className="text-2xl sm:text-xl font-black sm:font-bold">
+                        {openCase.price.toLocaleString('ru')} ₽
                       </span>
+                      <span className="text-sm text-muted-foreground line-through">
+                        {openCase.oldPrice.toLocaleString('ru')} ₽
+                      </span>
+                      {openCase.featured && (
+                        <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-foreground/70">
+                          −{Math.round((1 - openCase.price / openCase.oldPrice) * 100)}%
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {openCase.full}
                     </p>
+
+                    <div className="mt-auto pt-4 border-t border-border/60">
+                      <p className="text-xs text-muted-foreground flex items-start gap-2">
+                        <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                        <span>
+                          Что-то непонятно по кейсу?{' '}
+                          <a
+                            href={supportUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-medium hover:underline"
+                          >
+                            Напишите в поддержку
+                          </a>{' '}
+                          — поможем разобраться.
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mobile sticky CTA */}
+                  <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+                    <a
+                      href={`${supportUrl}?text=${encodeURIComponent(
+                        `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={
+                        openCase.featured
+                          ? 'block w-full text-center px-5 py-3.5 rounded-xl bg-white text-black text-sm font-black uppercase tracking-wider active:scale-[0.98] transition-transform'
+                          : 'block w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform'
+                      }
+                    >
+                      {openCase.featured ? 'Забрать место →' : 'Приобрести сейчас'}
+                    </a>
+                  </div>
+
+                  {/* Desktop CTA */}
+                  <div className="hidden md:block px-8 pb-8">
+                    <a
+                      href={`${supportUrl}?text=${encodeURIComponent(
+                        `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={
+                        openCase.featured
+                          ? 'inline-block px-5 py-2.5 rounded-lg bg-white text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity'
+                          : 'inline-block px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity'
+                      }
+                    >
+                      {openCase.featured ? 'Забрать место' : 'Приобрести сейчас'}
+                    </a>
                   </div>
                 </div>
               </div>
