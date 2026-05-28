@@ -193,6 +193,26 @@ const CasesSection = () => {
   const supportUser = (settings?.support_username || 'TeleStoreHelp').replace('@', '');
   const supportUrl = `https://t.me/${supportUser}`;
 
+  const renderWithTeleStoreLink = (text: string) => {
+    const parts = text.split('TeleStore');
+    if (parts.length === 1) return text;
+    return parts.map((part, i) => (
+      <span key={i}>
+        {part}
+        {i < parts.length - 1 && (
+          <a
+            href="https://t.me/tele_store_robot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary font-medium hover:underline"
+          >
+            TeleStore
+          </a>
+        )}
+      </span>
+    ));
+  };
+
   return (
     <section className="pt-8">
       <div className="container-main mx-auto max-w-2xl lg:max-w-6xl px-4">
