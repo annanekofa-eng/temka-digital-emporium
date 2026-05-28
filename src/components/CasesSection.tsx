@@ -151,7 +151,7 @@ const CasesSection = () => {
                   >
                     Приобрести сейчас
                   </a>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{openCase.full}</p>
                   <div className="mt-auto pt-3 border-t border-border/60">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
                       <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
