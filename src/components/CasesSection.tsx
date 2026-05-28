@@ -302,26 +302,18 @@ const CasesSection = () => {
                       href="https://t.me/telestoretestbot"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group relative block overflow-hidden rounded-xl border-2 border-primary/60 bg-gradient-to-r from-primary/15 via-primary/5 to-primary/15 px-4 py-3 animate-pulse-glow"
+                      className="group relative block overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 py-3 shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
                     >
-                      <div className="relative z-10 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="relative flex h-2.5 w-2.5 shrink-0">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-70 animate-ping" />
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)),_0_0_24px_hsl(var(--primary))]" />
-                          </span>
-                          <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase tracking-wider text-primary/80">Посмотреть вживую</div>
-                            <div className="text-sm font-black text-primary [text-shadow:_0_0_10px_hsl(var(--primary)/0.8)] truncate">
-                              👉 Пример магазина
-                            </div>
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform">
-                          Открыть →
+                      <div className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap">
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-70 animate-ping" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
                         </span>
+                        <span className="text-sm font-black uppercase tracking-wider text-white truncate">
+                          Посмотреть вживую
+                        </span>
+                        <span className="text-sm font-bold text-white group-hover:translate-x-0.5 transition-transform">→</span>
                       </div>
-                      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,hsl(var(--primary)/0.3)_50%,transparent_70%)] bg-[length:200%_100%] animate-shimmer" />
                     </a>
 
                     <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
