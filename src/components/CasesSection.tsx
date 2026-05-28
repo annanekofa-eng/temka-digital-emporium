@@ -74,11 +74,11 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
         transition={{ delay: i * 0.08, duration: 0.4 }}
         className="group relative w-full text-left cursor-pointer focus-visible:outline-none"
       >
-        {/* Animated glow halo */}
-        <div className="pointer-events-none absolute -inset-1 rounded-[1.4rem] bg-[conic-gradient(from_0deg,#f59e0b,#ef4444,#a855f7,#3b82f6,#10b981,#f59e0b)] opacity-70 blur-md animate-[spin_8s_linear_infinite] group-hover:opacity-100 transition-opacity" />
-        {/* Gradient border wrapper */}
-        <div className="relative rounded-[1.25rem] p-[2px] bg-[conic-gradient(from_0deg,#f59e0b,#ef4444,#a855f7,#3b82f6,#10b981,#f59e0b)] animate-[spin_8s_linear_infinite]">
-          <div className="relative flex flex-col rounded-[calc(1.25rem-2px)] bg-card overflow-hidden">
+        {/* White pulsing neon halo */}
+        <div className="pointer-events-none absolute -inset-[3px] rounded-[1.4rem] bg-white/90 blur-[10px] animate-[pulse_1.8s_ease-in-out_infinite] group-hover:bg-white" />
+        {/* Solid white neon border */}
+        <div className="relative rounded-[1.25rem] p-[1.5px] bg-white shadow-[0_0_24px_rgba(255,255,255,0.55)] animate-[pulse_1.8s_ease-in-out_infinite]">
+          <div className="relative flex flex-col rounded-[calc(1.25rem-1.5px)] bg-card overflow-hidden">
             <div className="relative aspect-square bg-black flex items-center justify-center overflow-hidden">
               <img
                 src={c.image}
