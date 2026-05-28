@@ -304,15 +304,15 @@ const CasesSection = () => {
                       rel="noopener noreferrer"
                       className="group relative block overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 py-3 shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
                     >
-                      <div className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap">
+                      <div className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap leading-none">
                         <span className="relative flex h-2 w-2 shrink-0">
                           <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-70 animate-ping" />
                           <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
                         </span>
-                        <span className="text-sm font-black uppercase tracking-wider text-white truncate">
+                        <span className="text-sm font-black uppercase tracking-wider text-white leading-none">
                           Посмотреть вживую
                         </span>
-                        <span className="text-sm font-bold text-white group-hover:translate-x-0.5 transition-transform">→</span>
+                        <span className="text-sm font-bold text-white leading-none group-hover:translate-x-0.5 transition-transform">→</span>
                       </div>
                     </a>
 
