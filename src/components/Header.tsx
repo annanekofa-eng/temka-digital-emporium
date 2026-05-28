@@ -34,6 +34,20 @@ const Header = ({ name, nameInitial, nameHighlight, avatarUrl, searchQuery, setS
 
   return (
     <header className="sticky top-0 z-50 glass-strong">
+      <a
+        href="https://t.me/telestoretestbot"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Открыть пример магазина в Telegram"
+        className="group relative block w-full overflow-hidden border-b border-primary/40 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 text-center py-2 px-4 animate-pulse-glow"
+      >
+        <span className="relative z-10 inline-flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wide text-primary [text-shadow:_0_0_8px_hsl(var(--primary)/0.8),_0_0_16px_hsl(var(--primary)/0.5)]">
+          <span className="hidden sm:inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)),_0_0_20px_hsl(var(--primary))] animate-pulse" />
+          👉 Пример магазина — открыть в Telegram
+          <span className="underline underline-offset-2 decoration-primary/70 group-hover:decoration-primary">@telestoretestbot</span>
+        </span>
+        <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,hsl(var(--primary)/0.25)_50%,transparent_70%)] bg-[length:200%_100%] animate-shimmer" />
+      </a>
       <div className="container-main mx-auto flex items-center justify-between gap-3 px-4 py-2.5">
         <Link to={buildPath('/')} className="flex items-center gap-2 shrink-0">
           <img
