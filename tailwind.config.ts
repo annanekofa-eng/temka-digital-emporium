@@ -112,6 +112,16 @@ export default {
           from: { transform: "translateX(0)" },
           to: { transform: "translateX(-50%)" },
         },
+        "neon-pulse": {
+          "0%, 100%": {
+            filter:
+              "drop-shadow(0 0 6px rgba(255,255,255,0.45)) drop-shadow(0 0 18px rgba(255,255,255,0.25))",
+          },
+          "50%": {
+            filter:
+              "drop-shadow(0 0 14px rgba(255,255,255,0.85)) drop-shadow(0 0 36px rgba(255,255,255,0.5))",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

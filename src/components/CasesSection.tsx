@@ -72,12 +72,11 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: i * 0.08, duration: 0.4 }}
-        className="group relative w-full text-left cursor-pointer focus-visible:outline-none"
+        className="group relative w-full text-left cursor-pointer focus-visible:outline-none animate-[neon-pulse_2.2s_ease-in-out_infinite]"
+        style={{ willChange: 'filter' }}
       >
-        {/* White pulsing neon halo */}
-        <div className="pointer-events-none absolute -inset-[3px] rounded-[1.4rem] bg-white/90 blur-[10px] animate-[pulse_1.8s_ease-in-out_infinite] group-hover:bg-white" />
-        {/* Solid white neon border */}
-        <div className="relative rounded-[1.25rem] p-[1.5px] bg-white shadow-[0_0_24px_rgba(255,255,255,0.55)] animate-[pulse_1.8s_ease-in-out_infinite]">
+        {/* Solid white neon border — glow stays OUTSIDE the card */}
+        <div className="relative rounded-[1.25rem] p-[1.5px] bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.9),0_0_18px_2px_rgba(255,255,255,0.55),0_0_42px_6px_rgba(255,255,255,0.25)]">
           <div className="relative flex flex-col rounded-[calc(1.25rem-1.5px)] bg-card overflow-hidden">
             <div className="relative aspect-square bg-black flex items-center justify-center overflow-hidden">
               <img
@@ -93,17 +92,17 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
 
               {/* TOP-LEFT: spots left urgency badge */}
               {c.spotsLeft !== undefined && (
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-500 text-white text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1 shadow-lg shadow-red-500/40">
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1 shadow-[0_0_14px_rgba(255,255,255,0.5)]">
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-60 animate-ping" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-black" />
                   </span>
                   Осталось {c.spotsLeft} мест
                 </div>
               )}
 
               {/* TOP-RIGHT: collab badge */}
-              <div className="absolute top-3 right-3 flex items-center gap-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1 shadow-lg">
+              <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/10 backdrop-blur border border-white/30 text-white text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
                 <Sparkles className="w-3 h-3" />
                 Коллаборация
               </div>
@@ -111,8 +110,8 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
               {/* Title overlay on image */}
               <div className="absolute inset-x-0 bottom-0 p-4 z-10">
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-400">
+                  <Zap className="w-3.5 h-3.5 text-white fill-white" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/90">
                     TeleStore × Hustlify
                   </span>
                 </div>
@@ -122,20 +121,20 @@ const CaseCard = ({ c, i, onOpen }: { c: Case; i: number; onOpen: () => void }) 
               </div>
             </div>
 
-            <div className="p-4 flex flex-col gap-3 bg-gradient-to-b from-card to-card/70">
+            <div className="p-4 flex flex-col gap-3 bg-card">
               <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{c.short}</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-xl font-black bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                <span className="text-xl font-black text-foreground">
                   {c.price.toLocaleString('ru')} ₽
                 </span>
                 <span className="text-xs text-muted-foreground line-through">
                   {c.oldPrice.toLocaleString('ru')} ₽
                 </span>
-                <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-red-500">
+                <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-foreground/70">
                   −{Math.round((1 - c.price / c.oldPrice) * 100)}%
                 </span>
               </div>
-              <span className="self-stretch text-center px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-black text-xs font-black uppercase tracking-wider shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/60 transition-shadow">
+              <span className="self-stretch text-center px-4 py-2.5 rounded-lg bg-white text-black text-xs font-black uppercase tracking-wider transition-transform group-hover:scale-[1.02]">
                 Забрать место →
               </span>
             </div>
@@ -191,7 +190,7 @@ const CasesSection = () => {
         <h2 className="font-display text-2xl font-black tracking-tight mb-5 px-1">Наши кейсы</h2>
       </div>
       {/* Mobile/Tablet: horizontal snap scroll */}
-      <div className="lg:hidden flex gap-4 overflow-x-auto px-4 pt-2 pb-6 scrollbar-hide snap-x snap-mandatory">
+      <div className="lg:hidden flex gap-4 overflow-x-auto px-4 pt-4 pb-8 scrollbar-hide snap-x snap-mandatory">
         {CASES.map((c, i) => (
           <div
             key={c.id}
@@ -201,8 +200,8 @@ const CasesSection = () => {
           </div>
         ))}
       </div>
-      {/* Desktop: 4-col grid (was 3) */}
-      <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-5 pt-2">
+      {/* Desktop: 4-col grid */}
+      <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-6 pt-4 pb-4">
         {CASES.map((c, i) => (
           <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
         ))}
@@ -227,10 +226,10 @@ const CasesSection = () => {
 
                 <div className="p-5 sm:p-8 flex flex-col gap-4">
                   {openCase.featured && openCase.spotsLeft !== undefined && (
-                    <div className="self-start flex items-center gap-1.5 bg-red-500 text-white text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
+                    <div className="self-start flex items-center gap-1.5 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1">
                       <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-black opacity-60 animate-ping" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-black" />
                       </span>
                       Осталось {openCase.spotsLeft} мест
                     </div>
@@ -250,7 +249,7 @@ const CasesSection = () => {
                     rel="noopener noreferrer"
                     className={
                       openCase.featured
-                        ? 'self-start px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity shadow-lg shadow-orange-500/30'
+                        ? 'self-start px-5 py-2.5 rounded-lg bg-white text-black text-sm font-black uppercase tracking-wider hover:opacity-90 transition-opacity'
                         : 'self-start px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity'
                     }
                   >
