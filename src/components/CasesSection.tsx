@@ -312,7 +312,7 @@ const CasesSection = () => {
                           <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
                         </span>
                         <span className="text-sm font-black uppercase tracking-wider text-white leading-none">
-                          Посмотреть вживую
+                          Пример магазина
                         </span>
                         <span className="text-sm font-bold text-white leading-none group-hover:translate-x-0.5 transition-transform">→</span>
                       </div>
