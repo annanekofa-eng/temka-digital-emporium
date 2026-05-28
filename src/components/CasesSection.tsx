@@ -6,6 +6,7 @@ import { useSiteSettings } from '@/hooks/useShop';
 import casePencil from '@/assets/case-pencil.jpg';
 import casePalette from '@/assets/case-palette.jpg';
 import caseOrganizer from '@/assets/case-organizer.jpg';
+import caseBusiness from '@/assets/case-business.jpg';
 
 interface Case {
   id: string;
@@ -46,6 +47,15 @@ const CASES: Case[] = [
     price: 4289,
     oldPrice: 5500,
     image: caseOrganizer,
+  },
+  {
+    id: 'business',
+    title: 'Бизнес под ключ',
+    short: 'Коллаборация TeleStore × Hustlify — антикризисный пакет для предпринимателей',
+    full: 'Коллаборация TeleStore × Hustlify — антикризисный пакет для предпринимателей, чей бизнес не приносит денег или встал на месте.\n\nЧто вы получаете:\n· Готовый бот-магазин в TeleStore на 2 месяца — 0 ₽\n· Личного куратора по трафику, продажам и ведению\n· Полное оформление проекта (аватарка, логотип, баннеры)\n· Контент-план для канала и витрины\n· Бесплатные товары на реализацию + база поставщиков\n\nКак это работает:\nВами занимаются профессионалы. Вы просто наблюдаете за ростом бизнеса и перестаёте тратить нервы на вопрос «почему нет продаж?».',
+    price: 8990,
+    oldPrice: 14900,
+    image: caseBusiness,
   },
 ];
 
@@ -141,7 +151,7 @@ const CasesSection = () => {
                   >
                     Приобрести сейчас
                   </a>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{openCase.full}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{openCase.full}</p>
                   <div className="mt-auto pt-3 border-t border-border/60">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
                       <HelpCircle className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
