@@ -304,7 +304,7 @@ const CasesSection = () => {
                       href="https://t.me/telestoretestbot"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group relative block overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 py-3 shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
+                      className="group relative flex items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 pt-2 pb-3 min-h-[2.75rem] shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
                     >
                       <div className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap leading-none">
                         <span className="relative flex h-2 w-2 shrink-0">
