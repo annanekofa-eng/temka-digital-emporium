@@ -301,11 +301,7 @@ const CasesSection = () => {
                     </div>
 
                     <a
-                      href={
-                        openCase.id === 'business'
-                          ? `https://t.me/HustlifyRobot/app?startapp=case_${openCase.id}`
-                          : 'https://t.me/telestoretestbot'
-                      }
+                      href="https://t.me/telestoretestbot"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group relative flex items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 pt-2 pb-3 min-h-[2.75rem] shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
