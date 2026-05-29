@@ -362,7 +362,7 @@ const CasesSection = () => {
                   {/* Desktop CTA */}
                   <div className="hidden md:block px-8 pb-8">
                     <a
-                      href={`${supportUrl}?text=${encodeURIComponent(
+                      href={`https://t.me/${openCase.id === 'business' ? 'HustlifyHelp' : supportUser}?text=${encodeURIComponent(
                         `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
                       )}`}
                       target="_blank"
