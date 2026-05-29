@@ -193,6 +193,22 @@ const CasesSection = () => {
   const supportUser = (settings?.support_username || 'TeleStoreHelp').replace('@', '');
   const supportUrl = `https://t.me/${supportUser}`;
 
+  // Deep-link: open a specific case via Telegram start_param or ?case= query
+  useEffect(() => {
+    const tgParam = (window as any)?.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    const urlParam = new URLSearchParams(window.location.search).get('case');
+    const raw = (tgParam || urlParam || '').toString().toLowerCase();
+    if (!raw) return;
+    const key = raw.startsWith('case_') ? raw.slice(5) : raw;
+    const found = CASES.find((c) => c.id === key);
+    if (found) {
+      setOpenCase(found);
+      requestAnimationFrame(() => {
+        document.getElementById('cases')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }, []);
+
   const renderWithTeleStoreLink = (text: string) => {
     const parts = text.split('TeleStore');
     if (parts.length === 1) return text;
