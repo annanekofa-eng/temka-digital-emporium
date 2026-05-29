@@ -304,7 +304,7 @@ const CasesSection = () => {
                       href="https://t.me/telestoretestbot"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group relative block overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 py-3 shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
+                      className="group relative flex items-center justify-center overflow-hidden rounded-xl border border-white/70 bg-white/5 hover:bg-white/10 px-4 pt-2 pb-3 min-h-[2.75rem] shadow-[0_0_18px_rgba(255,255,255,0.25)] transition-colors"
                     >
                       <div className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap leading-none">
                         <span className="relative flex h-2 w-2 shrink-0">
@@ -344,7 +344,7 @@ const CasesSection = () => {
                   {/* Mobile sticky CTA */}
                   <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
                     <a
-                      href={`${supportUrl}?text=${encodeURIComponent(
+                      href={`https://t.me/${openCase.id === 'business' ? 'HustlifyHelp' : supportUser}?text=${encodeURIComponent(
                         `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
                       )}`}
                       target="_blank"
@@ -362,7 +362,7 @@ const CasesSection = () => {
                   {/* Desktop CTA */}
                   <div className="hidden md:block px-8 pb-8">
                     <a
-                      href={`${supportUrl}?text=${encodeURIComponent(
+                      href={`https://t.me/${openCase.id === 'business' ? 'HustlifyHelp' : supportUser}?text=${encodeURIComponent(
                         `Здравствуйте! Хочу оформить кейс «${openCase.title}» за ${openCase.price} ₽. Подскажите, как оплатить?`
                       )}`}
                       target="_blank"
